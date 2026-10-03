@@ -6,7 +6,7 @@ const suggestions = [
   { icon: 'clipboard', tone: 'blue', title: 'Check a requirement', prompt: 'What mandatory training does my team need?' },
   { icon: 'users', tone: 'coral', title: 'Handle a situation', prompt: 'A patient has made a complaint. What should I do next?' },
   { icon: 'file-plus', tone: 'green', title: 'Create something', prompt: 'Create an onboarding checklist for a new receptionist.' },
-  { icon: 'circle-dollar', tone: 'pink', title: 'Medicare and billing', prompt: 'Can we charge a DNA fee to a bulk-billed patient?' },
+  { icon: 'circle-dollar', tone: 'pink', title: 'Medicare and billing', prompt: 'What MBS item number should we use for a standard GP consultation?' },
   { icon: 'sparkle', tone: 'gold', title: 'See what other practices do', prompt: 'How are other practices handling DNA fees?' },
 ]
 

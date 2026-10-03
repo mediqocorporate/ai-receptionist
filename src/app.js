@@ -58,7 +58,7 @@ function pageContent() {
     if (ui.error && ui.chat?.question) return renderAssistantError(ui.chat.question, ui.error)
     return renderAskHome()
   }
-  if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides)
+  if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides, { practiceName: prototype.selectedPractice || 'Riverside Medical Centre', targetDate: 'March 2027' })
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
   if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)

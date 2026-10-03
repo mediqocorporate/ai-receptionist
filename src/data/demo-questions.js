@@ -139,6 +139,38 @@ export const demoQuestions = [
     note: demoNote,
   },
   {
+    id: 'mbs-item-number',
+    title: 'MBS item number for a standard GP consultation',
+    prompts: [
+      'What MBS item number should we use for a standard GP consultation?',
+      'Which MBS item number is used for a standard GP consult?',
+      'What item number should I bill for a normal GP consultation?',
+    ],
+    keywords: ['mbs', 'item', 'number', 'standard', 'gp', 'consultation', 'consult', 'billing', 'medicare'],
+    intro: 'For a typical face-to-face Level B GP attendance, MBS Item 23 is commonly the starting point when the current descriptor is met. The correct item still depends on the service provided, consultation time, setting and current claiming rules, so the current descriptor should be checked before billing.',
+    risk: 'medicare',
+    sections: [
+      { title: 'Match the service to the current MBS descriptor', body: 'Check the consultation type, duration and any specific eligibility or claiming rules before selecting an item. The clinical record should support the item that is ultimately billed.' },
+      { title: 'Confirm the item before claiming', body: 'Use current MBS Online and Services Australia guidance, especially where the consultation is longer, involves telehealth, chronic condition management or another service with its own item requirements.' },
+      { title: 'Reduce missed billing opportunities', body: 'MediQo MBS Billing Suggestions can surface potentially relevant item numbers from the consultation context for the clinician to review before claiming.' },
+    ],
+    sources: [
+      { title: 'MBS Online', publisher: 'Australian Government' },
+      { title: 'Medicare claiming and billing guidance', publisher: 'Services Australia' },
+    ],
+    relatedQuestions: [
+      'What changes the MBS item used for a GP consultation?',
+      'How can we reduce missed MBS billing opportunities?',
+      'What should the clinical record support before an MBS item is claimed?',
+    ],
+    relatedResources: [
+      { title: 'MBS Billing Suggestions', publisher: 'MediQo', internalPath: '/products/mbs-billing-suggestions' },
+      { title: 'MBS Online', publisher: 'Australian Government' },
+    ],
+    cta: { label: 'See how MediQo can suggest MBS items', path: '/products/mbs-billing-suggestions' },
+    note: demoNote,
+  },
+  {
     id: 'dna-fee-bulk-billed',
     title: 'DNA fee and bulk billing',
     prompts: ['Can we charge a DNA fee to a bulk-billed patient?', 'Can a bulk billed patient be charged a no show fee?'],
