@@ -2,7 +2,7 @@ import { renderShell } from './components/shell.js'
 import { renderAskHome, renderAnswerView, renderFallbackView, renderComposer } from './components/chat.js'
 import { renderAccreditationPage } from './components/accreditation.js'
 import { renderPolicyPage, renderDocumentWizard } from './components/policies.js'
-import { renderReportsPage } from './components/reports.js'
+import { renderReportsPage, renderReportDialog, accreditationSummary } from './components/reports.js'
 import { renderAlertsPage } from './components/alerts.js'
 import { renderProductPage } from './components/product-page.js'
 import { renderSignupDialog, renderPmsDialog, renderHelpDialog, renderEvidenceDialog } from './components/dialogs.js'
@@ -60,7 +60,7 @@ function pageContent() {
   }
   if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides)
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
-  if (ui.path === '/reports') return renderReportsPage()
+  if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)
   const product = currentProduct()
   if (product) return renderProductPage(product, ui.calendarSelection[product.slug] || {})
@@ -86,6 +86,7 @@ function dialogMarkup() {
   if (ui.dialog === 'pms') return renderPmsDialog()
   if (ui.dialog === 'help') return renderHelpDialog()
   if (ui.dialog === 'evidence') return renderEvidenceDialog()
+  if (ui.dialog === 'report') return renderReportDialog(ui.dialogData.reportId, { savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides })
   if (ui.dialog === 'document') {
     const template = policyTemplates.find((item) => item.id === ui.dialogData.templateId)
     return renderDocumentWizard(template, ui.dialogData.values || {}, ui.dialogData.generated || false)
@@ -101,6 +102,7 @@ function render({ focusDialog = false } = {}) {
     alertsOpen: ui.alertsOpen,
     userMenuOpen: ui.userMenuOpen,
     mobileOpen: ui.mobileOpen,
+    sidebarCollapsed: prototype.sidebarCollapsed,
     devMode,
     selectedPractice: prototype.selectedPractice || 'Riverside Medical Centre',
   }) + dialogMarkup()
@@ -120,16 +122,19 @@ function render({ focusDialog = false } = {}) {
 }
 
 function installLogoFallback() {
-  const img = document.querySelector('.mediqo-logo')
-  if (!img) return
-  img.addEventListener('error', () => {
-    if (img.dataset.fallbackTried === '1') {
-      img.classList.add('failed')
-      return
+  document.querySelectorAll('img[data-logo-fallback]').forEach((img) => {
+    const handleError = () => {
+      if (img.dataset.fallbackTried === '1') {
+        img.classList.add('failed')
+        img.closest('.calendar-logo-mark')?.classList.add('logo-failed')
+        return
+      }
+      img.dataset.fallbackTried = '1'
+      img.src = img.dataset.logoFallback
     }
-    img.dataset.fallbackTried = '1'
-    img.src = img.dataset.logoFallback
-  }, { once: false })
+    img.addEventListener('error', handleError)
+    if (img.complete && !img.naturalWidth) handleError()
+  })
 }
 
 function navigate(target) {
@@ -317,27 +322,31 @@ function handleDocumentForm(form) {
   render({ focusDialog: true })
 }
 
-function downloadReport() {
+function downloadReport(reportId = 'practice') {
+  const accreditation = accreditationSummary(prototype.accreditationOverrides)
+  const reportCopy = {
+    accreditation: ['Accreditation Readiness Summary', `Current readiness: ${accreditation.score}%`, `Priority gaps: ${accreditation.priorityGaps}`, `Upcoming expiry: ${accreditation.upcomingExpiry}`],
+    policies: ['Policy Coverage Summary', 'Current policies: 14', 'Due for review: 3', 'Priority areas: 2'],
+    training: ['Training & Expiry Summary', 'Due soon: 4', 'Current: 18', 'Needs evidence: 2'],
+    advice: ['Recent Advice / Saved Answers', `Saved practice answers: ${Math.max(3, prototype.savedAnswerIds.length)}`],
+  }
   const lines = [
     'MediQo Practice Report',
-    'Riverside Medical Centre',
+    prototype.selectedPractice || 'Riverside Medical Centre',
     '',
-    'Accreditation readiness: 72%',
-    'Policy coverage: 14 current',
-    'Training & expiry: 4 due soon',
+    ...(reportCopy[reportId] || ['Practice summary']),
     '',
-    'This file is generated from the current MediQo workspace data.',
+    'Generated from the current MediQo workspace.',
   ]
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'MediQo-practice-report.txt'
+  a.download = `MediQo-${reportId}-report.txt`
   a.click()
   URL.revokeObjectURL(url)
   showToast('Report downloaded')
 }
-
 function confirmDemo() {
   const product = currentProduct()
   const selection = product ? ui.calendarSelection[product.slug] : null
@@ -407,8 +416,9 @@ root.addEventListener('click', async (event) => {
   if (action === 'toggle-practice-menu') { showToast(`${prototype.selectedPractice || 'Riverside Medical Centre'} is the active practice`); return }
   if (action === 'attach-file') { actionEl.closest('form')?.querySelector('.attachment-input')?.click(); return }
   if (action === 'answer-helpful' || action === 'answer-not-helpful') { showToast('Thanks for your feedback'); return }
-  if (action === 'resource-unavailable') { showToast('Source link is not available for this sample answer'); return }
+  if (action === 'resource-unavailable') { showToast('Resource link is not available in this environment'); return }
   if (action === 'toggle-user-menu' || action === 'toggle-user-menu-top') { ui.userMenuOpen = !ui.userMenuOpen; ui.alertsOpen = false; render(); return }
+  if (action === 'toggle-sidebar') { prototype.sidebarCollapsed = !prototype.sidebarCollapsed; savePrototypeState(prototype); render(); return }
   if (action === 'toggle-mobile-nav') { ui.mobileOpen = !ui.mobileOpen; render(); return }
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'connect-pms') { openDialog('pms'); return }
@@ -422,8 +432,8 @@ root.addEventListener('click', async (event) => {
   if (action === 'create-document') { openDialog('document', { templateId: 'new-receptionist-onboarding', values: defaultDocumentValues(), generated: false }); return }
   if (action === 'back-wizard') { ui.dialogData.generated = false; render({focusDialog:true}); return }
   if (action === 'save-draft') { closeDialog(); showToast('Draft saved to Policy Library'); return }
-  if (action === 'preview-report') { showToast('Report preview prepared'); return }
-  if (action === 'download-report') { downloadReport(); return }
+  if (action === 'preview-report') { openDialog('report', { reportId: actionEl.dataset.reportId }); return }
+  if (action === 'download-report') { downloadReport(actionEl.dataset.reportId || 'practice'); return }
   if (action === 'toggle-alert') { ui.openAlertId = ui.openAlertId === actionEl.dataset.alertId ? null : actionEl.dataset.alertId; render(); return }
   if (action === 'scroll-calendar') { document.querySelector('#demo-calendar')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
   if (action === 'start-trial') { openDialog('signup', { trial: true, errors: {}, values: defaultSignupValues() }); return }

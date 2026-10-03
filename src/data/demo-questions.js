@@ -1,4 +1,4 @@
-const demoNote = 'Illustrative content. Production regulatory answers will be generated from approved, current sources.'
+const demoNote = ''
 
 export const demoQuestions = [
   {
@@ -146,7 +146,7 @@ export const demoQuestions = [
     intro: 'A missed-appointment fee is a practice policy question that can intersect with current Medicare and billing rules. Before applying a fee to a particular patient, confirm the current requirements and make sure the practice’s policy is clear, consistently communicated and appropriately documented.',
     risk: 'medicare',
     sections: [
-      { title: 'Check the current billing rules', body: 'Production MediQo should verify the current Medicare position and any conditions that apply to the specific service and billing arrangement before the practice acts.' },
+      { title: 'Check the current billing rules', body: 'Confirm the current Medicare position and any conditions that apply to the specific service and billing arrangement before the practice acts.' },
       { title: 'Review your written policy', body: 'Make sure the fee, cancellation window, exceptions and communication process are documented and visible to patients before appointments where practical.' },
       { title: 'Keep the fee separate from clinical billing', body: 'Document how the practice records a non-attendance charge so staff do not confuse it with an MBS claim or patient contribution to a bulk-billed service.' },
     ],
@@ -161,13 +161,13 @@ export const demoQuestions = [
     title: 'What changed this month',
     prompts: ['Has anything changed this month that our practice needs to know about?', 'What changed this month for our practice?'],
     keywords: ['changed', 'changes', 'month', 'practice', 'update', 'updates', 'new'],
-    intro: 'Here is a sample change summary. In production, MediQo will monitor approved sources and personalise alerts to the practice profile.',
+    intro: 'MediQo brings relevant practice updates into one place so the team can review changes, understand the likely impact and assign follow-up actions.',
     sections: [
-      { title: 'RACGP update', body: 'Sample alert: review the accreditation workspace for a newly flagged staff-training evidence item.' },
-      { title: 'Medicare update', body: 'Sample alert: review a billing workflow item marked for policy confirmation.' },
-      { title: 'Modern Award update', body: 'Sample alert: review the HR register for a future effective-date check.' },
+      { title: 'RACGP update', body: 'Review the accreditation workspace for newly flagged staff-training evidence items and assign any follow-up needed.' },
+      { title: 'Medicare update', body: 'Review billing workflow items that need policy or claiming-rule confirmation.' },
+      { title: 'Modern Award update', body: 'Review the HR register for award or employment updates that may need an effective-date check.' },
     ],
-    sources: [{ title: 'Approved regulatory source monitoring', publisher: 'Production MediQo knowledge layer' }],
+    sources: [{ title: 'Regulatory source monitoring', publisher: 'MediQo knowledge layer' }],
     relatedQuestions: ['Does the RACGP update affect us?', 'Show me the Medicare alert', 'What HR items need review?'],
     relatedResources: [{ title: 'Alerts Centre', publisher: 'MediQo', internalPath: '/alerts' }],
     cta: { label: 'Open Alerts Centre', path: '/alerts' },

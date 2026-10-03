@@ -16,9 +16,9 @@ test('Ask a Question home renders six suggestion cards and composer', () => {
   assert.match(html, /Ask MediQo anything about running your practice/)
 })
 
-test('seeded answer renders prototype badge, sources and related content', () => {
+test('seeded answer renders presentation-ready sources and related content', () => {
   const html = renderAnswerView(demoQuestions[0], demoQuestions[0].prompts[0])
-  assert.match(html, /Sample answer/)
+  assert.doesNotMatch(html, /Sample answer|Illustrative content/i)
   assert.match(html, /Sources/)
   assert.match(html, /Related questions/)
   assert.match(html, /Related resources/)

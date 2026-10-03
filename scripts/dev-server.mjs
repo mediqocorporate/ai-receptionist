@@ -39,6 +39,17 @@ const server = http.createServer(async (req, res) => {
       res.end(await readFile(file))
       return
     }
+    if (rootDir === projectRoot) {
+      const clean = decodeURIComponent((req.url || '/').split('?')[0]).replace(/\\/g, '/')
+      const publicFile = path.resolve(projectRoot, 'public', `.${clean}`)
+      const publicRoot = path.join(projectRoot, 'public')
+      if (publicFile.startsWith(publicRoot) && await existsFile(publicFile)) {
+        const ext = path.extname(publicFile).toLowerCase()
+        res.writeHead(200, { 'Content-Type': mimes[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' })
+        res.end(await readFile(publicFile))
+        return
+      }
+    }
     file = path.join(rootDir, 'index.html')
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
     res.end(await readFile(file))

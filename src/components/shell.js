@@ -11,24 +11,25 @@ function initials(name = 'Riverside Medical Centre') {
 
 function navLink(route, path) {
   const active = path === route.path
-  return `<a class="sidebar-link ${active ? 'active' : ''}" href="${route.path}" data-nav="${route.path}" aria-current="${active ? 'page' : 'false'}">
+  return `<a class="sidebar-link ${active ? 'active' : ''}" href="${route.path}" data-nav="${route.path}" aria-current="${active ? 'page' : 'false'}" title="${escapeHtml(route.label)}">
     <span class="sidebar-icon">${icon(route.icon, 21)}</span><span>${escapeHtml(route.label)}</span>
   </a>`
 }
 
-export function renderShell({ path = '/', content = '', alertsOpen = false, userMenuOpen = false, mobileOpen = false, devMode = false, selectedPractice = 'Riverside Medical Centre' } = {}) {
+export function renderShell({ path = '/', content = '', alertsOpen = false, userMenuOpen = false, mobileOpen = false, sidebarCollapsed = false, devMode = false, selectedPractice = 'Riverside Medical Centre' } = {}) {
   return `
-  <div class="app-layout ${mobileOpen ? 'mobile-nav-open' : ''}">
+  <div class="app-layout ${mobileOpen ? 'mobile-nav-open' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}">
     <aside class="sidebar" aria-label="Primary navigation">
       <div class="sidebar-brand-row">
         <a href="/" data-nav="/" class="brand-link" aria-label="MediQo home">
           <img class="mediqo-logo" src="${REMOTE_LOGO}" data-logo-fallback="/assets/mediqo-logo.png" alt="MediQo" />
+          <img class="mediqo-logo-mark" src="/favicon.svg" alt="" aria-hidden="true" />
           <span class="brand-wordmark" aria-hidden="true">MEDIQO</span>
         </a>
-        <span class="icon-button sidebar-collapse" aria-hidden="true">${icon('notebook', 18)}</span>
+        <button class="icon-button sidebar-collapse" type="button" data-action="toggle-sidebar" aria-label="${sidebarCollapsed ? 'Expand' : 'Collapse'} navigation" aria-expanded="${!sidebarCollapsed}" title="${sidebarCollapsed ? 'Expand' : 'Collapse'} navigation">${icon('notebook', 18)}</button>
       </div>
-      <button class="practice-selector" type="button" aria-label="Select practice" data-action="toggle-practice-menu">
-        <span class="avatar avatar-sm">${initials(selectedPractice)}</span><span class="practice-name">${escapeHtml(selectedPractice)}</span>${icon('down', 16)}
+      <button class="practice-selector" type="button" aria-label="Select practice" data-action="toggle-practice-menu" title="${escapeHtml(selectedPractice)}">
+        <span class="avatar avatar-sm">${initials(selectedPractice)}</span><span class="practice-name">${escapeHtml(selectedPractice)}</span><span class="practice-chevron">${icon('down', 16)}</span>
       </button>
       <nav class="sidebar-nav">
         <div class="nav-group">${APP_ROUTES.map((r) => navLink(r, path)).join('')}</div>
@@ -39,7 +40,7 @@ export function renderShell({ path = '/', content = '', alertsOpen = false, user
         <button class="sidebar-user" type="button" data-action="toggle-user-menu" aria-expanded="${userMenuOpen}">
           <span class="avatar">PM</span>
           <span class="user-copy"><strong>Practice Manager</strong><small>${escapeHtml(selectedPractice)}</small></span>
-          ${icon('down', 16)}
+          <span class="sidebar-user-chevron">${icon('down', 16)}</span>
         </button>
         ${userMenuOpen ? `<div class="user-menu" role="menu">
           <button type="button" role="menuitem" data-action="help">Help & keyboard tips</button>

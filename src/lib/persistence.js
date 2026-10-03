@@ -9,6 +9,7 @@ export function createDefaultState(visitorId = createVisitorId()) {
     savedAnswerIds: [],
     selectedPractice: 'Riverside Medical Centre',
     accreditationOverrides: {},
+    sidebarCollapsed: false,
   }
 }
 
@@ -34,6 +35,7 @@ export function loadPrototypeState(storage = globalThis.localStorage, cookieText
   state.freeQuestionCount = Math.max(Number(state.freeQuestionCount) || 0, cookieCount)
   if (!Array.isArray(state.savedAnswerIds)) state.savedAnswerIds = []
   if (!state.accreditationOverrides || typeof state.accreditationOverrides !== 'object') state.accreditationOverrides = {}
+  state.sidebarCollapsed = Boolean(state.sidebarCollapsed)
   return state
 }
 

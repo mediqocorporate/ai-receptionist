@@ -39,3 +39,13 @@ test('reset removes saved state', () => {
   resetPrototypeState(storage)
   assert.equal(storage.getItem('mediqo.prototype.state'), null)
 })
+
+
+test('sidebar collapsed preference persists with prototype state', () => {
+  const storage = memoryStorage()
+  const state = createDefaultState('mq_sidebar')
+  assert.equal(state.sidebarCollapsed, false)
+  state.sidebarCollapsed = true
+  savePrototypeState(state, storage)
+  assert.equal(loadPrototypeState(storage, '').sidebarCollapsed, true)
+})

@@ -55,7 +55,7 @@ function renderSources(answer) {
 
 function renderRisk(answer) {
   if (!answer.risk) return ''
-  return `<div class="risk-callout">${icon('alert', 18)}<div><strong>Practice-specific guidance may be needed</strong><span>This topic can require professional or authority guidance. Production MediQo will support the answer with current approved sources and indicate when direct confirmation is appropriate.</span></div></div>`
+  return `<div class="risk-callout">${icon('alert', 18)}<div><strong>Practice-specific guidance may be needed</strong><span>This topic can require professional or authority guidance. Confirm current official guidance or professional advice before acting where appropriate.</span></div></div>`
 }
 
 export function renderAnswerView(answer, question, { saved = false, loading = false } = {}) {
@@ -69,7 +69,7 @@ export function renderAnswerView(answer, question, { saved = false, loading = fa
         <div class="assistant-message-row">
           <span class="assistant-orb">${icon('sparkle', 23)}</span>
           <article class="assistant-answer">
-            <div class="answer-topline"><span class="demo-badge">Sample answer</span></div>
+            <div class="answer-topline"></div>
             <p class="answer-intro">${escapeHtml(answer.intro)}</p>
             ${renderRisk(answer)}
             <div class="answer-sections">${answer.sections.map(renderSection).join('')}</div>
@@ -92,6 +92,6 @@ export function renderAnswerView(answer, question, { saved = false, loading = fa
 export function renderFallbackView(question, suggestions) {
   return `<section class="conversation-page"><div class="conversation-grid"><div class="conversation-main">
     <div class="user-message-row"><div class="user-bubble"><span>${escapeHtml(question)}</span><small>Today, 10:24 AM</small></div><span class="message-avatar user-icon">${icon('users',18)}</span></div>
-    <div class="assistant-message-row"><span class="assistant-orb">${icon('sparkle',23)}</span><article class="assistant-answer fallback-answer"><span class="demo-badge">Sample answer</span><h2>Try one of the prepared practice-manager questions</h2><p>I can help with the prepared practice-manager topics below right now. Choose one to see a structured answer, sources and next actions.</p><div class="fallback-suggestions">${suggestions.map((q) => `<button type="button" data-related-question="${escapeHtml(q)}">${escapeHtml(q)} ${icon('chevron',15)}</button>`).join('')}</div></article></div>
+    <div class="assistant-message-row"><span class="assistant-orb">${icon('sparkle',23)}</span><article class="assistant-answer fallback-answer"><h2>Try one of the prepared practice-manager questions</h2><p>I can help with the prepared practice-manager topics below right now. Choose one to see a structured answer, sources and next actions.</p><div class="fallback-suggestions">${suggestions.map((q) => `<button type="button" data-related-question="${escapeHtml(q)}">${escapeHtml(q)} ${icon('chevron',15)}</button>`).join('')}</div></article></div>
   </div><aside class="related-rail"><section class="rail-card"><div class="rail-heading">${icon('sparkle',20)}<strong>Available topics</strong></div><p class="rail-copy">Accreditation, HR, staff training, privacy, document creation, Medicare and regulatory alerts.</p></section></aside></div><div class="conversation-composer-wrap">${renderComposer({compact:true})}</div></section>`
 }
