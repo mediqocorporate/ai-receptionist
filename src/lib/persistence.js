@@ -35,12 +35,13 @@ export function loadPrototypeState(storage = globalThis.localStorage, cookieText
   state.freeQuestionCount = Math.max(Number(state.freeQuestionCount) || 0, cookieCount)
   if (!Array.isArray(state.savedAnswerIds)) state.savedAnswerIds = []
   if (!state.accreditationOverrides || typeof state.accreditationOverrides !== 'object') state.accreditationOverrides = {}
-  state.sidebarCollapsed = Boolean(state.sidebarCollapsed)
+  state.sidebarCollapsed = false
   return state
 }
 
 export function savePrototypeState(state, storage = globalThis.localStorage, doc = globalThis.document) {
-  storage?.setItem?.(STORAGE_KEY, JSON.stringify(state))
+  const { sidebarCollapsed: _sidebarCollapsed, ...persistentState } = state
+  storage?.setItem?.(STORAGE_KEY, JSON.stringify(persistentState))
   if (doc) doc.cookie = `${COOKIE_KEY}=${Math.max(0, Number(state.freeQuestionCount) || 0)}; path=/; max-age=31536000; SameSite=Lax`
   return state
 }

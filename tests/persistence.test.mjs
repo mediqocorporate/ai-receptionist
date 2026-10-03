@@ -40,12 +40,12 @@ test('reset removes saved state', () => {
   assert.equal(storage.getItem('mediqo.prototype.state'), null)
 })
 
-
-test('sidebar collapsed preference persists with prototype state', () => {
+test('sidebar always starts expanded on a fresh page load', () => {
   const storage = memoryStorage()
   const state = createDefaultState('mq_sidebar')
-  assert.equal(state.sidebarCollapsed, false)
   state.sidebarCollapsed = true
   savePrototypeState(state, storage)
-  assert.equal(loadPrototypeState(storage, '').sidebarCollapsed, true)
+  const raw = JSON.parse(storage.getItem('mediqo.prototype.state'))
+  assert.equal(Object.hasOwn(raw, 'sidebarCollapsed'), false)
+  assert.equal(loadPrototypeState(storage, '').sidebarCollapsed, false)
 })
