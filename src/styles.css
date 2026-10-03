@@ -365,7 +365,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .conversation-composer-wrap { padding: 7px 0 0; background: linear-gradient(180deg, rgba(255,255,255,0), #fff 28%); }
 .conversation-composer-wrap .chat-composer { box-shadow: 0 7px 26px rgba(20,36,70,.09); }
 .chat-composer.compact .composer-main { min-height: 54px; height: 54px; }
-.chat-composer.compact .composer-main textarea { height: 36px; min-height: 36px; max-height: 36px; overflow-y: auto; }
+.chat-composer.compact .composer-main textarea { height: 36px; min-height: 36px; max-height: 36px; overflow-y: hidden; }
 .chat-composer.compact .send-button { width: 45px; height: 40px; }
 .attachment-name { min-width: 0; max-width: 60%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #71819b; font-size: 10.5px; }
 
@@ -482,7 +482,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .accreditation-steps strong { color: #20345d; font-size: 11.5px; }
 .accreditation-steps small { color: #7b879c; font-size: 10.5px; line-height: 1.42; }
 
-.accreditation-table { min-width: 1040px; }
+.accreditation-table { width: 100%; min-width: 0; table-layout: fixed; }
 .accreditation-table th:nth-child(1) { width: 19%; }
 .accreditation-table th:nth-child(2) { width: 28%; }
 .accreditation-table th:nth-child(3) { width: 24%; }
@@ -504,4 +504,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .accreditation-steps { grid-template-columns: 1fr; }
   .accreditation-plan-summary > div { border-right: 0; border-bottom: 1px solid var(--line); }
   .accreditation-plan-summary > div:last-child { border-bottom: 0; }
+}
+
+
+/* Final presentation polish */
+.calendar-month { align-items: center; }
+.calendar-month-button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+}
+.calendar-month-button:hover { background: rgba(255,255,255,.13); }
+.calendar-month-button:focus-visible { outline-color: #fff; }
+
+.accreditation-page .feature-split { grid-template-columns: minmax(0, 1fr); }
+.accreditation-page .requirements-panel { min-width: 0; }
+.accreditation-page .table-wrap { overflow-x: visible; }
+.accreditation-page .accreditation-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+  gap: 17px;
+  align-items: start;
+}
+.accreditation-table th:nth-child(1) { width: 19%; }
+.accreditation-table th:nth-child(2) { width: 28%; }
+.accreditation-table th:nth-child(3) { width: 24%; }
+.accreditation-table th:nth-child(4) { width: 17%; }
+.accreditation-table th:nth-child(5) { width: 12%; }
+.accreditation-table td:first-child { min-width: 0; }
+.accreditation-table th,
+.accreditation-table td { padding-left: 12px; padding-right: 12px; }
+.accreditation-table .status-select { max-width: 100%; }
+.accreditation-page .gap-row { padding: 14px 16px; align-items: start; }
+.accreditation-page .gap-row small { display: block; margin-top: 3px; line-height: 1.45; }
+
+@media (max-width: 1120px) {
+  .accreditation-page .accreditation-side { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .accreditation-page .table-wrap { overflow-x: auto; }
+  .accreditation-table { min-width: 820px; }
 }

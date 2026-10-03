@@ -40,6 +40,42 @@ export const demoQuestions = [
     note: demoNote,
   },
   {
+    id: 'accreditation-evidence',
+    title: 'Evidence for RACGP accreditation',
+    prompts: [
+      'What evidence do I need to prepare for RACGP accreditation?',
+      'What evidence should our practice gather for accreditation?',
+      'What documents and records do we need for RACGP accreditation?',
+    ],
+    keywords: ['evidence', 'racgp', 'accreditation', 'policies', 'procedures', 'training', 'credentials', 'privacy', 'equipment', 'clinical', 'systems', 'records'],
+    intro: 'RACGP accreditation evidence usually spans the whole practice, not just clinician certificates. Organise it against each relevant requirement so you can show both the documented process and evidence that the process is being followed. The exact evidence will depend on your practice, services and the current Standards edition.',
+    sections: [
+      { title: 'Policies and procedures', body: 'Keep current, approved policies and procedures with review dates, version control and evidence that staff can access and use them where relevant.' },
+      { title: 'Staff training and induction', body: 'Maintain training and induction records, completion dates, refresher dates and supporting certificates for requirements that apply to each role.' },
+      { title: 'Credentials and registrations', body: 'Keep current registration checks, qualifications, credentials and other workforce evidence for clinicians and staff where the relevant requirement applies.' },
+      { title: 'Patient feedback and complaints', body: 'Keep evidence of how feedback and complaints are collected, reviewed and acted on, including records of improvements made in response.' },
+      { title: 'Equipment, safety and clinical systems', body: 'Organise relevant maintenance, calibration, emergency, cold-chain, infection-prevention, audit and clinical-system records that demonstrate the practice process is working.' },
+      { title: 'Privacy and information management', body: 'Keep evidence for privacy, confidentiality, access controls, information security and records-management processes, including reviews or checks where applicable.' },
+      { title: 'Registers, audits and improvement actions', body: 'Use registers and audit records to show ongoing monitoring, outstanding actions, responsible owners and quality-improvement follow-up rather than relying on documents alone.' },
+    ],
+    sources: [
+      { title: 'RACGP Standards for general practices', publisher: 'RACGP' },
+      { title: 'Accreditation resources for general practices', publisher: 'RACGP' },
+    ],
+    relatedQuestions: [
+      'What staff training records do we need for accreditation?',
+      'What evidence will surveyors ask to see for GPs?',
+      'How should I organise our accreditation evidence?',
+      'What should I prioritise before our accreditation assessment?',
+    ],
+    relatedResources: [
+      { title: 'Accreditation Assistant', publisher: 'MediQo', internalPath: '/accreditation' },
+      { title: 'Standards for general practices', publisher: 'RACGP' },
+    ],
+    cta: { label: 'Open Accreditation Assistant', path: '/accreditation' },
+    note: demoNote,
+  },
+  {
     id: 'new-receptionist-attendance',
     title: 'New receptionist attendance',
     prompts: [

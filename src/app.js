@@ -1,10 +1,10 @@
 import { renderShell } from './components/shell.js'
-import { renderAskHome, renderAnswerView, renderFallbackView, renderComposer } from './components/chat.js'
+import { renderAskHome, renderAnswerView, renderFallbackView, renderComposer, formatMessageTimestamp } from './components/chat.js'
 import { renderAccreditationPage } from './components/accreditation.js'
 import { renderPolicyPage, renderDocumentWizard } from './components/policies.js'
 import { renderReportsPage, renderReportDialog, accreditationSummary } from './components/reports.js'
 import { renderAlertsPage } from './components/alerts.js'
-import { renderProductPage } from './components/product-page.js'
+import { renderProductPage, shiftCalendarSelection, formatCalendarDate } from './components/product-page.js'
 import { renderSignupDialog, renderPmsDialog, renderHelpDialog, renderEvidenceDialog } from './components/dialogs.js'
 import { getProduct } from './data/products.js'
 import { policyTemplates } from './data/policies.js'
@@ -69,14 +69,14 @@ function pageContent() {
 
 function renderLoadingQuestion(question) {
   return `<section class="conversation-page"><div class="conversation-grid"><div class="conversation-main">
-    <div class="user-message-row"><div class="user-bubble"><span>${escapeText(question)}</span><small>Today, 10:24 AM</small></div><span class="message-avatar user-icon">${icon('users',18)}</span></div>
+    <div class="user-message-row"><div class="user-bubble"><span>${escapeText(question)}</span><small>${escapeText(formatMessageTimestamp())}</small></div><span class="message-avatar user-icon">${icon('users',18)}</span></div>
     <div class="assistant-loading"><span class="assistant-orb">${icon('sparkle',20)}</span><div class="typing" aria-label="MediQo is preparing an answer"><i></i><i></i><i></i></div></div>
   </div><aside class="related-rail"><section class="rail-card"><div class="rail-heading">${icon('sparkle',20)}<strong>Preparing answer</strong></div><p class="rail-copy">MediQo is matching this question to the available practice-manager knowledge set.</p></section></aside></div><div class="conversation-composer-wrap">${renderComposer({compact:true,loading:true})}</div></section>`
 }
 
 function renderAssistantError(question, message) {
   return `<section class="conversation-page"><div class="conversation-grid"><div class="conversation-main">
-    <div class="user-message-row"><div class="user-bubble"><span>${escapeText(question)}</span><small>Today, 10:24 AM</small></div><span class="message-avatar user-icon">${icon('users',18)}</span></div>
+    <div class="user-message-row"><div class="user-bubble"><span>${escapeText(question)}</span><small>${escapeText(formatMessageTimestamp())}</small></div><span class="message-avatar user-icon">${icon('users',18)}</span></div>
     <div class="assistant-message-row"><span class="assistant-orb">${icon('alert',20)}</span><article class="assistant-answer"><h2 style="font-size:16px;color:#0d1b4d;margin:0 0 6px">We couldn’t prepare that answer</h2><p>${escapeText(message)}</p><button class="primary-button" type="button" data-action="retry-question">Retry</button></article></div>
   </div><aside class="related-rail"><section class="rail-card"><div class="rail-heading">${icon('help',20)}<strong>Try again</strong></div><p class="rail-copy">You can retry the same question or choose one of the prepared suggestions.</p></section></aside></div><div class="conversation-composer-wrap">${renderComposer({compact:true})}</div></section>`
 }
@@ -354,7 +354,7 @@ function confirmDemo() {
     showToast('Choose a time first', 'error')
     return
   }
-  showToast(`Demo time selected: ${selection.date} Oct at ${selection.time}`)
+  showToast(`Demo time selected: ${formatCalendarDate(selection, { shortMonth: true })} at ${selection.time}`)
 }
 
 root.addEventListener('click', async (event) => {
@@ -395,6 +395,13 @@ root.addEventListener('click', async (event) => {
     return
   }
 
+  const monthButton = event.target.closest('[data-calendar-month]')
+  if (monthButton) {
+    const product = currentProduct(); if (!product) return
+    ui.calendarSelection[product.slug] = shiftCalendarSelection(ui.calendarSelection[product.slug] || {}, Number(monthButton.dataset.calendarMonth))
+    render(); return
+  }
+
   const dateButton = event.target.closest('[data-calendar-date]')
   if (dateButton) {
     const product = currentProduct(); if (!product) return
@@ -404,7 +411,7 @@ root.addEventListener('click', async (event) => {
   const timeButton = event.target.closest('[data-calendar-time]')
   if (timeButton) {
     const product = currentProduct(); if (!product) return
-    ui.calendarSelection[product.slug] = { date: ui.calendarSelection[product.slug]?.date || 5, time: timeButton.dataset.calendarTime }
+    ui.calendarSelection[product.slug] = { ...(ui.calendarSelection[product.slug] || {}), date: ui.calendarSelection[product.slug]?.date || 5, time: timeButton.dataset.calendarTime }
     render(); return
   }
 
