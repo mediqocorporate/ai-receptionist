@@ -1,0 +1,7 @@
+import { reports } from '../data/reports.js'
+import { icon } from './icons.js'
+import { escapeHtml } from '../lib/html.js'
+
+export function renderReportsPage() {
+  return `<section class="feature-page reports-page"><div class="page-heading-row"><div><span class="eyebrow">PRACTICE REPORTS</span><h1>Practice reports</h1><p>Simple summaries for the areas a practice manager needs to keep moving.</p></div></div><div class="report-grid">${reports.map((report)=>`<article class="report-card"><div class="report-top"><span class="report-icon">${icon(report.id==='training'?'activity':'bar-chart',22)}</span><span class="metric-pill">${escapeHtml(report.metric)}</span></div><h2>${escapeHtml(report.title)}</h2><p>${escapeHtml(report.description)}</p><div class="card-actions"><button type="button" class="text-button" data-action="preview-report" data-report-id="${report.id}">${icon('eye',15)} Preview</button><button type="button" class="secondary-button small" data-action="download-report">${icon('download',15)} Download</button></div></article>`).join('')}</div><section class="panel recent-advice"><div class="panel-heading"><div><h2>Recent advice</h2><p>Saved answers will appear here as the team uses the assistant.</p></div></div><div class="empty-inline">${icon('bookmark',20)}<div><strong>Saved advice stays easy to find</strong><span>Use Save beneath an assistant answer to add it to this report.</span></div></div></section></section>`
+}
