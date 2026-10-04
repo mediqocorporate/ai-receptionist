@@ -1,0 +1,61 @@
+/* Elly demo feedback - additive styles so the existing presentation skin stays intact. */
+.feature-request-button {
+  height: 39px;
+  border: 1px solid #e1d7f8;
+  background: #faf7ff;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  cursor: pointer;
+  color: #6330ca;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.feature-request-button:hover { background: #f3edff; border-color: #cdb9f5; }
+
+.question-history-panel {
+  width: min(100%, 910px);
+  margin-top: 22px;
+  background: #fff;
+  border: 1px solid #e0e5ee;
+  border-radius: 11px;
+  overflow: hidden;
+  box-shadow: 0 7px 24px rgba(24,36,70,.04);
+}
+.question-history-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 16px; border-bottom:1px solid #edf0f5; }
+.question-history-heading h2 { margin:3px 0 0; color:#0b1845; font-size:15px; }
+.question-history-heading > span { color:#8792a7; font-size:10.5px; }
+.question-history-list { display:grid; }
+.question-history-item { min-height:46px; border:0; border-bottom:1px solid #edf0f5; background:#fff; display:grid; grid-template-columns:28px 1fr 18px; gap:8px; align-items:center; padding:8px 14px; text-align:left; cursor:pointer; color:#50617e; }
+.question-history-item:last-child { border-bottom:0; }
+.question-history-item:hover { background:#faf8ff; color:#6e31dd; }
+.question-history-item > span:first-child { color:#7132e7; display:grid; place-items:center; }
+.question-history-item strong { font-size:11.5px; font-weight:500; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+
+.lead-dialog { width:min(690px,100%); padding:34px 38px 28px; }
+.lead-form { margin-top:18px; }
+.feature-request-dialog { text-align:left; }
+.feature-request-dialog .dialog-icon { margin-left:0; }
+.feature-request-dialog h2, .feature-request-dialog p { text-align:left; }
+.feature-request-form .primary-button { width:100%; margin-top:4px; }
+
+.checklist-preview-dialog { width:min(720px,100%); padding:30px; }
+.checklist-preview-list { display:grid; border:1px solid #e2e7ef; border-radius:10px; overflow:hidden; margin:18px 0 12px; }
+.checklist-preview-item { display:grid; grid-template-columns:22px 1fr; gap:10px; align-items:flex-start; padding:11px 13px; border-bottom:1px solid #edf0f5; background:#fff; }
+.checklist-preview-item:last-child { border-bottom:0; }
+.check-box { width:17px; height:17px; border:1.5px solid #b7a3e6; border-radius:4px; margin-top:1px; background:#faf8ff; }
+.checklist-preview-item > div { display:flex; gap:9px; align-items:flex-start; }
+.checklist-preview-item strong { color:#7432e7; font-size:10px; min-width:16px; padding-top:1px; }
+.checklist-preview-item span { color:#435574; font-size:12px; line-height:1.45; }
+.related-resource { text-decoration:none; }
+
+@media (max-width: 900px) {
+  .feature-request-button span { display:none; }
+  .feature-request-button { width:40px; padding:0; justify-content:center; }
+}
+@media (max-width: 560px) {
+  .lead-dialog, .checklist-preview-dialog { padding:26px 15px 18px; }
+  .question-history-item strong { white-space:normal; }
+}

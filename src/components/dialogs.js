@@ -1,20 +1,24 @@
 import { icon } from './icons.js'
 import { escapeHtml } from '../lib/html.js'
 
+export const AUSTRALIAN_LOCATIONS = ['NSW', 'VIC', 'QLD', 'ACT', 'WA', 'SA', 'NT', 'TAS']
+
 function fieldError(name, errors) {
   return errors?.[name] ? `<small class="field-error" id="${name}-error">${escapeHtml(errors[name])}</small>` : ''
 }
 
-export function renderSignupDialog({ errors = {}, values = {}, trial = false, submitting = false, serverError = '' } = {}) {
-  const title = trial ? 'Start your MediQo free trial' : 'Create a free account to continue using MediQo'
-  const rightTitle = trial ? 'Your practice details' : 'Your practice details'
+function locationOptions(checked = [], name = 'locations') {
+  return AUSTRALIAN_LOCATIONS.map((loc)=>`<label><input type="checkbox" name="${name}" value="${loc}" ${checked.includes(loc)?'checked':''}/><span>${loc}</span></label>`).join('')
+}
+
+export function renderSignupDialog({ errors = {}, values = {}, submitting = false, serverError = '' } = {}) {
   const checked = Array.isArray(values.locations) ? values.locations : []
   return `<div class="dialog-backdrop" data-dialog="signup">
     <section class="dialog signup-dialog" role="dialog" aria-modal="true" aria-labelledby="signup-dialog-title">
       <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',22)}</button>
       <div class="signup-benefits">
-        <span class="modal-kicker">${icon('lock',16)} ${trial ? 'START A FREE TRIAL' : 'CREATE A FREE ACCOUNT'}</span>
-        <h2 id="signup-dialog-title">${title.replace('MediQo','<span>MediQo</span>')}</h2>
+        <span class="modal-kicker">${icon('lock',16)} CREATE A FREE ACCOUNT</span>
+        <h2 id="signup-dialog-title">Create a free account to continue using <span>MediQo</span></h2>
         <p>MediQo is for practice admin teams, not the general public. Continue with personalised answers, templates and tools for your practice.</p>
         <div class="benefit-list">
           <div><span class="benefit-icon">${icon('message-circle',22)}</span><p><strong>Personalised for your practice</strong><small>Get relevant answers based on your practice type, state and services.</small></p></div>
@@ -23,7 +27,7 @@ export function renderSignupDialog({ errors = {}, values = {}, trial = false, su
         </div>
       </div>
       <div class="signup-form-side">
-        <div class="dialog-heading"><h2>${rightTitle}</h2><p>It only takes a minute. Your current conversation will be saved.</p></div>
+        <div class="dialog-heading"><h2>Your practice details</h2><p>It only takes a minute. Your current conversation will be saved.</p></div>
         ${serverError ? `<div class="form-alert">${icon('alert',16)} ${escapeHtml(serverError)}</div>` : ''}
         <form data-signup-form novalidate>
           <label class="field"><span>Clinic Name</span><input autofocus name="clinicName" value="${escapeHtml(values.clinicName||'')}" placeholder="e.g. Riverside Medical Centre" aria-describedby="clinicName-error"/>${fieldError('clinicName',errors)}</label>
@@ -31,13 +35,47 @@ export function renderSignupDialog({ errors = {}, values = {}, trial = false, su
           <label class="field"><span>Job Title</span><input name="jobTitle" value="${escapeHtml(values.jobTitle||'')}" placeholder="e.g. Practice Manager" aria-describedby="jobTitle-error"/>${fieldError('jobTitle',errors)}</label>
           <label class="field"><span>Work Email</span><input type="email" name="email" value="${escapeHtml(values.email||'')}" placeholder="e.g. sarah@yourclinic.com.au" aria-describedby="email-help email-error"/><small id="email-help">Use your work email for your MediQo account.</small>${fieldError('email',errors)}</label>
           <label class="field"><span>Password</span><div class="password-wrap"><input type="password" name="password" value="${escapeHtml(values.password||'')}" placeholder="Create a password" aria-describedby="password-error"/><button type="button" class="password-toggle" data-action="toggle-password" aria-label="Show password">${icon('eye',18)}</button></div>${fieldError('password',errors)}</label>
-          <fieldset class="field location-field"><legend>Locations <small>(select all that apply)</small></legend><div class="location-options">${['NSW','VIC','QLD','Other'].map((loc)=>`<label><input type="checkbox" name="locations" value="${loc}" ${checked.includes(loc)?'checked':''}/><span>${loc}</span></label>`).join('')}</div>${fieldError('locations',errors)}</fieldset>
-          <button class="gradient-submit" type="submit" ${submitting?'disabled':''}>${submitting?'<span class="spinner"></span> Creating account…':`${trial?'Start free trial':'Create account'} ${icon('chevron',18)}`}</button>
+          <fieldset class="field location-field"><legend>Locations <small>(select all that apply)</small></legend><div class="location-options">${locationOptions(checked)}</div>${fieldError('locations',errors)}</fieldset>
+          <button class="gradient-submit" type="submit" ${submitting?'disabled':''}>${submitting?'<span class="spinner"></span> Creating account…':`Create account ${icon('chevron',18)}`}</button>
           <p class="terms">By creating an account, you agree to our <a href="#" data-action="terms">Terms of Service</a> and <a href="#" data-action="privacy">Privacy Policy</a>.</p>
         </form>
       </div>
     </section>
   </div>`
+}
+
+export function renderTrialRequestDialog({ errors = {}, values = {}, submitting = false, serverError = '' } = {}) {
+  const checked = Array.isArray(values.locations) ? values.locations : []
+  return `<div class="dialog-backdrop" data-dialog="trial-request"><section class="dialog lead-dialog" role="dialog" aria-modal="true" aria-labelledby="trial-request-title">
+    <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
+    <div class="dialog-heading"><span class="eyebrow">MEDIQO PRODUCT ENQUIRY</span><h2 id="trial-request-title">Request a free trial</h2><p>Tell us a little about your practice and the MediQo team can follow up with trial access and next steps.</p></div>
+    ${serverError ? `<div class="form-alert">${icon('alert',16)} ${escapeHtml(serverError)}</div>` : ''}
+    <form data-trial-request-form class="lead-form" novalidate>
+      <label class="field"><span>Clinic Name</span><input autofocus name="clinicName" value="${escapeHtml(values.clinicName||'')}" placeholder="e.g. Riverside Medical Centre"/>${fieldError('clinicName',errors)}</label>
+      <div class="field-row"><label class="field"><span>First Name</span><input name="firstName" value="${escapeHtml(values.firstName||'')}" placeholder="e.g. Sarah"/>${fieldError('firstName',errors)}</label><label class="field"><span>Last Name</span><input name="lastName" value="${escapeHtml(values.lastName||'')}" placeholder="e.g. Jones"/>${fieldError('lastName',errors)}</label></div>
+      <label class="field"><span>Job Title</span><input name="jobTitle" value="${escapeHtml(values.jobTitle||'')}" placeholder="e.g. Practice Manager"/>${fieldError('jobTitle',errors)}</label>
+      <label class="field"><span>Work Email</span><input type="email" name="email" value="${escapeHtml(values.email||'')}" placeholder="e.g. sarah@yourclinic.com.au"/>${fieldError('email',errors)}</label>
+      <fieldset class="field location-field"><legend>Locations <small>(select all that apply)</small></legend><div class="location-options">${locationOptions(checked, 'locations')}</div>${fieldError('locations',errors)}</fieldset>
+      <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">Cancel</button><button class="primary-button" type="submit" ${submitting?'disabled':''}>${submitting?'Sending…':`Request a free trial ${icon('chevron',16)}`}</button></div>
+      <p class="terms">Demo form for the presentation. HubSpot will replace this submission step when Elly provides the embed/form details.</p>
+    </form>
+  </section></div>`
+}
+
+export function renderFeatureRequestDialog({ values = {}, submitting = false, serverError = '' } = {}) {
+  return `<div class="dialog-backdrop" data-dialog="feature-request"><section class="dialog compact-dialog feature-request-dialog" role="dialog" aria-modal="true" aria-labelledby="feature-request-title">
+    <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
+    <div class="dialog-icon purple">${icon('sparkle',24)}</div><h2 id="feature-request-title">Request a feature</h2><p>Have an idea that would make MediQo more useful for your practice? Send it to the team.</p>
+    ${serverError ? `<div class="form-alert">${icon('alert',16)} ${escapeHtml(serverError)}</div>` : ''}
+    <form data-feature-request-form class="feature-request-form">
+      <label class="field"><span>Name</span><input autofocus name="name" value="${escapeHtml(values.name||'')}" placeholder="Your name" required /></label>
+      <label class="field"><span>Email</span><input type="email" name="email" value="${escapeHtml(values.email||'')}" placeholder="you@practice.com.au" required /></label>
+      <label class="field"><span>Practice</span><input name="practice" value="${escapeHtml(values.practice||'')}" placeholder="Practice name" /></label>
+      <label class="field"><span>Feature suggestion</span><textarea name="suggestion" placeholder="What would you like MediQo to do?" required>${escapeHtml(values.suggestion||'')}</textarea></label>
+      <label class="field"><span>Why would this help?</span><textarea name="reason" placeholder="Tell us how this would help your team.">${escapeHtml(values.reason||'')}</textarea></label>
+      <button class="primary-button" type="submit" ${submitting?'disabled':''}>${submitting?'Sending…':`Send suggestion ${icon('chevron',16)}`}</button>
+    </form>
+  </section></div>`
 }
 
 export function renderPmsDialog() {

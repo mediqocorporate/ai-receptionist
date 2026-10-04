@@ -1,5 +1,6 @@
 import { icon } from './icons.js'
 import { escapeHtml } from '../lib/html.js'
+import { resolveResourceUrl } from '../data/resource-links.js'
 
 export function formatMessageTimestamp(date = new Date()) {
   const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(date)
@@ -26,7 +27,8 @@ export function renderComposer({ value = '', loading = false, compact = false } 
   </form>`
 }
 
-export function renderAskHome() {
+export function renderAskHome({ signedIn = false, history = [] } = {}) {
+  const recent = signedIn && Array.isArray(history) ? history.slice(-6).reverse() : []
   return `<section class="assistant-home">
     <div class="assistant-hero">
       <div class="sparkle-mark">${icon('sparkle', 36)}</div>
@@ -41,6 +43,7 @@ export function renderAskHome() {
       </button>`).join('')}
     </div>
     <div class="home-composer-wrap">${renderComposer()}</div>
+    ${recent.length ? `<section class="question-history-panel"><div class="question-history-heading"><div><span class="eyebrow">YOUR Q&A</span><h2>Your recent questions</h2></div><span>${recent.length} recent</span></div><div class="question-history-list">${recent.map((item) => `<button type="button" class="question-history-item" data-history-question="${escapeHtml(item.question)}"><span>${icon('message-circle',17)}</span><strong>${escapeHtml(item.question)}</strong>${icon('chevron',15)}</button>`).join('')}</div></section>` : ''}
   </section>`
 }
 
@@ -61,6 +64,17 @@ function renderSources(answer) {
 function renderRisk(answer) {
   if (!answer.risk) return ''
   return `<div class="risk-callout">${icon('alert', 18)}<div><strong>Practice-specific guidance may be needed</strong><span>This topic can require professional or authority guidance. Confirm current official guidance or professional advice before acting where appropriate.</span></div></div>`
+}
+
+function renderRelatedResource(resource) {
+  if (resource.internalPath) {
+    return `<button type="button" class="related-resource" data-nav="${resource.internalPath}"><span><strong>${escapeHtml(resource.title)}</strong><small>${escapeHtml(resource.publisher)}</small></span>${icon('chevron',15)}</button>`
+  }
+  const url = resolveResourceUrl(resource)
+  if (url) {
+    return `<a class="related-resource" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><span><strong>${escapeHtml(resource.title)}</strong><small>${escapeHtml(resource.publisher)}</small></span>${icon('external',15)}</a>`
+  }
+  return `<button type="button" class="related-resource" data-action="resource-unavailable"><span><strong>${escapeHtml(resource.title)}</strong><small>${escapeHtml(resource.publisher)}</small></span>${icon('external',15)}</button>`
 }
 
 export function renderAnswerView(answer, question, { saved = false, loading = false, now = new Date() } = {}) {
@@ -87,7 +101,7 @@ export function renderAnswerView(answer, question, { saved = false, loading = fa
       </div>
       <aside class="related-rail" aria-label="Related information">
         <section class="rail-card"><div class="rail-heading">${icon('search', 20)}<strong>Related questions</strong></div>${answer.relatedQuestions.map((q) => `<button type="button" class="related-question" data-related-question="${escapeHtml(q)}"><span>${escapeHtml(q)}</span>${icon('chevron', 16)}</button>`).join('')}</section>
-        <section class="rail-card"><div class="rail-heading">${icon('notebook', 20)}<strong>Related resources</strong></div>${answer.relatedResources.map((r) => `<button type="button" class="related-resource" ${r.internalPath ? `data-nav="${r.internalPath}"` : 'data-action="resource-unavailable"'}><span><strong>${escapeHtml(r.title)}</strong><small>${escapeHtml(r.publisher)}</small></span>${r.internalPath ? icon('chevron',15) : icon('external',15)}</button>`).join('')}</section>
+        <section class="rail-card"><div class="rail-heading">${icon('notebook', 20)}<strong>Related resources</strong></div>${answer.relatedResources.map(renderRelatedResource).join('')}</section>
       </aside>
     </div>
     <div class="conversation-composer-wrap">${renderComposer({ compact: true, loading })}</div>

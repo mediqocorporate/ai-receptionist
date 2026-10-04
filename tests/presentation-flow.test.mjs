@@ -46,7 +46,7 @@ test('every product page keeps the lead-capture headline, CTAs and calendar', ()
     const html = renderProductPage(product)
     assert.ok(html.includes(product.headline))
     assert.match(html, /Book a demo/)
-    assert.match(html, /Start a free trial/)
+    assert.match(html, /Request a free trial/)
     assert.match(html, /Find a time to meet with MediQo/)
   }
 })

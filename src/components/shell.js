@@ -1,12 +1,16 @@
 import { APP_ROUTES, PRODUCT_ROUTES } from '../data/routes.js'
 import { icon } from './icons.js'
-import { escapeHtml, classes } from '../lib/html.js'
+import { escapeHtml } from '../lib/html.js'
 
 const REMOTE_LOGO = 'https://partners.mediqo.health/wp-content/uploads/2025/11/Group-2.png'
 
 function initials(name = 'Riverside Medical Centre') {
   const words = String(name).trim().split(/\s+/).filter(Boolean)
   return (words.length > 1 ? `${words[0][0]}${words[1][0]}` : words[0]?.slice(0, 2) || 'RM').toUpperCase()
+}
+
+function userInitials(user = {}) {
+  return `${String(user.firstName || 'P').charAt(0)}${String(user.lastName || 'M').charAt(0)}`.toUpperCase()
 }
 
 function navLink(route, path) {
@@ -16,7 +20,11 @@ function navLink(route, path) {
   </a>`
 }
 
-export function renderShell({ path = '/', content = '', alertsOpen = false, userMenuOpen = false, mobileOpen = false, sidebarCollapsed = false, devMode = false, selectedPractice = 'Riverside Medical Centre' } = {}) {
+export function renderShell({ path = '/', content = '', alertsOpen = false, userMenuOpen = false, mobileOpen = false, sidebarCollapsed = false, devMode = false, selectedPractice = 'Riverside Medical Centre', user = null } = {}) {
+  const signedIn = Boolean(user)
+  const profileInitials = signedIn ? userInitials(user) : ''
+  const role = user?.jobTitle || 'Practice Manager'
+
   return `
   <div class="app-layout ${mobileOpen ? 'mobile-nav-open' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}">
     <aside class="sidebar" aria-label="Primary navigation">
@@ -28,31 +36,32 @@ export function renderShell({ path = '/', content = '', alertsOpen = false, user
         </a>
         <button class="icon-button sidebar-collapse" type="button" data-action="toggle-sidebar" aria-label="${sidebarCollapsed ? 'Expand' : 'Collapse'} navigation" aria-expanded="${!sidebarCollapsed}" title="${sidebarCollapsed ? 'Expand' : 'Collapse'} navigation">${icon('notebook', 18)}</button>
       </div>
-      <button class="practice-selector" type="button" aria-label="Select practice" data-action="toggle-practice-menu" title="${escapeHtml(selectedPractice)}">
+      ${signedIn ? `<button class="practice-selector" type="button" aria-label="Select practice" data-action="toggle-practice-menu" title="${escapeHtml(selectedPractice)}">
         <span class="avatar avatar-sm">${initials(selectedPractice)}</span><span class="practice-name">${escapeHtml(selectedPractice)}</span><span class="practice-chevron">${icon('down', 16)}</span>
-      </button>
+      </button>` : ''}
       <nav class="sidebar-nav">
         <div class="nav-group">${APP_ROUTES.map((r) => navLink(r, path)).join('')}</div>
         <div class="nav-divider"></div>
         <div class="nav-group product-group">${PRODUCT_ROUTES.map((r) => navLink(r, path)).join('')}</div>
       </nav>
-      <div class="sidebar-user-wrap">
+      ${signedIn ? `<div class="sidebar-user-wrap">
         <button class="sidebar-user" type="button" data-action="toggle-user-menu" aria-expanded="${userMenuOpen}">
-          <span class="avatar">PM</span>
-          <span class="user-copy"><strong>Practice Manager</strong><small>${escapeHtml(selectedPractice)}</small></span>
+          <span class="avatar">${profileInitials}</span>
+          <span class="user-copy"><strong>${escapeHtml(role)}</strong><small>${escapeHtml(selectedPractice)}</small></span>
           <span class="sidebar-user-chevron">${icon('down', 16)}</span>
         </button>
         ${userMenuOpen ? `<div class="user-menu" role="menu">
           <button type="button" role="menuitem" data-action="help">Help & keyboard tips</button>
           ${devMode ? '<button type="button" role="menuitem" data-action="reset-prototype">Reset local data</button>' : ''}
         </div>` : ''}
-      </div>
+      </div>` : ''}
     </aside>
     <div class="mobile-scrim" data-action="close-mobile-nav"></div>
     <section class="app-main">
       <header class="topbar">
         <button class="icon-button mobile-menu" type="button" aria-label="Open navigation" data-action="toggle-mobile-nav">${icon('menu', 21)}</button>
         <div class="topbar-spacer"></div>
+        <button class="feature-request-button" type="button" data-action="request-feature">${icon('sparkle', 16)}<span>Request a feature</span></button>
         <button class="pms-button" type="button" data-action="connect-pms">${icon('refresh', 17)}<span>Connect your PMS</span></button>
         <div class="alert-wrap">
           <button class="icon-button alert-button" type="button" aria-label="Alerts" data-action="toggle-alerts" aria-expanded="${alertsOpen}">${icon('bell', 20)}<span class="unread-dot"></span></button>
@@ -65,7 +74,7 @@ export function renderShell({ path = '/', content = '', alertsOpen = false, user
           </div>` : ''}
         </div>
         <button class="help-button" type="button" data-action="help">${icon('help', 18)}<span>Help</span></button>
-        <button class="top-avatar" type="button" data-action="toggle-user-menu-top" aria-label="Practice Manager menu"><span class="avatar">PM</span>${icon('down', 15)}</button>
+        ${signedIn ? `<button class="top-avatar" type="button" data-action="toggle-user-menu-top" aria-label="${escapeHtml(role)} menu"><span class="avatar">${profileInitials}</span>${icon('down', 15)}</button>` : ''}
       </header>
       <main class="page-area" id="page-content">${content}</main>
     </section>

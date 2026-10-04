@@ -7,6 +7,7 @@ export function createDefaultState(visitorId = createVisitorId()) {
     freeQuestionCount: 0,
     user: null,
     savedAnswerIds: [],
+    questionHistory: [],
     selectedPractice: 'Riverside Medical Centre',
     accreditationOverrides: {},
     sidebarCollapsed: false,
@@ -34,6 +35,7 @@ export function loadPrototypeState(storage = globalThis.localStorage, cookieText
   const cookieCount = parseCookieCount(cookieText)
   state.freeQuestionCount = Math.max(Number(state.freeQuestionCount) || 0, cookieCount)
   if (!Array.isArray(state.savedAnswerIds)) state.savedAnswerIds = []
+  if (!Array.isArray(state.questionHistory)) state.questionHistory = []
   if (!state.accreditationOverrides || typeof state.accreditationOverrides !== 'object') state.accreditationOverrides = {}
   state.sidebarCollapsed = false
   return state

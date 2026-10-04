@@ -35,16 +35,16 @@ test('product page uses supplied product copy and calendar actions', () => {
   const html = renderProductPage(products[0])
   assert.match(html, /Answer every patient call, book every patient appointment/)
   assert.match(html, /Book a demo/)
-  assert.match(html, /Start a free trial/)
+  assert.match(html, /Request a free trial/)
   assert.match(html, /Find a time to meet with MediQo/)
 })
 
-
-test('interactive chat controls expose working actions', () => {
+test('interactive chat controls expose working actions and real external resources', () => {
   const home = renderAskHome()
   assert.match(home, /data-action="attach-file"/)
   const answer = renderAnswerView(demoQuestions[0], demoQuestions[0].prompts[0])
   assert.match(answer, /data-action="answer-helpful"/)
   assert.match(answer, /data-action="answer-not-helpful"/)
-  assert.match(answer, /data-action="resource-unavailable"/)
+  assert.match(answer, /target="_blank"/)
+  assert.match(answer, /racgp\.org\.au/)
 })
