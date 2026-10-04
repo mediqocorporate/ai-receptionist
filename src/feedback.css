@@ -45,7 +45,8 @@
 .checklist-preview-list { display:grid; border:1px solid #e2e7ef; border-radius:10px; overflow:hidden; margin:18px 0 12px; }
 .checklist-preview-item { display:grid; grid-template-columns:22px 1fr; gap:10px; align-items:flex-start; padding:11px 13px; border-bottom:1px solid #edf0f5; background:#fff; }
 .checklist-preview-item:last-child { border-bottom:0; }
-.check-box { width:17px; height:17px; border:1.5px solid #b7a3e6; border-radius:4px; margin-top:1px; background:#faf8ff; }
+.check-box { appearance:none; width:17px; height:17px; border:1.5px solid #b7a3e6; border-radius:4px; margin:1px 0 0; background:#faf8ff; cursor:pointer; }
+.check-box:checked { background:#7132e7; border-color:#7132e7; box-shadow:inset 0 0 0 3px #fff; }
 .checklist-preview-item > div { display:flex; gap:9px; align-items:flex-start; }
 .checklist-preview-item strong { color:#7432e7; font-size:10px; min-width:16px; padding-top:1px; }
 .checklist-preview-item span { color:#435574; font-size:12px; line-height:1.45; }

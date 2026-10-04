@@ -21,11 +21,15 @@ export function matchDemoQuestion(input, questions) {
       if (normalized === candidate) return question
       if (normalized.length > 24 && (normalized.includes(candidate) || candidate.includes(normalized))) return question
     }
+  }
 
+  for (const question of questions) {
     for (const related of question.relatedQuestions || []) {
       if (normalized === normalizeQuestion(related)) return question
     }
+  }
 
+  for (const question of questions) {
     const words = new Set(normalized.split(' ').filter((word) => word.length > 2))
     const keywords = (question.keywords || []).map(normalizeQuestion).flatMap((item) => item.split(' ')).filter(Boolean)
     const hits = keywords.filter((keyword) => words.has(keyword)).length

@@ -48,6 +48,7 @@ test('request a free trial is a separate sales form and never asks for a passwor
   assert.match(html, /data-trial-request-form/)
   assert.doesNotMatch(html, /name="password"/)
   assert.doesNotMatch(html, /Create account/i)
+  assert.doesNotMatch(html, /Demo form|HubSpot will replace/i)
   assert.match(renderProductPage(products[0]), /Request a free trial/)
 })
 
@@ -91,6 +92,8 @@ test('Policy Library includes substantive sample checklists that can be previewe
   const html = policies.renderTemplatePreview?.(checklists[0]) || ''
   assert.match(html, /Sample checklist/i)
   assert.match(html, /checklist-preview-item/)
+  assert.match(html, /type="checkbox"/)
+  assert.doesNotMatch(html, /Demo sample generated|prototype/i)
 })
 
 test('related resources with official URLs render as real external links', () => {
@@ -125,4 +128,13 @@ test('app wires the approved demo flows without using trial signup as account cr
   assert.match(source, /user:\s*prototype\.user/)
   assert.match(source, /renderTemplatePreview/)
   assert.doesNotMatch(source, /openDialog\('signup', \{ trial: true/)
+})
+
+test('anonymous feature request does not prefill a practice name', () => {
+  const source = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8')
+  const start = source.indexOf('function defaultFeatureValues()')
+  const end = source.indexOf('function collectLead', start)
+  const helper = source.slice(start, end)
+  assert.match(helper, /practice:\s*prototype\.user\?\.clinicName\s*\|\|\s*''/)
+  assert.doesNotMatch(helper, /prototype\.selectedPractice/)
 })

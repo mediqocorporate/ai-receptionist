@@ -22,8 +22,7 @@ export function renderTemplatePreview(template) {
   return `<div class="dialog-backdrop" data-dialog="template-preview"><section class="dialog checklist-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="template-preview-title">
     <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
     <div class="dialog-heading"><span class="eyebrow">SAMPLE CHECKLIST</span><h2 id="template-preview-title">${escapeHtml(template.title)}</h2><p>${escapeHtml(template.description)}</p></div>
-    <div class="checklist-preview-list">${items.map((item, index)=>`<div class="checklist-preview-item"><span class="check-box" aria-hidden="true"></span><div><strong>${index + 1}</strong><span>${escapeHtml(item)}</span></div></div>`).join('')}</div>
-    <div class="prototype-note">Demo sample generated for the prototype. Review and customise it for the practice before operational use.</div>
+    <div class="checklist-preview-list">${items.map((item, index)=>`<label class="checklist-preview-item"><input class="check-box" type="checkbox" aria-label="Mark checklist item ${index + 1} complete"/><div><strong>${index + 1}</strong><span>${escapeHtml(item)}</span></div></label>`).join('')}</div>
     <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">Close</button><button class="primary-button" type="button" data-action="create-template" data-template-id="${template.id}">Customise this checklist</button></div>
   </section></div>`
 }

@@ -26,6 +26,15 @@ test('matches prepared home suggestion topics for complaints and community DNA f
   assert.equal(matchDemoQuestion('How are other practices handling DNA fees?', demoQuestions)?.id, 'dna-fee-community')
 })
 
-test('related questions stay interactive by resolving to their parent answer', () => {
-  assert.equal(matchDemoQuestion('How often does CPR need to be renewed?', demoQuestions)?.id, 'accreditation-certificates')
+test('accreditation related questions resolve to their own prepared answers', () => {
+  const cases = [
+    ['How often does CPR need to be renewed?', 'cpr-renewal'],
+    ['What staff training records do we need for accreditation?', 'accreditation-training-records'],
+    ['What evidence will surveyors ask to see for GPs?', 'gp-surveyor-evidence'],
+    ['What credentials should I keep for nurses?', 'nurse-credentials'],
+    ['Do locum doctors need the same certificates?', 'locum-certificates'],
+  ]
+  for (const [question, expectedId] of cases) {
+    assert.equal(matchDemoQuestion(question, demoQuestions)?.id, expectedId, question)
+  }
 })

@@ -57,7 +57,6 @@ export function renderTrialRequestDialog({ errors = {}, values = {}, submitting 
       <label class="field"><span>Work Email</span><input type="email" name="email" value="${escapeHtml(values.email||'')}" placeholder="e.g. sarah@yourclinic.com.au"/>${fieldError('email',errors)}</label>
       <fieldset class="field location-field"><legend>Locations <small>(select all that apply)</small></legend><div class="location-options">${locationOptions(checked, 'locations')}</div>${fieldError('locations',errors)}</fieldset>
       <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">Cancel</button><button class="primary-button" type="submit" ${submitting?'disabled':''}>${submitting?'Sending…':`Request a free trial ${icon('chevron',16)}`}</button></div>
-      <p class="terms">Demo form for the presentation. HubSpot will replace this submission step when Elly provides the embed/form details.</p>
     </form>
   </section></div>`
 }

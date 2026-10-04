@@ -215,7 +215,7 @@ function defaultLeadValues() {
 
 function defaultFeatureValues() {
   const name = [prototype.user?.firstName, prototype.user?.lastName].filter(Boolean).join(' ')
-  return { name, email: prototype.user?.email || '', practice: prototype.user?.clinicName || prototype.selectedPractice || '', suggestion: '', reason: '' }
+  return { name, email: prototype.user?.email || '', practice: prototype.user?.clinicName || '', suggestion: '', reason: '' }
 }
 
 function collectLead(form) {
