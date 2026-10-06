@@ -54,9 +54,10 @@ function renderSection(section, index) {
 }
 
 function renderSources(answer) {
+  if (!Array.isArray(answer.sources) || !answer.sources.length) return ''
   return `<div class="source-block">
     <div class="source-title">${icon('file-text', 17)}<strong>Sources</strong></div>
-    <ol>${answer.sources.map((source) => `<li><span class="source-index"></span><span>${escapeHtml(source.title)} <small>— ${escapeHtml(source.publisher)}</small></span></li>`).join('')}</ol>
+    <ol>${answer.sources.map((source) => { const url = resolveResourceUrl(source); const label = `${escapeHtml(source.title)} <small>— ${escapeHtml(source.publisher)}</small>`; return `<li><span class="source-index"></span><span>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label}</span></li>` }).join('')}</ol>
     <div class="prototype-note">${escapeHtml(answer.note || '')}</div>
   </div>`
 }
@@ -77,6 +78,12 @@ function renderRelatedResource(resource) {
   return `<button type="button" class="related-resource" data-action="resource-unavailable"><span><strong>${escapeHtml(resource.title)}</strong><small>${escapeHtml(resource.publisher)}</small></span>${icon('external',15)}</button>`
 }
 
+function renderProductRecommendation(answer) {
+  const recommendation = answer.recommendation
+  if (!recommendation) return ''
+  return `<aside class="product-recommendation"><div class="product-recommendation-icon">${icon('sparkle',18)}</div><div><strong>${escapeHtml(recommendation.title || 'MediQo can also help with this.')}</strong><p>${escapeHtml(recommendation.body || '')}</p><button type="button" data-nav="${escapeHtml(recommendation.path || '/')}">${escapeHtml(recommendation.linkLabel || 'Learn more')} ${icon('chevron',15)}</button></div></aside>`
+}
+
 export function renderAnswerView(answer, question, { saved = false, loading = false, now = new Date() } = {}) {
   return `<section class="conversation-page">
     <div class="conversation-grid">
@@ -92,7 +99,8 @@ export function renderAnswerView(answer, question, { saved = false, loading = fa
             <p class="answer-intro">${escapeHtml(answer.intro)}</p>
             ${renderRisk(answer)}
             <div class="answer-sections">${answer.sections.map(renderSection).join('')}</div>
-            ${answer.cta ? `<button class="internal-cta" type="button" data-nav="${answer.cta.path}">${escapeHtml(answer.cta.label)} ${icon('chevron', 16)}</button>` : ''}
+            ${renderProductRecommendation(answer)}
+            ${!answer.recommendation && answer.cta ? `<button class="internal-cta" type="button" data-nav="${answer.cta.path}">${escapeHtml(answer.cta.label)} ${icon('chevron', 16)}</button>` : ''}
             ${renderSources(answer)}
             <div class="answer-actions"><span>Was this helpful?</span><button type="button" aria-label="Helpful" data-action="answer-helpful">${icon('thumbsUp', 16)}</button><button type="button" aria-label="Not helpful" data-action="answer-not-helpful">${icon('thumbsDown', 16)}</button><button type="button" data-action="save-answer" data-answer-id="${answer.id}" class="save-answer ${saved ? 'saved' : ''}">${icon('bookmark', 16)} ${saved ? 'Saved' : 'Save'}</button></div>
           </article>

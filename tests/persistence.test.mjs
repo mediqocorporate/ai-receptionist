@@ -49,3 +49,12 @@ test('sidebar always starts expanded on a fresh page load', () => {
   assert.equal(Object.hasOwn(raw, 'sidebarCollapsed'), false)
   assert.equal(loadPrototypeState(storage, '').sidebarCollapsed, false)
 })
+
+test('logged-in question activity has its own persistent collection', () => {
+  const storage = memoryStorage()
+  const state = createDefaultState('mq_questions')
+  assert.deepEqual(state.questionLog, [])
+  state.questionLog.push({ question: 'Test question', userName: 'Sarah Jones', email: 'sarah@example.com', practiceName: 'Riverside Medical Centre', askedAt: '2026-10-07T00:00:00.000Z' })
+  savePrototypeState(state, storage)
+  assert.deepEqual(loadPrototypeState(storage, '').questionLog, state.questionLog)
+})

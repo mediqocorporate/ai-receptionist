@@ -60,7 +60,7 @@ function pageContent() {
   }
   if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides, { practiceName: prototype.selectedPractice || 'Riverside Medical Centre', targetDate: 'March 2027' })
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
-  if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides })
+  if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides, questionLog: prototype.questionLog })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)
   const product = currentProduct()
   if (product) return renderProductPage(product, ui.calendarSelection[product.slug] || {})
@@ -115,6 +115,7 @@ function render({ focusDialog = false } = {}) {
   }) + dialogMarkup()
 
   installLogoFallback()
+  activateHubSpotEmbeds()
   if (focusDialog && ui.dialog) queueMicrotask(focusFirstDialogControl)
   if (ui.path === '/policies' && ui.query.get('template') && !ui.dialog) {
     const id = ui.query.get('template')
@@ -142,6 +143,24 @@ function installLogoFallback() {
     img.addEventListener('error', handleError)
     if (img.complete && !img.naturalWidth) handleError()
   })
+}
+
+function reloadEmbedScript(id, src) {
+  document.getElementById(id)?.remove()
+  const script = document.createElement('script')
+  script.id = id
+  script.src = src
+  script.async = true
+  document.body.appendChild(script)
+}
+
+function activateHubSpotEmbeds() {
+  if (document.querySelector('.hs-form-frame')) {
+    reloadEmbedScript('mediqo-hubspot-form-script', 'https://js-ap1.hsforms.net/forms/embed/442479260.js')
+  }
+  if (document.querySelector('.meetings-iframe-container')) {
+    reloadEmbedScript('mediqo-hubspot-meetings-script', 'https://static.hsappstatic.net/MeetingsEmbed/ex/MeetingsEmbedCode.js')
+  }
 }
 
 function navigate(target) {
@@ -173,9 +192,22 @@ async function submitQuestion(rawQuestion) {
   try {
     const result = await assistantService.ask(question)
     if (result.answer) {
+      const askedAt = new Date().toISOString()
       if (!prototype.user) recordAnsweredQuestion(prototype)
-      prototype.questionHistory.push({ question, answerId: result.answer.id, askedAt: new Date().toISOString() })
+      prototype.questionHistory.push({ question, answerId: result.answer.id, askedAt })
       prototype.questionHistory = prototype.questionHistory.slice(-12)
+      if (prototype.user) {
+        const userName = [prototype.user.firstName, prototype.user.lastName].filter(Boolean).join(' ')
+        prototype.questionLog.push({
+          question,
+          answerId: result.answer.id,
+          userName,
+          email: prototype.user.email || '',
+          practiceName: prototype.user.clinicName || prototype.selectedPractice || '',
+          askedAt,
+        })
+        prototype.questionLog = prototype.questionLog.slice(-100)
+      }
       savePrototypeState(prototype)
       ui.chat = { question, answer: result.answer }
     } else {

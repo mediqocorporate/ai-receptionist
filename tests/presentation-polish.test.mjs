@@ -8,23 +8,18 @@ import { demoQuestions } from '../src/data/demo-questions.js'
 import { products } from '../src/data/products.js'
 import { matchDemoQuestion } from '../src/lib/question-matcher.js'
 
-test('calendar month controls change month while preserving a valid selected day', () => {
+test('product booking area uses the real HubSpot meetings embed instead of the styled calendar', () => {
   const product = products[0]
-  const html = productPage.renderProductPage(product, { year: 2026, month: 9, date: 16 })
-  assert.match(html, /data-calendar-month="-1"/)
-  assert.match(html, /data-calendar-month="1"/)
-  const next = productPage.shiftCalendarSelection({ year: 2026, month: 9, date: 31, time: '09:45' }, 1)
-  assert.deepEqual(next, { year: 2026, month: 10, date: 30, time: '' })
-  const nextHtml = productPage.renderProductPage(product, next)
-  assert.match(nextHtml, /November 2026/)
-  assert.doesNotMatch(nextHtml, /data-calendar-date="31"/)
+  const html = productPage.renderProductPage(product)
+  assert.match(html, /meetings-iframe-container/)
+  assert.match(html, /meetings-ap1\.hubspot\.com\/matt-nott\/practice-manager-demo\?embed=true/)
+  assert.doesNotMatch(html, /data-calendar-date|calendar-days/)
 })
 
-test('app wires the calendar month controls to the shared month-selection helper', () => {
+test('app activates the HubSpot form and meetings embed scripts', () => {
   const app = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8')
-  assert.match(app, /data-calendar-month/)
-  assert.match(app, /shiftCalendarSelection/)
-  assert.match(app, /formatCalendarDate/)
+  assert.match(app, /js-ap1\.hsforms\.net\/forms\/embed\/442479260\.js/)
+  assert.match(app, /static\.hsappstatic\.net\/MeetingsEmbed\/ex\/MeetingsEmbedCode\.js/)
 })
 
 test('broad RACGP evidence question has a whole-practice evidence answer', () => {

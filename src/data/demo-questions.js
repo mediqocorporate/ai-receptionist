@@ -1,3 +1,5 @@
+import { productDiscoveryQuestions } from './product-discovery-questions.js'
+
 const demoNote = ''
 
 export const demoQuestions = [
@@ -299,7 +301,7 @@ export const demoQuestions = [
       { title: 'Reduce missed billing opportunities', body: 'MediQo MBS Billing Suggestions can surface potentially relevant item numbers from the consultation context for the clinician to review before claiming.' },
     ],
     sources: [
-      { title: 'MBS Online', publisher: 'Australian Government' },
+      { title: 'MBS Online', publisher: 'Australian Government', url: 'https://www9.health.gov.au/mbs/fullDisplay.cfm?q=23&qt=item&type=item' },
       { title: 'Medicare claiming and billing guidance', publisher: 'Services Australia' },
     ],
     relatedQuestions: [
@@ -309,9 +311,15 @@ export const demoQuestions = [
     ],
     relatedResources: [
       { title: 'MBS Billing Suggestions', publisher: 'MediQo', internalPath: '/products/mbs-billing-suggestions' },
-      { title: 'MBS Online', publisher: 'Australian Government' },
+      { title: 'MBS Online', publisher: 'Australian Government', url: 'https://www9.health.gov.au/mbs/fullDisplay.cfm?q=23&qt=item&type=item' },
     ],
     cta: { label: 'See how MediQo can suggest MBS items', path: '/products/mbs-billing-suggestions' },
+    recommendation: {
+      title: 'MediQo can also help with this.',
+      body: 'MediQo’s Smart MBS Billing analyses the consultation and helps surface relevant MBS billing opportunities, reducing manual searching and helping clinicians identify eligible billings they may otherwise miss. You can book a demo or try it free here:',
+      path: '/products/mbs-billing-suggestions',
+      linkLabel: 'View Smart MBS Billing',
+    },
     note: demoNote,
   },
   {
@@ -395,8 +403,8 @@ export const demoQuestions = [
     relatedResources: [{ title: 'MBS Billing Suggestions', publisher: 'MediQo', internalPath: '/products/mbs-billing-suggestions' }],
     cta: { label: 'View MBS Billing Suggestions', path: '/products/mbs-billing-suggestions' },
     note: demoNote,
-  }
-
+  },
+  ...productDiscoveryQuestions,
 ]
 
 export const fallbackSuggestions = [

@@ -45,10 +45,11 @@ test('request a free trial is a separate sales form and never asks for a passwor
   assert.equal(typeof dialogs.renderTrialRequestDialog, 'function')
   const html = dialogs.renderTrialRequestDialog?.() || ''
   assert.match(html, /Request a free trial/i)
-  assert.match(html, /data-trial-request-form/)
+  assert.match(html, /class="hs-form-frame"/)
+  assert.match(html, /data-form-id="07bbbe65-ab6e-4ecb-b433-87975a9a36c8"/)
+  assert.doesNotMatch(html, /data-trial-request-form/)
   assert.doesNotMatch(html, /name="password"/)
   assert.doesNotMatch(html, /Create account/i)
-  assert.doesNotMatch(html, /Demo form|HubSpot will replace/i)
   assert.match(renderProductPage(products[0]), /Request a free trial/)
 })
 
@@ -115,7 +116,7 @@ test('related resources with official URLs render as real external links', () =>
 
 test('index declares the MediQo favicon explicitly', () => {
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8')
-  assert.match(html, /rel="icon"[^>]+href="\/favicon\.svg"/)
+  assert.match(html, /rel="icon"[^>]+href="\/favicon\.png"/)
 })
 
 test('app wires the approved demo flows without using trial signup as account creation', () => {

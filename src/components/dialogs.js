@@ -18,12 +18,14 @@ export function renderSignupDialog({ errors = {}, values = {}, submitting = fals
       <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',22)}</button>
       <div class="signup-benefits">
         <span class="modal-kicker">${icon('lock',16)} CREATE A FREE ACCOUNT</span>
-        <h2 id="signup-dialog-title">Create a free account to continue using <span>MediQo</span></h2>
-        <p>MediQo is for practice admin teams, not the general public. Continue with personalised answers, templates and tools for your practice.</p>
-        <div class="benefit-list">
-          <div><span class="benefit-icon">${icon('message-circle',22)}</span><p><strong>Personalised for your practice</strong><small>Get relevant answers based on your practice type, state and services.</small></p></div>
-          <div><span class="benefit-icon">${icon('shield-check',22)}</span><p><strong>Built for Australian general practice</strong><small>Designed around trusted sources including RACGP, Medicare and Fair Work.</small></p></div>
-          <div><span class="benefit-icon">${icon('file-text',22)}</span><p><strong>Access templates and tools</strong><small>Create policies, checklists, reports and more.</small></p></div>
+        <h2 id="signup-dialog-title">Don't lose your answers. Keep using <span>MediQo</span> for free.</h2>
+        <p>Create a free account to save this conversation, keep asking questions and access tools built for Australian general practice.</p>
+        <div class="benefit-list expanded-benefits">
+          <div><span class="benefit-icon">${icon('check',18)}</span><p><strong>Save your questions and answers</strong><small>Keep useful advice on hand and pick up where you left off.</small></p></div>
+          <div><span class="benefit-icon">${icon('check',18)}</span><p><strong>Get answers personalised to your practice</strong><small>Based on your practice type, location and services.</small></p></div>
+          <div><span class="benefit-icon">${icon('check',18)}</span><p><strong>Ask as many questions as you need</strong><small>Get help with accreditation, Medicare, HR, compliance and day-to-day practice management.</small></p></div>
+          <div><span class="benefit-icon">${icon('check',18)}</span><p><strong>Access practice templates and tools</strong><small>Create policies, checklists, reports and other useful practice documents.</small></p></div>
+          <div><span class="benefit-icon">${icon('check',18)}</span><p><strong>Stay across important changes</strong><small>Get relevant updates across RACGP, Medicare, Fair Work and more.</small></p></div>
         </div>
       </div>
       <div class="signup-form-side">
@@ -44,20 +46,13 @@ export function renderSignupDialog({ errors = {}, values = {}, submitting = fals
   </div>`
 }
 
-export function renderTrialRequestDialog({ errors = {}, values = {}, submitting = false, serverError = '' } = {}) {
-  const checked = Array.isArray(values.locations) ? values.locations : []
-  return `<div class="dialog-backdrop" data-dialog="trial-request"><section class="dialog lead-dialog" role="dialog" aria-modal="true" aria-labelledby="trial-request-title">
+export function renderTrialRequestDialog() {
+  return `<div class="dialog-backdrop" data-dialog="trial-request"><section class="dialog hubspot-trial-dialog" role="dialog" aria-modal="true" aria-labelledby="trial-request-title">
     <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
-    <div class="dialog-heading"><span class="eyebrow">MEDIQO PRODUCT ENQUIRY</span><h2 id="trial-request-title">Request a free trial</h2><p>Tell us a little about your practice and the MediQo team can follow up with trial access and next steps.</p></div>
-    ${serverError ? `<div class="form-alert">${icon('alert',16)} ${escapeHtml(serverError)}</div>` : ''}
-    <form data-trial-request-form class="lead-form" novalidate>
-      <label class="field"><span>Clinic Name</span><input autofocus name="clinicName" value="${escapeHtml(values.clinicName||'')}" placeholder="e.g. Riverside Medical Centre"/>${fieldError('clinicName',errors)}</label>
-      <div class="field-row"><label class="field"><span>First Name</span><input name="firstName" value="${escapeHtml(values.firstName||'')}" placeholder="e.g. Sarah"/>${fieldError('firstName',errors)}</label><label class="field"><span>Last Name</span><input name="lastName" value="${escapeHtml(values.lastName||'')}" placeholder="e.g. Jones"/>${fieldError('lastName',errors)}</label></div>
-      <label class="field"><span>Job Title</span><input name="jobTitle" value="${escapeHtml(values.jobTitle||'')}" placeholder="e.g. Practice Manager"/>${fieldError('jobTitle',errors)}</label>
-      <label class="field"><span>Work Email</span><input type="email" name="email" value="${escapeHtml(values.email||'')}" placeholder="e.g. sarah@yourclinic.com.au"/>${fieldError('email',errors)}</label>
-      <fieldset class="field location-field"><legend>Locations <small>(select all that apply)</small></legend><div class="location-options">${locationOptions(checked, 'locations')}</div>${fieldError('locations',errors)}</fieldset>
-      <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">Cancel</button><button class="primary-button" type="submit" ${submitting?'disabled':''}>${submitting?'Sending…':`Request a free trial ${icon('chevron',16)}`}</button></div>
-    </form>
+    <div class="dialog-heading"><span class="eyebrow">MEDIQO PRODUCT ENQUIRY</span><h2 id="trial-request-title">Request a free trial</h2><p>Tell us a little about your practice and the MediQo team will follow up with trial access and next steps.</p></div>
+    <div class="hubspot-form-shell">
+      <div class="hs-form-frame" data-region="ap1" data-form-id="07bbbe65-ab6e-4ecb-b433-87975a9a36c8" data-portal-id="442479260"></div>
+    </div>
   </section></div>`
 }
 

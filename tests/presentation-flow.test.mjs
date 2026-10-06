@@ -14,7 +14,7 @@ test('prepared Q&A includes an MBS item-number demo with MediQo cross-sell', () 
   assert.equal(answer?.id, 'mbs-item-number')
   const html = renderAnswerView(answer, prompt)
   assert.match(html, /MBS Item 23/)
-  assert.match(html, /See how MediQo can suggest MBS items/)
+  assert.match(html, /Smart MBS Billing analyses the consultation/)
   assert.match(html, /data-nav="\/products\/mbs-billing-suggestions"/)
 })
 
