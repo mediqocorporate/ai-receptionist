@@ -99,5 +99,5 @@ test('app stores answered questions for signed-in users and activates HubSpot em
 
 test('index uses the supplied PNG favicon', () => {
   const source = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8')
-  assert.match(source, /rel="icon"[^>]+href="\/favicon\.png"[^>]+image\/png/)
+  assert.match(source, /rel="icon"[^>]+href="\/mediqo-favicon-20261007\.png"[^>]+image\/png/)
 })

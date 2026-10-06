@@ -116,7 +116,7 @@ test('related resources with official URLs render as real external links', () =>
 
 test('index declares the MediQo favicon explicitly', () => {
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8')
-  assert.match(html, /rel="icon"[^>]+href="\/favicon\.png"/)
+  assert.match(html, /rel="icon"[^>]+href="\/mediqo-favicon-20261007\.png"/)
 })
 
 test('app wires the approved demo flows without using trial signup as account creation', () => {
