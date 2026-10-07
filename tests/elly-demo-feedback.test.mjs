@@ -126,7 +126,7 @@ test('app wires the approved demo flows without using trial signup as account cr
   assert.match(source, /ui\.dialog === 'trial-request'/)
   assert.match(source, /ui\.dialog === 'feature-request'/)
   assert.match(source, /prototype\.questionHistory/)
-  assert.match(source, /user:\s*prototype\.user/)
+  assert.match(source, /user:\s*appUser/)
   assert.match(source, /renderTemplatePreview/)
   assert.doesNotMatch(source, /openDialog\('signup', \{ trial: true/)
 })
