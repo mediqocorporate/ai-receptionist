@@ -175,7 +175,6 @@ function navigate(target) {
   ui.mobileOpen = false
   ui.error = ''
   render()
-void bootstrapAuth()
   window.scrollTo({ top: 0, behavior: 'auto' })
 }
 
@@ -714,3 +713,4 @@ window.addEventListener('popstate', () => {
 })
 
 render()
+void bootstrapAuth()
