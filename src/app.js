@@ -5,7 +5,7 @@ import { renderPolicyPage, renderDocumentWizard, renderTemplatePreview } from '.
 import { renderReportsPage, renderReportDialog, accreditationSummary } from './components/reports.js'
 import { renderAlertsPage } from './components/alerts.js'
 import { renderProductPage, shiftCalendarSelection, formatCalendarDate } from './components/product-page.js'
-import { renderSignupDialog, renderTrialRequestDialog, renderFeatureRequestDialog, renderPmsDialog, renderHelpDialog, renderEvidenceDialog } from './components/dialogs.js'
+import { renderSignupDialog, renderLoginDialog, renderTrialRequestDialog, renderFeatureRequestDialog, renderPmsDialog, renderHelpDialog, renderEvidenceDialog } from './components/dialogs.js'
 import { getProduct } from './data/products.js'
 import { policyTemplates } from './data/policies.js'
 import { fallbackSuggestions } from './data/demo-questions.js'
@@ -15,7 +15,7 @@ import { leadService } from './services/lead-service.js'
 import { pmsService } from './services/pms-service.js'
 import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './lib/persistence.js'
 import { validateSignup } from './lib/validation.js'
-import { canAskWithoutSignup, recordAnsweredQuestion, unlockWithUser } from './lib/prototype-rules.js'
+import { canAskWithoutSignup, recordAnsweredQuestion } from './lib/prototype-rules.js'
 import { signupSuccessMessage } from './lib/ui-copy.js'
 import { icon } from './components/icons.js'
 
@@ -42,6 +42,7 @@ const ui = {
 }
 
 let prototype = loadPrototypeState()
+let appUser = null
 
 function currentProduct() {
   const match = ui.path.match(/^\/products\/([^/]+)$/)
@@ -56,7 +57,7 @@ function pageContent() {
     if (ui.chat?.answer) return renderAnswerView(ui.chat.answer, ui.chat.question, { saved: prototype.savedAnswerIds.includes(ui.chat.answer.id) })
     if (ui.chat?.fallback) return renderFallbackView(ui.chat.question, fallbackSuggestions)
     if (ui.error && ui.chat?.question) return renderAssistantError(ui.chat.question, ui.error)
-    return renderAskHome({ signedIn: Boolean(prototype.user), history: prototype.questionHistory })
+    return renderAskHome({ signedIn: Boolean(appUser), history: prototype.questionHistory })
   }
   if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides, { practiceName: prototype.selectedPractice || 'Riverside Medical Centre', targetDate: 'March 2027' })
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
@@ -83,6 +84,7 @@ function renderAssistantError(question, message) {
 
 function dialogMarkup() {
   if (ui.dialog === 'signup') return renderSignupDialog(ui.dialogData)
+  if (ui.dialog === 'login') return renderLoginDialog(ui.dialogData)
   if (ui.dialog === 'trial-request') return renderTrialRequestDialog(ui.dialogData)
   if (ui.dialog === 'feature-request') return renderFeatureRequestDialog(ui.dialogData)
   if (ui.dialog === 'pms') return renderPmsDialog()
@@ -110,8 +112,8 @@ function render({ focusDialog = false } = {}) {
     mobileOpen: ui.mobileOpen,
     sidebarCollapsed: prototype.sidebarCollapsed,
     devMode,
-    selectedPractice: prototype.selectedPractice || 'Riverside Medical Centre',
-    user: prototype.user,
+    selectedPractice: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre',
+    user: appUser,
   }) + dialogMarkup()
 
   installLogoFallback()
@@ -173,13 +175,14 @@ function navigate(target) {
   ui.mobileOpen = false
   ui.error = ''
   render()
+void bootstrapAuth()
   window.scrollTo({ top: 0, behavior: 'auto' })
 }
 
 async function submitQuestion(rawQuestion) {
   const question = String(rawQuestion || '').trim()
   if (!question || ui.loading) return
-  if (!canAskWithoutSignup(prototype)) {
+  if (!canAskWithoutSignup({ ...prototype, user: appUser })) {
     ui.pendingQuestion = question
     openDialog('signup', { trial: false, errors: {}, values: defaultSignupValues() })
     return
@@ -193,17 +196,17 @@ async function submitQuestion(rawQuestion) {
     const result = await assistantService.ask(question)
     if (result.answer) {
       const askedAt = new Date().toISOString()
-      if (!prototype.user) recordAnsweredQuestion(prototype)
+      if (!appUser) recordAnsweredQuestion(prototype)
       prototype.questionHistory.push({ question, answerId: result.answer.id, askedAt })
       prototype.questionHistory = prototype.questionHistory.slice(-12)
-      if (prototype.user) {
-        const userName = [prototype.user.firstName, prototype.user.lastName].filter(Boolean).join(' ')
+      if (appUser) {
+        const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ')
         prototype.questionLog.push({
           question,
           answerId: result.answer.id,
           userName,
-          email: prototype.user.email || '',
-          practiceName: prototype.user.clinicName || prototype.selectedPractice || '',
+          email: appUser.email || '',
+          practiceName: appUser.clinicName || prototype.selectedPractice || '',
           askedAt,
         })
         prototype.questionLog = prototype.questionLog.slice(-100)
@@ -224,11 +227,11 @@ async function submitQuestion(rawQuestion) {
 
 function defaultSignupValues() {
   return {
-    clinicName: prototype.user?.clinicName || 'Riverside Medical Centre',
-    firstName: prototype.user?.firstName || '',
-    lastName: prototype.user?.lastName || '',
-    jobTitle: prototype.user?.jobTitle || 'Practice Manager',
-    email: prototype.user?.email || '',
+    clinicName: '',
+    firstName: '',
+    lastName: '',
+    jobTitle: 'Practice Manager',
+    email: '',
     password: '',
     locations: ['NSW'],
   }
@@ -236,18 +239,18 @@ function defaultSignupValues() {
 
 function defaultLeadValues() {
   return {
-    clinicName: prototype.user?.clinicName || '',
-    firstName: prototype.user?.firstName || '',
-    lastName: prototype.user?.lastName || '',
-    jobTitle: prototype.user?.jobTitle || 'Practice Manager',
-    email: prototype.user?.email || '',
-    locations: prototype.user?.locations?.length ? prototype.user.locations : ['NSW'],
+    clinicName: appUser?.clinicName || '',
+    firstName: appUser?.firstName || '',
+    lastName: appUser?.lastName || '',
+    jobTitle: appUser?.jobTitle || 'Practice Manager',
+    email: appUser?.email || '',
+    locations: appUser?.locations?.length ? prototype.user.locations : ['NSW'],
   }
 }
 
 function defaultFeatureValues() {
-  const name = [prototype.user?.firstName, prototype.user?.lastName].filter(Boolean).join(' ')
-  return { name, email: prototype.user?.email || '', practice: prototype.user?.clinicName || '', suggestion: '', reason: '' }
+  const name = [appUser?.firstName, appUser?.lastName].filter(Boolean).join(' ')
+  return { name, email: appUser?.email || '', practice: appUser?.clinicName || '', suggestion: '', reason: '' }
 }
 
 function collectLead(form) {
@@ -387,8 +390,15 @@ async function handleSignup(form) {
   render()
   try {
     const user = await authService.createAccount(values)
-    await leadService.submit(values)
-    unlockWithUser(prototype, user)
+    if (user.requiresEmailConfirmation) {
+      ui.dialog = null
+      ui.dialogData = {}
+      render()
+      showToast('Check your email to confirm your MediQo account, then sign in.')
+      return
+    }
+
+    appUser = user
     prototype.selectedPractice = user.clinicName
     savePrototypeState(prototype)
     const pending = ui.pendingQuestion
@@ -401,6 +411,58 @@ async function handleSignup(form) {
   } catch (error) {
     ui.dialogData = { ...ui.dialogData, values, errors: {}, submitting: false, serverError: error?.message || 'Could not create account. Please try again.' }
     render({ focusDialog: true })
+  }
+}
+
+async function handleLogin(form) {
+  const data = new FormData(form)
+  const values = { email: data.get('email') || '', password: data.get('password') || '' }
+  if (!validEmail(values.email) || !String(values.password).trim()) {
+    ui.dialogData = { values: { email: values.email }, submitting: false, serverError: 'Enter your work email and password.' }
+    render({ focusDialog: true })
+    return
+  }
+
+  ui.dialogData = { values: { email: values.email }, submitting: true, serverError: '' }
+  render()
+  try {
+    const user = await authService.signIn(values)
+    appUser = user
+    if (user?.clinicName) prototype.selectedPractice = user.clinicName
+    savePrototypeState(prototype)
+    ui.dialog = null
+    ui.dialogData = {}
+    render()
+    showToast('Signed in to MediQo')
+    const pending = ui.pendingQuestion
+    if (pending) {
+      ui.pendingQuestion = ''
+      await submitQuestion(pending)
+    }
+  } catch (error) {
+    ui.dialogData = { values: { email: values.email }, submitting: false, serverError: error?.message || 'Could not sign in. Please try again.' }
+    render({ focusDialog: true })
+  }
+}
+
+async function bootstrapAuth() {
+  if (!authService.isConfigured()) return
+  try {
+    const restoredUser = await authService.getCurrentUser()
+    if (restoredUser) {
+      appUser = restoredUser
+      if (restoredUser.clinicName) prototype.selectedPractice = restoredUser.clinicName
+      savePrototypeState(prototype)
+      render()
+    }
+
+    await authService.onAuthStateChange((user) => {
+      appUser = user
+      if (user?.clinicName) prototype.selectedPractice = user.clinicName
+      render()
+    })
+  } catch (error) {
+    console.warn('MediQo auth session could not be restored.', error)
   }
 }
 
@@ -551,6 +613,8 @@ root.addEventListener('click', async (event) => {
   if (action === 'toggle-mobile-nav') { ui.mobileOpen = !ui.mobileOpen; render(); return }
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
+  if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'connect-pms') { openDialog('pms'); return }
   if (action === 'help') { openDialog('help'); return }
   if (action === 'evidence-info') { openDialog('evidence'); return }
@@ -591,6 +655,9 @@ root.addEventListener('submit', async (event) => {
   }
   if (form.matches('[data-signup-form]')) {
     event.preventDefault(); await handleSignup(form); return
+  }
+  if (form.matches('[data-login-form]')) {
+    event.preventDefault(); await handleLogin(form); return
   }
   if (form.matches('[data-trial-request-form]')) {
     event.preventDefault(); await handleTrialRequest(form); return
