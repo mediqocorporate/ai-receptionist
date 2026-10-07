@@ -13,7 +13,8 @@ import { matchDemoQuestion } from '../src/lib/question-matcher.js'
 
 test('signup gate uses Elly approved retention and benefit copy', () => {
   const html = renderSignupDialog()
-  assert.match(html, /Don't lose your answers\./)\n  assert.match(html, /Keep using <span>MediQo<\/span> for free\./)
+  assert.match(html, /Don't lose your answers\./)
+  assert.match(html, /Keep using <span>MediQo<\/span> for free\./)
   assert.match(html, /Create a free account to save this conversation, keep asking questions and access tools built for Australian general practice\./)
   for (const copy of [
     'Save your questions and answers',
