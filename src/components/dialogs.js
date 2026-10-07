@@ -39,11 +39,25 @@ export function renderSignupDialog({ errors = {}, values = {}, submitting = fals
           <label class="field"><span>Password</span><div class="password-wrap"><input type="password" name="password" value="${escapeHtml(values.password||'')}" placeholder="Create a password" aria-describedby="password-error"/><button type="button" class="password-toggle" data-action="toggle-password" aria-label="Show password">${icon('eye',18)}</button></div>${fieldError('password',errors)}</label>
           <fieldset class="field location-field"><legend>Locations <small>(select all that apply)</small></legend><div class="location-options">${locationOptions(checked)}</div>${fieldError('locations',errors)}</fieldset>
           <button class="gradient-submit" type="submit" ${submitting?'disabled':''}>${submitting?'<span class="spinner"></span> Creating account…':`Create account ${icon('chevron',18)}`}</button>
-          <p class="terms">By creating an account, you agree to our <a href="#" data-action="terms">Terms of Service</a> and <a href="#" data-action="privacy">Privacy Policy</a>.</p>
+          <p class="terms">Already have an account? <button type="button" class="text-button" data-action="sign-in">Sign in</button></p>\n          <p class="terms">By creating an account, you agree to our <a href="#" data-action="terms">Terms of Service</a> and <a href="#" data-action="privacy">Privacy Policy</a>.</p>
         </form>
       </div>
     </section>
   </div>`
+}
+
+
+export function renderLoginDialog({ values = {}, submitting = false, serverError = '' } = {}) {
+  return `<div class="dialog-backdrop" data-dialog="login"><section class="dialog compact-dialog login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
+    <div class="dialog-icon purple">${icon('lock',24)}</div><h2 id="login-title">Sign in to MediQo</h2><p>Continue with your MediQo Practice Manager account.</p>
+    ${serverError ? `<div class="form-alert">${icon('alert',16)} ${escapeHtml(serverError)}</div>` : ''}
+    <form data-login-form novalidate>
+      <label class="field"><span>Work Email</span><input autofocus type="email" name="email" value="${escapeHtml(values.email||'')}" placeholder="you@practice.com.au" required /></label>
+      <label class="field"><span>Password</span><div class="password-wrap"><input type="password" name="password" placeholder="Your password" required /><button type="button" class="password-toggle" data-action="toggle-password" aria-label="Show password">${icon('eye',18)}</button></div></label>
+      <button class="primary-button" type="submit" ${submitting?'disabled':''}>${submitting?'Signing in…':'Sign in'}</button>
+    </form>
+  </section></div>`
 }
 
 export function renderTrialRequestDialog() {
