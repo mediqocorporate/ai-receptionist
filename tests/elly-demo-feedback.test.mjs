@@ -136,6 +136,6 @@ test('anonymous feature request does not prefill a practice name', () => {
   const start = source.indexOf('function defaultFeatureValues()')
   const end = source.indexOf('function collectLead', start)
   const helper = source.slice(start, end)
-  assert.match(helper, /practice:\s*prototype\.user\?\.clinicName\s*\|\|\s*''/)
+  assert.match(helper, /practice:\s*appUser\?\.clinicName\s*\|\|\s*''/)
   assert.doesNotMatch(helper, /prototype\.selectedPractice/)
 })
