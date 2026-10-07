@@ -2,6 +2,7 @@ import http from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { loadEnvironment, runtimeConfigScript } from './runtime-config.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
@@ -32,6 +33,14 @@ async function existsFile(file) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    const requestPath = decodeURIComponent((req.url || '/').split('?')[0])
+    if (requestPath === '/runtime-config.js') {
+      const environment = await loadEnvironment(projectRoot)
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' })
+      res.end(runtimeConfigScript(environment))
+      return
+    }
+
     let file = safePath(req.url || '/')
     if (await existsFile(file)) {
       const ext = path.extname(file).toLowerCase()
