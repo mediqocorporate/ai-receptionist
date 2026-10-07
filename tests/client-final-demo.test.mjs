@@ -92,7 +92,7 @@ test('logged-in question storage has a dedicated persistent log and Reports tabl
 test('app stores answered questions for signed-in users and activates HubSpot embeds', () => {
   const source = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8')
   assert.match(source, /prototype\.questionLog/)
-  assert.match(source, /if \(prototype\.user\)/)
+  assert.match(source, /if \(appUser\)/)
   assert.match(source, /js-ap1\.hsforms\.net\/forms\/embed\/442479260\.js/)
   assert.match(source, /MeetingsEmbedCode\.js/)
 })
