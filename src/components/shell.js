@@ -52,6 +52,7 @@ export function renderShell({ path = '/', content = '', alertsOpen = false, user
         </button>
         ${userMenuOpen ? `<div class="user-menu" role="menu">
           <button type="button" role="menuitem" data-action="help">Help & keyboard tips</button>
+          <button type="button" role="menuitem" data-action="sign-out">Sign out</button>
           ${devMode ? '<button type="button" role="menuitem" data-action="reset-prototype">Reset local data</button>' : ''}
         </div>` : ''}
       </div>` : ''}
@@ -74,7 +75,9 @@ export function renderShell({ path = '/', content = '', alertsOpen = false, user
           </div>` : ''}
         </div>
         <button class="help-button" type="button" data-action="help">${icon('help', 18)}<span>Help</span></button>
-        ${signedIn ? `<button class="top-avatar" type="button" data-action="toggle-user-menu-top" aria-label="${escapeHtml(role)} menu"><span class="avatar">${profileInitials}</span>${icon('down', 15)}</button>` : ''}
+        ${signedIn
+          ? `<button class="top-avatar" type="button" data-action="toggle-user-menu-top" aria-label="${escapeHtml(role)} menu"><span class="avatar">${profileInitials}</span>${icon('down', 15)}</button>`
+          : '<button class="help-button auth-button" type="button" data-action="sign-in"><span>Sign in</span></button>'}
       </header>
       <main class="page-area" id="page-content">${content}</main>
     </section>
