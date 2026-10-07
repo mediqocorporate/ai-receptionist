@@ -59,7 +59,7 @@ function pageContent() {
     if (ui.error && ui.chat?.question) return renderAssistantError(ui.chat.question, ui.error)
     return renderAskHome({ signedIn: Boolean(appUser), history: prototype.questionHistory })
   }
-  if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides, { practiceName: prototype.selectedPractice || 'Riverside Medical Centre', targetDate: 'March 2027' })
+  if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides, { practiceName: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre', targetDate: 'March 2027' })
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
   if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides, questionLog: prototype.questionLog })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)
@@ -244,7 +244,7 @@ function defaultLeadValues() {
     lastName: appUser?.lastName || '',
     jobTitle: appUser?.jobTitle || 'Practice Manager',
     email: appUser?.email || '',
-    locations: appUser?.locations?.length ? prototype.user.locations : ['NSW'],
+    locations: appUser?.locations?.length ? appUser.locations : ['NSW'],
   }
 }
 
