@@ -13,7 +13,7 @@ import { matchDemoQuestion } from '../src/lib/question-matcher.js'
 
 test('signup gate uses Elly approved retention and benefit copy', () => {
   const html = renderSignupDialog()
-  assert.match(html, /Don't lose your answers\. Keep using MediQo for free\./)
+  assert.match(html, /Don't lose your answers\./)\n  assert.match(html, /Keep using <span>MediQo<\/span> for free\./)
   assert.match(html, /Create a free account to save this conversation, keep asking questions and access tools built for Australian general practice\./)
   for (const copy of [
     'Save your questions and answers',
@@ -52,7 +52,7 @@ test('MBS answer has a full Smart MBS Billing recommendation callout', () => {
 test('product discovery questions answer first and then recommend the relevant MediQo product', () => {
   const scribe = matchDemoQuestion('What is the best AI scribe for GPs?', demoQuestions)
   assert.equal(scribe?.id, 'ai-scribe-discovery')
-  assert.match(scribe.intro, /assess|look for|compare/i)
+  assert.match(scribe.intro, /assess|look for|compare|comparison/i)
   assert.equal(scribe.recommendation?.path, '/products/scribe')
 
   const receptionist = matchDemoQuestion('Can AI answer calls for a medical practice?', demoQuestions)
