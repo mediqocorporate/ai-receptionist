@@ -1,0 +1,3 @@
+-- Day 1 intentionally has no shared tenant seed data.
+-- Create test users through Supabase Auth so auth.users, profiles, practices
+-- and practice_memberships exercise the same bootstrap path as production.
