@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createMediQoAnswer, extractResponseText } from '../netlify/functions/_shared/openai.mjs'
+import { createMediQoAnswer, extractResponseText, INTERACTIVE_OPENAI_TIMEOUT_MS } from '../netlify/functions/_shared/openai.mjs'
 
 test('extractResponseText reads Responses API output items', () => {
   const payload = { output: [{ type: 'message', content: [{ type: 'output_text', text: '{"intro":"Hello"}' }] }] }
@@ -119,7 +119,7 @@ test('interactive adapter defaults to GPT-6 Luna with no reasoning', async () =>
 
   assert.equal(request.model, 'gpt-6-luna')
   assert.deepEqual(request.reasoning, { effort: 'none' })
-  assert.equal(request.max_output_tokens, 1600)
+  assert.equal(request.max_output_tokens, 1200)
 })
 
 
@@ -146,4 +146,9 @@ test('JSON mode normalizes loose risk and recommendation shapes safely', async (
   assert.equal(result.answer.risk, true)
   assert.equal(result.answer.recommendation, null)
   assert.deepEqual(result.answer.sections[0].items, ['Confirm access'])
+})
+
+
+test('interactive OpenAI timeout leaves headroom under the local Netlify 30-second limit', () => {
+  assert.equal(INTERACTIVE_OPENAI_TIMEOUT_MS, 27000)
 })
