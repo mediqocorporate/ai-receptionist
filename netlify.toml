@@ -21,6 +21,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/policy-document"
+  to = "/.netlify/functions/policy-document"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
