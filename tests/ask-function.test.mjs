@@ -73,3 +73,17 @@ test('authenticated request claims prior anonymous history before asking', async
   assert.match(response.headers?.['Set-Cookie'] || '', /^mediqo_anon=;/)
   assert.match(response.headers['Set-Cookie'], /Max-Age=0/)
 })
+
+test('a stale anonymous cookie claimed by another account does not block an authenticated user', async () => {
+  let asked = false
+  const handler = createAskHandler({
+    authenticate: async () => ({ userId: 'u2', practiceId: 'p2', email: 'b@example.com' }),
+    createServer: () => ({ claimAnonymous: async () => { throw new Error('anonymous_session_already_claimed') } }),
+    hashFn: async (value) => `hash:${value}`,
+    processAskFn: async () => { asked = true; return { statusCode: 200, body: { ok: true } } },
+  })
+  const response = await handler(event({ authorization: 'Bearer good', cookie: 'mediqo_anon=old-owner', body: { question: 'Hello' } }))
+  assert.equal(response.statusCode, 200)
+  assert.equal(asked, true)
+  assert.match(response.headers['Set-Cookie'], /Max-Age=0/)
+})
