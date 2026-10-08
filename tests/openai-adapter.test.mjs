@@ -25,7 +25,7 @@ test('createMediQoAnswer keeps the OpenAI key server-side and requests structure
 
   const result = await createMediQoAnswer({
     apiKey: 'sk-test-secret',
-    model: 'gpt-5.6',
+    model: 'gpt-6.1-sol',
     question: 'What should our practice do?',
     safetyIdentifier: 'user_hash',
     fetchImpl,
@@ -33,7 +33,7 @@ test('createMediQoAnswer keeps the OpenAI key server-side and requests structure
 
   assert.equal(request.url, 'https://api.openai.com/v1/responses')
   assert.equal(request.options.headers.Authorization, 'Bearer sk-test-secret')
-  assert.equal(request.body.model, 'gpt-5.6')
+  assert.equal(request.body.model, 'gpt-6.1-sol')
   assert.equal(request.body.store, false)
   assert.equal(request.body.max_output_tokens, 1600)
   assert.equal(request.body.safety_identifier, 'user_hash')
