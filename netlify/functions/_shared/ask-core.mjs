@@ -1,3 +1,13 @@
+export function answerToPlainText(answer = {}) {
+  const lines = [answer.intro]
+  for (const section of answer.sections || []) {
+    if (section.title) lines.push(section.title)
+    if (section.body) lines.push(section.body)
+    for (const item of section.items || []) lines.push(`- ${item}`)
+  }
+  return lines.filter(Boolean).join('\n\n')
+}
+
 export async function processAsk({ question, conversationId = null, actor = null, anonymousTokenHash = null }, deps) {
   const cleanQuestion = String(question || '').trim()
   if (!cleanQuestion) return { statusCode: 400, body: { code: 'question_required', message: 'Question is required.' } }
@@ -22,7 +32,7 @@ export async function processAsk({ question, conversationId = null, actor = null
       practiceId: actor?.practiceId || null,
       anonymousSessionId: reservation?.sessionId || null,
       question: cleanQuestion,
-      answerText: generated.answer.intro,
+      answerText: answerToPlainText(generated.answer),
       answerJson: generated.answer,
       model: generated.model,
       responseId: generated.responseId,
