@@ -44,3 +44,50 @@ test('createMediQoAnswer keeps the OpenAI key server-side and requests structure
   assert.deepEqual(result.answer.sources, [])
   assert.deepEqual(result.answer.relatedResources, [])
 })
+
+
+test('Terra live Q&A defaults to no reasoning for interactive latency', async () => {
+  let request
+  const fetchImpl = async (_url, options) => {
+    request = JSON.parse(options.body)
+    return new Response(JSON.stringify({
+      id: 'resp_fast',
+      status: 'completed',
+      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({
+        intro: 'Fast answer.',
+        sections: [{ title: 'Next', body: 'Do this.', items: [] }],
+        risk: false,
+        relatedQuestions: [],
+        recommendation: null
+      }) }] }]
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+
+  await createMediQoAnswer({
+    apiKey: 'sk-test-secret',
+    model: 'gpt-5.6-terra',
+    question: 'How should I prepare?',
+    fetchImpl,
+  })
+
+  assert.deepEqual(request.reasoning, { effort: 'none' })
+})
+
+test('incomplete OpenAI structured output is reported before JSON parsing', async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({
+    id: 'resp_incomplete',
+    status: 'incomplete',
+    incomplete_details: { reason: 'max_output_tokens' },
+    output: [{ type: 'message', content: [{ type: 'output_text', text: '{"intro":"truncated"' }] }]
+  }), { status: 200, headers: { 'content-type': 'application/json' } })
+
+  await assert.rejects(
+    () => createMediQoAnswer({
+      apiKey: 'sk-test-secret',
+      model: 'gpt-5.6-terra',
+      question: 'Question',
+      fetchImpl,
+    }),
+    /incomplete.*max_output_tokens/i,
+  )
+})
