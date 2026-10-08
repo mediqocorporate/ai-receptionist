@@ -92,3 +92,32 @@ test('incomplete OpenAI structured output is reported before JSON parsing', asyn
     /incomplete.*max_output_tokens/i,
   )
 })
+
+
+test('interactive adapter defaults to GPT-6 Luna with no reasoning', async () => {
+  let request
+  const fetchImpl = async (_url, options) => {
+    request = JSON.parse(options.body)
+    return new Response(JSON.stringify({
+      id: 'resp_luna_default',
+      status: 'completed',
+      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({
+        intro: 'Luna answer.',
+        sections: [{ title: 'Next', body: 'Do this.', items: [] }],
+        risk: false,
+        relatedQuestions: [],
+        recommendation: null
+      }) }] }]
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+
+  await createMediQoAnswer({
+    apiKey: 'sk-test-secret',
+    question: 'How should I prepare?',
+    fetchImpl,
+  })
+
+  assert.equal(request.model, 'gpt-6-luna')
+  assert.deepEqual(request.reasoning, { effort: 'none' })
+  assert.equal(request.max_output_tokens, 1600)
+})
