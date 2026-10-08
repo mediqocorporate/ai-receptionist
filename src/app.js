@@ -113,7 +113,7 @@ function dialogMarkup() {
   if (ui.dialog === 'login') return renderLoginDialog(ui.dialogData)
   if (ui.dialog === 'trial-request') return renderTrialRequestDialog(ui.dialogData)
   if (ui.dialog === 'feature-request') return renderFeatureRequestDialog(ui.dialogData)
-  if (ui.dialog === 'pms') return renderPmsDialog()
+  if (ui.dialog === 'pms') return renderPmsDialog(ui.dialogData)
   if (ui.dialog === 'help') return renderHelpDialog()
   if (ui.dialog === 'evidence') return renderEvidenceDialog()
   if (ui.dialog === 'report') return renderReportDialog(ui.dialogData.reportId, { savedAnswerIds: prototype.savedAnswerIds, accreditationOverview: ui.accreditation.overview })
@@ -777,13 +777,14 @@ root.addEventListener('click', async (event) => {
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
   if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
-  if (action === 'back-to-ask-home') { ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.error = ''; render(); window.scrollTo({ top: 0, behavior: 'auto' }); return }
-  if (action === 'connect-pms') { openDialog('pms'); return }
+  if (action === 'back-to-ask-home') { location.assign('/'); return }
+  if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
+  if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
+  if (action === 'pms-continue') { const form = actionEl.closest('.pms-connection-form'); ui.dialogData = { ...ui.dialogData, step: 3, siteId: form?.querySelector('[name="siteId"]')?.value || '', pairKey: form?.querySelector('[name="pairKey"]')?.value || '' }; render({ focusDialog: true }); return }
   if (action === 'help') { openDialog('help'); return }
   if (action === 'evidence-info') { openDialog('evidence'); return }
   if (action === 'retry-accreditation') { await loadAccreditationOverview(); return }
   if (action === 'close-dialog') { closeDialog(); return }
-  if (action === 'pms-demo-confirm') { await pmsService.connect(); closeDialog(); showToast('PMS selection saved'); return }
   if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
   if (action === 'retry-question') { if (ui.failedQuestion) { const question = ui.failedQuestion; ui.failedQuestion = ''; ui.error = ''; await submitQuestion(question) } return }
   if (action === 'ask-accreditation') { navigate('/'); await submitQuestion('For accreditation, what certificates do I need from our doctors?'); return }
