@@ -207,35 +207,10 @@ for select to authenticated using (true);
 
 create policy accreditation_cycles_select_member on public.accreditation_cycles
 for select to authenticated using (public.is_practice_member(practice_id));
-create policy accreditation_cycles_insert_manager on public.accreditation_cycles
-for insert to authenticated with check (public.has_practice_role(practice_id, array['owner','admin','practice_manager']::text[]));
-create policy accreditation_cycles_update_manager on public.accreditation_cycles
-for update to authenticated
-using (public.has_practice_role(practice_id, array['owner','admin','practice_manager']::text[]))
-with check (public.has_practice_role(practice_id, array['owner','admin','practice_manager']::text[]));
-
 create policy practice_requirements_select_member on public.practice_requirements
 for select to authenticated using (public.is_practice_member(practice_id));
-create policy practice_requirements_insert_manager on public.practice_requirements
-for insert to authenticated with check (public.has_practice_role(practice_id, array['owner','admin','practice_manager']::text[]));
-create policy practice_requirements_update_manager on public.practice_requirements
-for update to authenticated
-using (public.has_practice_role(practice_id, array['owner','admin','practice_manager']::text[]))
-with check (public.has_practice_role(practice_id, array['owner','admin','practice_manager']::text[]));
-
 create policy readiness_responses_select_member on public.readiness_responses
 for select to authenticated using (public.is_practice_member(practice_id));
-create policy readiness_responses_insert_member on public.readiness_responses
-for insert to authenticated
-with check (
-  public.is_practice_member(practice_id)
-  and user_id = auth.uid()
-);
-create policy readiness_responses_update_self on public.readiness_responses
-for update to authenticated
-using (public.is_practice_member(practice_id) and user_id = auth.uid())
-with check (public.is_practice_member(practice_id) and user_id = auth.uid());
-
 insert into public.accreditation_standard_versions (
   id, code, name, edition, workspace_type, is_active
 ) values (
