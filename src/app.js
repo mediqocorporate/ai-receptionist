@@ -87,7 +87,7 @@ function pageContent() {
     signedIn: Boolean(appUser),
   })
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
-  if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides, questionLog: prototype.questionLog })
+  if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverview: ui.accreditation.overview, questionLog: prototype.questionLog })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)
   const product = currentProduct()
   if (product) return renderProductPage(product, ui.calendarSelection[product.slug] || {})
@@ -116,7 +116,7 @@ function dialogMarkup() {
   if (ui.dialog === 'pms') return renderPmsDialog()
   if (ui.dialog === 'help') return renderHelpDialog()
   if (ui.dialog === 'evidence') return renderEvidenceDialog()
-  if (ui.dialog === 'report') return renderReportDialog(ui.dialogData.reportId, { savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides })
+  if (ui.dialog === 'report') return renderReportDialog(ui.dialogData.reportId, { savedAnswerIds: prototype.savedAnswerIds, accreditationOverview: ui.accreditation.overview })
   if (ui.dialog === 'document') {
     const template = policyTemplates.find((item) => item.id === ui.dialogData.templateId)
     return renderDocumentWizard(template, ui.dialogData.values || {}, ui.dialogData.generated || false)
@@ -635,9 +635,9 @@ function handleDocumentForm(form) {
 }
 
 function downloadReport(reportId = 'practice') {
-  const accreditation = accreditationSummary(prototype.accreditationOverrides)
+  const accreditation = accreditationSummary(ui.accreditation.overview)
   const reportCopy = {
-    accreditation: ['Accreditation Readiness Summary', `Current readiness: ${accreditation.score}%`, `Priority gaps: ${accreditation.priorityGaps}`, `Upcoming expiry: ${accreditation.upcomingExpiry}`],
+    accreditation: ['Accreditation Readiness Summary', `Quick Check coverage: ${accreditation.coveragePercent}%`, `Appears Ready: ${accreditation.appearsReady}`, `Needs Attention: ${accreditation.needsAttention}`, `Confirmed Gap: ${accreditation.confirmedGaps}`, `Not Checked: ${accreditation.notChecked}`],
     policies: ['Policy Coverage Summary', 'Current policies: 14', 'Due for review: 3', 'Priority areas: 2'],
     training: ['Training & Expiry Summary', 'Due soon: 4', 'Current: 18', 'Needs evidence: 2'],
     advice: ['Recent Advice / Saved Answers', `Saved practice answers: ${Math.max(3, prototype.savedAnswerIds.length)}`],
