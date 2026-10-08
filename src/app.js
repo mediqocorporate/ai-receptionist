@@ -14,6 +14,7 @@ import { leadService } from './services/lead-service.js'
 import { questionService } from './services/question-service.js'
 import { pmsService } from './services/pms-service.js'
 import { accreditationService } from './services/accreditation-service.js'
+import { policyDocumentService } from './services/policy-document-service.js'
 import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './lib/persistence.js'
 import { validateSignup } from './lib/validation.js'
 import { canAskWithoutSignup, recordAnsweredQuestion } from './lib/prototype-rules.js'
@@ -40,6 +41,7 @@ const ui = {
   loading: false,
   error: '',
   policyCategory: 'All',
+  policyDocuments: { loading: false, error: '', items: [] },
   openAlertId: null,
   calendarSelection: {},
   pendingQuestion: '',
@@ -85,7 +87,7 @@ function pageContent() {
     practiceName: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre',
     signedIn: Boolean(appUser),
   })
-  if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
+  if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory, savedDocuments: ui.policyDocuments.items, loading: ui.policyDocuments.loading, error: ui.policyDocuments.error })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)
   const product = currentProduct()
   if (product) return renderProductPage(product, ui.calendarSelection[product.slug] || {})
@@ -115,8 +117,14 @@ function dialogMarkup() {
   if (ui.dialog === 'help') return renderHelpDialog()
   if (ui.dialog === 'evidence') return renderEvidenceDialog()
   if (ui.dialog === 'document') {
-    const template = policyTemplates.find((item) => item.id === ui.dialogData.templateId)
-    return renderDocumentWizard(template, ui.dialogData.values || {}, ui.dialogData.generated || false)
+    const template = policyTemplates.find((item) => item.id === ui.dialogData.templateId) || null
+    return renderDocumentWizard(
+      template,
+      ui.dialogData.values || {},
+      ui.dialogData.generated || false,
+      ui.dialogData.draft || null,
+      { submitting: Boolean(ui.dialogData.submitting), error: ui.dialogData.serverError || '' },
+    )
   }
   if (ui.dialog === 'template-preview') {
     const template = policyTemplates.find((item) => item.id === ui.dialogData.templateId)
@@ -147,7 +155,8 @@ function render({ focusDialog = false } = {}) {
     const id = ui.query.get('template')
     if (policyTemplates.some((item) => item.id === id)) {
       ui.dialog = 'document'
-      ui.dialogData = { templateId: id, values: {}, generated: false }
+      const template = policyTemplates.find((item) => item.id === id)
+      ui.dialogData = { templateId: id, values: defaultDocumentValues(template), generated: false, draft: null, submitting: false, serverError: '' }
       history.replaceState({}, '', '/policies')
       ui.query = new URLSearchParams()
       render({ focusDialog: true })
@@ -215,6 +224,7 @@ function navigate(target) {
   render()
   window.scrollTo({ top: 0, behavior: 'auto' })
   if (ui.path === '/accreditation' && appUser) void loadAccreditationOverview()
+  if (ui.path === '/policies' && appUser) void loadPolicyDocuments()
 }
 
 async function submitQuestion(rawQuestion) {
@@ -518,6 +528,25 @@ async function syncAuthenticatedAccountState(user) {
   }
 }
 
+async function loadPolicyDocuments({ renderAfter = true } = {}) {
+  if (!appUser || !policyDocumentService.isLive()) {
+    ui.policyDocuments = { loading: false, error: '', items: [] }
+    if (renderAfter) render()
+    return
+  }
+  ui.policyDocuments.loading = true
+  ui.policyDocuments.error = ''
+  if (renderAfter) render()
+  try {
+    ui.policyDocuments.items = await policyDocumentService.list()
+  } catch (error) {
+    ui.policyDocuments.error = error?.message || 'Could not load your practice documents.'
+  } finally {
+    ui.policyDocuments.loading = false
+    if (renderAfter) render()
+  }
+}
+
 async function bootstrapAuth() {
   if (!authService.isConfigured()) return
   try {
@@ -529,6 +558,7 @@ async function bootstrapAuth() {
       savePrototypeState(prototype)
       render()
       if (ui.path === '/accreditation') await loadAccreditationOverview()
+      if (ui.path === '/policies') await loadPolicyDocuments()
     }
 
     await authService.onAuthStateChange(async (user) => {
@@ -537,6 +567,8 @@ async function bootstrapAuth() {
       if (user) await syncAuthenticatedAccountState(user)
       render()
       if (user && ui.path === '/accreditation') await loadAccreditationOverview()
+      if (user && ui.path === '/policies') await loadPolicyDocuments()
+      if (!user) ui.policyDocuments = { loading: false, error: '', items: [] }
     })
   } catch (error) {
     console.warn('MediQo auth session could not be restored.', error)
@@ -617,18 +649,91 @@ function renderPolicyPreview(template) {
   openDialog('template-preview', { templateId: template.id })
 }
 
-function defaultDocumentValues() {
-  return { practiceName: prototype.selectedPractice || 'Riverside Medical Centre', owner: 'Practice Manager', reviewCycle: 'Annual', notes: '' }
+function defaultDocumentValues(template = null) {
+  return {
+    documentType: template?.title || '',
+    considerations: template?.description || '',
+  }
 }
 
-function handleDocumentForm(form) {
-  const data = new FormData(form)
-  ui.dialogData = {
-    ...ui.dialogData,
-    values: Object.fromEntries(data.entries()),
-    generated: true,
+function policyTemplateContext(template) {
+  if (!template) return ''
+  const sample = Array.isArray(template.sampleContent) ? template.sampleContent.map((item) => `- ${item}`).join('\n') : ''
+  return [template.title, template.description, sample].filter(Boolean).join('\n')
+}
+
+async function handleDocumentForm(form) {
+  if (!appUser) {
+    openDialog('login', { values: {}, submitting: false, serverError: 'Sign in to create and save practice documents.' })
+    return
+  }
+  const values = Object.fromEntries(new FormData(form).entries())
+  const template = policyTemplates.find((item) => item.id === ui.dialogData.templateId) || null
+  ui.dialogData = { ...ui.dialogData, values, submitting: true, serverError: '' }
+  render({ focusDialog: true })
+  try {
+    const draft = await policyDocumentService.generate({
+      documentType: values.documentType,
+      considerations: values.considerations || '',
+      templateContext: policyTemplateContext(template),
+    })
+    ui.dialogData = { ...ui.dialogData, values, draft, generated: true, submitting: false, serverError: '' }
+  } catch (error) {
+    ui.dialogData = { ...ui.dialogData, values, generated: false, submitting: false, serverError: error?.message || 'Could not generate this document. Please try again.' }
   }
   render({ focusDialog: true })
+}
+
+async function savePolicyDraft() {
+  if (!appUser || ui.dialog !== 'document' || !ui.dialogData.draft) return
+  const editor = root.querySelector('[data-draft-editor]')
+  const content = String(editor?.value || '').trim()
+  if (content.length < 20) {
+    showToast('Add document content before saving', 'error')
+    return
+  }
+
+  ui.dialogData.submitting = true
+  ui.dialogData.serverError = ''
+  render({ focusDialog: true })
+  try {
+    const values = ui.dialogData.values || {}
+    const draft = ui.dialogData.draft || {}
+    await policyDocumentService.save({
+      title: draft.title || values.documentType || 'Practice document',
+      documentType: values.documentType || draft.title || 'Practice document',
+      considerations: values.considerations || '',
+      content,
+      sourceTemplateId: ui.dialogData.templateId || null,
+      linkedRequirementIds: Array.isArray(ui.dialogData.linkedRequirementIds) ? ui.dialogData.linkedRequirementIds : [],
+    })
+    await loadPolicyDocuments({ renderAfter: false })
+    closeDialog()
+    showToast('Document saved to Policy Library')
+  } catch (error) {
+    ui.dialogData.submitting = false
+    ui.dialogData.serverError = error?.message || 'Could not save this document. Please try again.'
+    render({ focusDialog: true })
+  }
+}
+
+function downloadPolicyDraft() {
+  const editor = root.querySelector('[data-draft-editor]')
+  const content = String(editor?.value || '').trim()
+  if (!content) {
+    showToast('There is no document content to download', 'error')
+    return
+  }
+  const title = String(ui.dialogData.draft?.title || ui.dialogData.values?.documentType || 'MediQo-document').trim()
+  const filename = title.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'MediQo-document'
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${filename}.txt`
+  anchor.click()
+  URL.revokeObjectURL(url)
+  showToast('Document downloaded')
 }
 
 function confirmDemo() {
@@ -676,7 +781,9 @@ root.addEventListener('click', async (event) => {
 
   const createTemplate = event.target.closest('[data-template-id]')
   if (createTemplate && createTemplate.dataset.action === 'create-template') {
-    openDialog('document', { templateId: createTemplate.dataset.templateId, values: defaultDocumentValues(), generated: false })
+    if (!appUser) { openDialog('login', { values: {}, submitting: false, serverError: 'Sign in to create and save practice documents.' }); return }
+    const template = policyTemplates.find((item) => item.id === createTemplate.dataset.templateId) || null
+    openDialog('document', { templateId: createTemplate.dataset.templateId, values: defaultDocumentValues(template), generated: false, draft: null, submitting: false, serverError: '' })
     return
   }
   if (createTemplate && createTemplate.dataset.action === 'preview-template') {
@@ -760,9 +867,10 @@ root.addEventListener('click', async (event) => {
   if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
   if (action === 'retry-question') { if (ui.failedQuestion) { const question = ui.failedQuestion; ui.failedQuestion = ''; ui.error = ''; await submitQuestion(question) } return }
   if (action === 'ask-accreditation') { navigate('/'); await submitQuestion('For accreditation, what certificates do I need from our doctors?'); return }
-  if (action === 'create-document') { openDialog('document', { templateId: 'new-receptionist-onboarding', values: defaultDocumentValues(), generated: false }); return }
-  if (action === 'back-wizard') { ui.dialogData.generated = false; render({focusDialog:true}); return }
-  if (action === 'save-draft') { closeDialog(); showToast('Draft saved to Policy Library'); return }
+  if (action === 'create-document') { if (!appUser) { openDialog('login', { values: {}, submitting: false, serverError: 'Sign in to create and save practice documents.' }); return } openDialog('document', { templateId: null, values: defaultDocumentValues(), generated: false, draft: null, submitting: false, serverError: '' }); return }
+  if (action === 'back-wizard') { ui.dialogData.generated = false; ui.dialogData.submitting = false; ui.dialogData.serverError = ''; render({focusDialog:true}); return }
+  if (action === 'save-draft') { await savePolicyDraft(); return }
+  if (action === 'download-document') { downloadPolicyDraft(); return }
   if (action === 'toggle-alert') { ui.openAlertId = ui.openAlertId === actionEl.dataset.alertId ? null : actionEl.dataset.alertId; render(); return }
   if (action === 'scroll-calendar') { document.querySelector('#demo-calendar')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
   if (action === 'start-trial') { openDialog('trial-request', { errors: {}, values: defaultLeadValues() }); return }
@@ -801,7 +909,7 @@ root.addEventListener('submit', async (event) => {
     event.preventDefault(); await handleFeatureRequest(form); return
   }
   if (form.matches('[data-document-form]')) {
-    event.preventDefault(); handleDocumentForm(form); return
+    event.preventDefault(); await handleDocumentForm(form); return
   }
 })
 
@@ -845,6 +953,7 @@ window.addEventListener('popstate', () => {
   ui.userMenuOpen = false
   render()
   if (ui.path === '/accreditation' && appUser) void loadAccreditationOverview()
+  if (ui.path === '/policies' && appUser) void loadPolicyDocuments()
 })
 
 render()
