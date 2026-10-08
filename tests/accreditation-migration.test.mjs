@@ -72,3 +72,13 @@ test('RACGP5 migrations seed current workspace and keep HOLD inactive', () => {
   assert.match(dataset, /false/i)
   assert.match(dataset, /UNVERIFIED/i)
 })
+
+
+test('practice accreditation state is browser read-only so readiness cannot bypass the server assessment engine', () => {
+  const sql = read(foundationUrl)
+  for (const table of ['accreditation_cycles', 'practice_requirements', 'readiness_responses']) {
+    assert.doesNotMatch(sql, new RegExp(`${table}[^;]+for insert\\s+to authenticated`, 'is'))
+    assert.doesNotMatch(sql, new RegExp(`${table}[^;]+for update\\s+to authenticated`, 'is'))
+    assert.doesNotMatch(sql, new RegExp(`${table}[^;]+for delete\\s+to authenticated`, 'is'))
+  }
+})
