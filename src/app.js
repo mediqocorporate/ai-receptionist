@@ -55,6 +55,10 @@ const ui = {
     filter: 'ALL',
     overview: null,
     requirement: null,
+    exploreStep: 0,
+    setup: { values: {}, submitting: false, error: '', complete: false },
+    practiceInformation: null,
+    practiceInformationLoading: false,
   },
   lastFocused: null,
 }
@@ -592,6 +596,56 @@ async function loadAccreditationOverview({ preserveView = true } = {}) {
   }
 }
 
+async function loadAccreditationPracticeInformation() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId) return
+  ui.accreditation.practiceInformationLoading = true
+  ui.accreditation.error = ''
+  render()
+  try {
+    ui.accreditation.practiceInformation = await accreditationService.practiceInformation({ cycleId })
+  } catch (error) {
+    ui.accreditation.error = error?.message || 'Could not load Practice Information.'
+  } finally {
+    ui.accreditation.practiceInformationLoading = false
+    render()
+  }
+}
+
+async function handleAccreditationSetupForm(form) {
+  if (!appUser || ui.accreditation.setup?.submitting) return
+  const data = new FormData(form)
+  const assessmentValue = String(data.get('assessmentScheduled') || 'UNKNOWN')
+  const values = {
+    journeyStatus: String(data.get('journeyStatus') || 'NOT_SURE'),
+    assessmentScheduled: assessmentValue,
+    targetAssessmentDate: String(data.get('targetAssessmentDate') || ''),
+    accreditingAgencyId: String(data.get('accreditingAgencyId') || ''),
+    services: String(data.get('services') || ''),
+    notes: String(data.get('notes') || ''),
+  }
+  ui.accreditation.setup = { values, submitting: true, error: '', complete: false }
+  render()
+  try {
+    const result = await accreditationService.setup({
+      journeyStatus: values.journeyStatus,
+      assessmentScheduled: assessmentValue === 'YES' ? true : assessmentValue === 'NO' ? false : null,
+      targetAssessmentDate: values.targetAssessmentDate || null,
+      accreditingAgencyId: values.accreditingAgencyId || null,
+      practiceContext: { services: values.services, notes: values.notes },
+    })
+    ui.accreditation.overview = result.overview
+    ui.accreditation.requirement = null
+    ui.accreditation.practiceInformation = null
+    ui.accreditation.setup = { values, submitting: false, error: '', complete: true }
+    ui.accreditation.view = 'setup'
+    showToast('Accreditation workspace set up')
+  } catch (error) {
+    ui.accreditation.setup = { values, submitting: false, error: error?.message || 'Could not save accreditation setup.', complete: false }
+  }
+  render()
+}
+
 async function answerAccreditationQuestion(button) {
   const overview = ui.accreditation.overview
   if (!overview?.cycle?.id || ui.accreditation.submitting) return
@@ -817,6 +871,7 @@ root.addEventListener('click', async (event) => {
     ui.accreditation.view = accreditationView.dataset.accreditationView || 'overview'
     if (ui.accreditation.view !== 'requirement') ui.accreditation.requirement = null
     render()
+    if (ui.accreditation.view === 'practice-information') await loadAccreditationPracticeInformation()
     return
   }
 
@@ -855,7 +910,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -863,6 +918,12 @@ root.addEventListener('click', async (event) => {
   if (action === 'help') { openDialog('help'); return }
   if (action === 'evidence-info') { openDialog('evidence'); return }
   if (action === 'retry-accreditation') { await loadAccreditationOverview(); return }
+  if (action === 'accreditation-home') { ui.accreditation.view = 'overview'; ui.accreditation.requirement = null; ui.accreditation.setup.error = ''; render(); return }
+  if (action === 'accreditation-explore') { ui.accreditation.view = 'explore'; ui.accreditation.exploreStep = 0; render(); return }
+  if (action === 'accreditation-exit-explore') { ui.accreditation.view = 'overview'; ui.accreditation.exploreStep = 0; render(); return }
+  if (action === 'accreditation-explore-next') { ui.accreditation.exploreStep = Math.min(4, Number(ui.accreditation.exploreStep || 0) + 1); render(); return }
+  if (action === 'accreditation-explore-prev') { ui.accreditation.exploreStep = Math.max(0, Number(ui.accreditation.exploreStep || 0) - 1); render(); return }
+  if (action === 'accreditation-start-setup') { ui.accreditation.view = 'setup'; ui.accreditation.setup = { values: { journeyStatus: 'NOT_SURE', assessmentScheduled: 'UNKNOWN', targetAssessmentDate: '', accreditingAgencyId: '', services: '', notes: '' }, submitting: false, error: '', complete: false }; render(); return }
   if (action === 'close-dialog') { closeDialog(); return }
   if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
   if (action === 'retry-question') { if (ui.failedQuestion) { const question = ui.failedQuestion; ui.failedQuestion = ''; ui.error = ''; await submitQuestion(question) } return }
@@ -910,6 +971,9 @@ root.addEventListener('submit', async (event) => {
   }
   if (form.matches('[data-document-form]')) {
     event.preventDefault(); await handleDocumentForm(form); return
+  }
+  if (form.matches('[data-accreditation-setup-form]')) {
+    event.preventDefault(); await handleAccreditationSetupForm(form); return
   }
 })
 
