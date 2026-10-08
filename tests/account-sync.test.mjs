@@ -75,3 +75,22 @@ test('account sync claims anonymous history before CRM processing', async () => 
   assert.match(response.headers?.['Set-Cookie'] || '', /^mediqo_anon=;/)
   assert.match(response.headers['Set-Cookie'], /Max-Age=0/)
 })
+
+test('a stale anonymous cookie claimed by another account does not block CRM sync', async () => {
+  const order = []
+  const server = {
+    claimAnonymous: async () => { order.push(['claim']); throw new Error('anonymous_session_already_claimed') },
+    upsertCrmJob: async () => { order.push(['job']); return { id: 'job1' } },
+    updateCrmJob: async () => {},
+  }
+  const handler = createAccountSyncHandler({
+    env: {}, authenticate: async () => actor, createServer: () => server,
+    hashFn: async (value) => `hash:${value}`,
+    syncContact: async () => ({ status: 'pending', reason: 'hubspot_not_configured' }),
+  })
+  const response = await handler(event({ cookie: 'mediqo_anon=old-owner' }))
+  assert.equal(response.statusCode, 202)
+  assert.deepEqual(order, [['claim'], ['job']])
+  assert.match(response.headers?.['Set-Cookie'] || '', /^mediqo_anon=;/)
+  assert.match(response.headers['Set-Cookie'], /Max-Age=0/)
+})
