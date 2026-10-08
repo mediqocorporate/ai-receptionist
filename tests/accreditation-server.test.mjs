@@ -126,3 +126,30 @@ test('overview returns presentation-ready requirements and defaults unassessed r
   assert.equal(overview.requirements[1].readinessStatus, 'NOT_CHECKED')
   assert.equal(overview.statusCounts.NOT_CHECKED, 1)
 })
+
+
+test('overview selects the next question from P1 requirement priority even if question priority metadata drifts', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('accreditation_cycles?')) return json([{ id: 'c1', practice_id: 'p1', standard_version_id: 'RACGP5', status: 'ACTIVE', started_at: '2026-10-09T00:00:00Z' }])
+    if (url.includes('accreditation_standard_versions?')) return json([{ id: 'RACGP5', code: 'RACGP5', name: 'RACGP Standards for general practices', edition: '5th edition', workspace_type: 'CURRENT' }])
+    if (url.includes('accreditation_requirements?')) return json([
+      { id: 'R1', indicator: 'C1.1A', criterion_description: 'One', classification: 'MANDATORY', quick_check_priority: 'P1', critical_safety_area: false, plain_english_requirement: 'One requirement' },
+    ])
+    if (url.includes('accreditation_questions?')) return json([
+      { id: 'Q1', requirement_id: 'R1', wording: 'Question?', quick_check_priority: 'P2', why_we_ask: 'Why' },
+    ])
+    if (url.includes('accreditation_answer_options?')) return json([{ question_id: 'Q1', option_order: 1, label: 'Yes' }])
+    if (url.includes('accreditation_evidence_criteria?')) return json([])
+    if (url.includes('practice_requirements?')) return json([])
+    if (url.includes('readiness_responses?')) return json([])
+    throw new Error(`unexpected ${url}`)
+  }
+
+  const server = createSupabaseServer({ env, fetchImpl })
+  const overview = await server.getAccreditationOverview({ practiceId: 'p1', cycleId: 'c1' })
+
+  assert.equal(overview.coverage.answered, 0)
+  assert.equal(overview.coverage.total, 1)
+  assert.equal(overview.nextQuestion?.id, 'Q1')
+  assert.equal(overview.nextQuestion?.priority, 'P1')
+})
