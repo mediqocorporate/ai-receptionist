@@ -119,7 +119,7 @@ test('interactive adapter defaults to GPT-6 Luna with no reasoning', async () =>
 
   assert.equal(request.model, 'gpt-6-luna')
   assert.deepEqual(request.reasoning, { effort: 'none' })
-  assert.equal(request.max_output_tokens, 1200)
+  assert.equal(request.max_output_tokens, 1600)
 })
 
 
