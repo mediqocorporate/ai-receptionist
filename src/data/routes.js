@@ -2,7 +2,6 @@ export const APP_ROUTES = [
   { id: 'ask', label: 'Ask a Question', path: '/', icon: 'message-circle' },
   { id: 'accreditation', label: 'Accreditation Assistant', path: '/accreditation', icon: 'shield-check' },
   { id: 'policies', label: 'Policy Library', path: '/policies', icon: 'file-text' },
-  { id: 'reports', label: 'Reports', path: '/reports', icon: 'bar-chart' },
 ]
 
 export const PRODUCT_ROUTES = [
