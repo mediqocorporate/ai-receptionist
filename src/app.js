@@ -59,6 +59,8 @@ const ui = {
     setup: { values: {}, submitting: false, error: '', complete: false },
     practiceInformation: null,
     practiceInformationLoading: false,
+    comprehensive: null,
+    comprehensiveLoading: false,
   },
   lastFocused: null,
 }
@@ -596,6 +598,22 @@ async function loadAccreditationOverview({ preserveView = true } = {}) {
   }
 }
 
+async function loadAccreditationComprehensiveCheck() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId) return
+  ui.accreditation.comprehensiveLoading = true
+  ui.accreditation.error = ''
+  render()
+  try {
+    ui.accreditation.comprehensive = await accreditationService.comprehensiveCheck({ cycleId })
+  } catch (error) {
+    ui.accreditation.error = error?.message || 'Could not load the Comprehensive Check.'
+  } finally {
+    ui.accreditation.comprehensiveLoading = false
+    render()
+  }
+}
+
 async function loadAccreditationPracticeInformation() {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!appUser || !cycleId) return
@@ -637,6 +655,7 @@ async function handleAccreditationSetupForm(form) {
     ui.accreditation.overview = result.overview
     ui.accreditation.requirement = null
     ui.accreditation.practiceInformation = null
+    ui.accreditation.comprehensive = null
     ui.accreditation.setup = { values, submitting: false, error: '', complete: true }
     ui.accreditation.view = 'setup'
     showToast('Accreditation workspace set up')
@@ -665,6 +684,9 @@ async function answerAccreditationQuestion(button) {
     })
     ui.accreditation.overview = result.overview
     ui.accreditation.requirement = null
+    if (button.dataset.checkMode === 'comprehensive') {
+      ui.accreditation.comprehensive = await accreditationService.comprehensiveCheck({ cycleId: result.overview?.cycle?.id || overview.cycle.id })
+    }
     showToast('Readiness answer saved')
   } catch (error) {
     ui.accreditation.error = error?.message || 'Could not save this readiness answer.'
@@ -872,6 +894,7 @@ root.addEventListener('click', async (event) => {
     if (ui.accreditation.view !== 'requirement') ui.accreditation.requirement = null
     render()
     if (ui.accreditation.view === 'practice-information') await loadAccreditationPracticeInformation()
+    if (ui.accreditation.view === 'comprehensive') await loadAccreditationComprehensiveCheck()
     return
   }
 
@@ -910,7 +933,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, comprehensive: null, comprehensiveLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
