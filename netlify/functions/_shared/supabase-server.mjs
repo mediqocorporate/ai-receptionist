@@ -75,6 +75,15 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
     return parseJson(response)
   }
 
+  async function findAccreditationCycleRow(practiceId, cycleId = null) {
+    const safePracticeId = encodeURIComponent(practiceId)
+    const cycleFilter = cycleId ? `&id=eq.${encodeURIComponent(cycleId)}` : ''
+    const rows = await table(
+      `accreditation_cycles?select=*&practice_id=eq.${safePracticeId}&standard_version_id=eq.RACGP5&status=eq.ACTIVE${cycleFilter}&order=started_at.desc&limit=1`
+    )
+    return Array.isArray(rows) ? (rows[0] || null) : rows
+  }
+
   return {
     async reserveAnonymous(tokenHash) {
       const rows = await rpc('reserve_anonymous_answer', { p_token_hash: tokenHash })
@@ -116,13 +125,12 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       return { conversationId: row?.conversation_id, questionLogId: row?.question_log_id }
     },
 
+    async findAccreditationCycle(practiceId, cycleId = null) {
+      return findAccreditationCycleRow(practiceId, cycleId)
+    },
+
     async getOrCreateAccreditationCycle(practiceId, cycleId = null) {
-      const safePracticeId = encodeURIComponent(practiceId)
-      const cycleFilter = cycleId ? `&id=eq.${encodeURIComponent(cycleId)}` : ''
-      const rows = await table(
-        `accreditation_cycles?select=*&practice_id=eq.${safePracticeId}&standard_version_id=eq.RACGP5&status=eq.ACTIVE${cycleFilter}&order=started_at.desc&limit=1`
-      )
-      const existing = Array.isArray(rows) ? rows[0] : rows
+      const existing = await findAccreditationCycleRow(practiceId, cycleId)
       if (existing) return existing
       if (cycleId) throw new Error('accreditation_cycle_not_found')
 
@@ -132,6 +140,95 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         body: [{ practice_id: practiceId, standard_version_id: 'RACGP5', status: 'ACTIVE' }],
       })
       return Array.isArray(created) ? created[0] : created
+    },
+
+    async getAccreditationAgencies() {
+      const rows = await table('accreditation_agencies?select=id,name&is_active=eq.true&order=name.asc')
+      return Array.isArray(rows) ? rows : []
+    },
+
+    async setupAccreditationWorkspace({
+      practiceId,
+      userId,
+      journeyStatus = 'NOT_SURE',
+      assessmentScheduled = null,
+      targetAssessmentDate = null,
+      accreditingAgencyId = null,
+      practiceContext = {},
+    }) {
+      let cycle = await findAccreditationCycleRow(practiceId)
+      if (!cycle) {
+        const created = await table('accreditation_cycles', {
+          method: 'POST',
+          headers: { Prefer: 'return=representation' },
+          body: [{
+            practice_id: practiceId,
+            standard_version_id: 'RACGP5',
+            status: 'ACTIVE',
+            target_assessment_date: assessmentScheduled === true ? targetAssessmentDate : null,
+          }],
+        })
+        cycle = Array.isArray(created) ? created[0] : created
+      } else {
+        const updated = await table(
+          `accreditation_cycles?id=eq.${encodeURIComponent(cycle.id)}&practice_id=eq.${encodeURIComponent(practiceId)}`,
+          {
+            method: 'PATCH',
+            headers: { Prefer: 'return=representation' },
+            body: { target_assessment_date: assessmentScheduled === true ? targetAssessmentDate : null },
+          },
+        )
+        cycle = Array.isArray(updated) ? (updated[0] || cycle) : (updated || cycle)
+      }
+
+      const profileRows = await table('accreditation_practice_profiles?on_conflict=practice_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: [{
+          practice_id: practiceId,
+          journey_status: journeyStatus,
+          assessment_scheduled: assessmentScheduled,
+          accrediting_agency_id: accreditingAgencyId,
+          practice_context: practiceContext || {},
+          fact_provenance: {
+            journey_status: 'Accreditation setup',
+            assessment_scheduled: 'Accreditation setup',
+            accrediting_agency: accreditingAgencyId ? 'Accreditation setup' : 'Not provided',
+            practice_context: 'Accreditation setup',
+          },
+          setup_completed_at: new Date().toISOString(),
+          created_by_user_id: userId,
+        }],
+      })
+      const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
+      return { cycle, profile }
+    },
+
+    async getAccreditationPracticeInformation({ practiceId, cycleId = null }) {
+      const [practiceRows, profileRows, agencyRows] = await Promise.all([
+        table(`practices?select=id,name,jurisdictions,practice_type&id=eq.${encodeURIComponent(practiceId)}&limit=1`),
+        table(`accreditation_practice_profiles?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`),
+        table('accreditation_agencies?select=id,name&is_active=eq.true&order=name.asc'),
+      ])
+      const practice = Array.isArray(practiceRows) ? practiceRows[0] : practiceRows
+      const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
+      const agencies = Array.isArray(agencyRows) ? agencyRows : []
+      const cycle = await findAccreditationCycleRow(practiceId, cycleId)
+      const agency = agencies.find((item) => item.id === profile?.accrediting_agency_id) || null
+      const context = profile?.practice_context && typeof profile.practice_context === 'object' ? profile.practice_context : {}
+
+      return {
+        facts: [
+          { key: 'practice_name', label: 'Practice name', value: practice?.name || null, provenance: practice?.name ? 'MediQo account' : 'Not provided' },
+          { key: 'jurisdictions', label: 'State / territory', value: Array.isArray(practice?.jurisdictions) ? practice.jurisdictions.join(', ') : null, provenance: Array.isArray(practice?.jurisdictions) && practice.jurisdictions.length ? 'MediQo account' : 'Not provided' },
+          { key: 'practice_type', label: 'Practice type', value: practice?.practice_type || null, provenance: practice?.practice_type ? 'MediQo account' : 'Not provided' },
+          { key: 'journey_status', label: 'Accreditation journey', value: profile?.journey_status || null, provenance: profile?.journey_status ? 'Accreditation setup' : 'Not provided' },
+          { key: 'assessment_date', label: 'Next assessment date', value: cycle?.target_assessment_date || null, provenance: cycle?.target_assessment_date ? 'Accreditation setup' : 'Not provided' },
+          { key: 'accrediting_agency', label: 'Accrediting agency', value: agency?.name || null, provenance: agency?.name ? 'Accreditation setup' : 'Not provided' },
+          { key: 'services', label: 'Services / practice context', value: context.services || null, provenance: context.services ? 'Accreditation setup' : 'Not provided' },
+          { key: 'notes', label: 'Additional practice context', value: context.notes || null, provenance: context.notes ? 'Accreditation setup' : 'Not provided' },
+        ],
+      }
     },
 
     async getPracticeRequirement({ practiceId, cycleId, requirementId }) {
