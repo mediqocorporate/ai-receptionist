@@ -455,6 +455,49 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       }
     },
 
+    async getPracticeSummary(practiceId) {
+      const rows = await table(
+        `practices?select=id,name,jurisdictions,practice_type&id=eq.${encodeURIComponent(practiceId)}&limit=1`
+      )
+      return Array.isArray(rows) ? (rows[0] || null) : rows
+    },
+
+    async listPracticeDocuments(practiceId) {
+      const rows = await table(
+        `practice_documents?select=id,document_group_id,title,document_type,considerations,version,status,source_template_id,linked_requirement_ids,created_at,updated_at&practice_id=eq.${encodeURIComponent(practiceId)}&status=neq.ARCHIVED&order=updated_at.desc`
+      )
+      return Array.isArray(rows) ? rows : []
+    },
+
+    async savePracticeDocument({
+      practiceId,
+      userId,
+      title,
+      documentType,
+      considerations = '',
+      content,
+      sourceTemplateId = null,
+      linkedRequirementIds = [],
+    }) {
+      const rows = await table('practice_documents', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: [{
+          practice_id: practiceId,
+          user_id: userId,
+          title,
+          document_type: documentType,
+          considerations,
+          content,
+          version: 1,
+          status: 'SAVED',
+          source_template_id: sourceTemplateId,
+          linked_requirement_ids: linkedRequirementIds,
+        }],
+      })
+      return Array.isArray(rows) ? rows[0] : rows
+    },
+
     async upsertCrmJob({ userId, practiceId, eventType, payload }) {
       const rows = await table('crm_sync_jobs?on_conflict=user_id,event_type', {
         method: 'POST',
