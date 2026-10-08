@@ -39,7 +39,7 @@ export function renderAccreditationSetup({
           <option value="NO" ${selected(values.assessmentScheduled, 'NO')}>No</option>
         </select></label>
 
-        <label class="field"><span>Assessment date, if known</span><input type="date" name="targetAssessmentDate" value="${escapeHtml(values.targetAssessmentDate || '')}" /><small>Leave this blank if the date is not known. MediQo will not invent a countdown.</small></label>
+        <label class="field"><span>Assessment date, if known</span><input type="date" name="targetAssessmentDate" value="${escapeHtml(values.targetAssessmentDate || '')}" /><small>Leave this blank if the date is not known. MediQo will only use an assessment date you provide.</small></label>
 
         <label class="field"><span>Accrediting agency</span><select name="accreditingAgencyId">
           <option value="">I'm not sure yet</option>
