@@ -23,7 +23,7 @@ export function createAskHandler({
   createServer = () => createSupabaseServer({ env }),
   generateAnswer = ({ question, safetyIdentifier }) => createMediQoAnswer({
     apiKey: env.OPENAI_API_KEY,
-    model: env.OPENAI_MODEL || 'gpt-5.6',
+    model: env.OPENAI_MODEL || 'gpt-6.1-sol',
     question,
     safetyIdentifier,
   }),
