@@ -97,6 +97,11 @@ export function createAskHandler({
           secure: isSecureRequest(event),
           maxAge: 31536000,
         })
+      } else if (actor && anonymousToken) {
+        headers['Set-Cookie'] = buildCookie(ANONYMOUS_COOKIE_NAME, '', {
+          secure: isSecureRequest(event),
+          maxAge: 0,
+        })
       }
       return jsonResponse(result.statusCode, result.body, headers)
     } catch (error) {
