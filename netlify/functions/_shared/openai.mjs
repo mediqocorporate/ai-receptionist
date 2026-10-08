@@ -103,7 +103,7 @@ function firstMessageContent(payload = {}) {
 
 export async function createMediQoAnswer({
   apiKey,
-  model = 'gpt-6.1-sol',
+  model = 'gpt-6-luna',
   question,
   safetyIdentifier,
   reasoningEffort,
