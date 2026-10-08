@@ -9,7 +9,7 @@ test('conversation UI keeps prior Q&A turns instead of replacing the current cha
   assert.match(app, /conversationTurns/)
   assert.match(app, /conversationTurns\.push/)
   assert.match(chat, /renderConversationView/)
-  assert.match(chat, /turns\.map/)
+  assert.match(chat, /safeTurns\.map/)
 })
 
 test('conversation view has a Back action that starts a fresh Ask home conversation', () => {
