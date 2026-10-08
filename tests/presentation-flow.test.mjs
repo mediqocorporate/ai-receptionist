@@ -23,22 +23,43 @@ test('home Medicare suggestion opens the prepared MBS item-number demo', () => {
   assert.match(html, /What MBS item number should we use for a standard GP consultation\?/)
 })
 
-test('phase-one accreditation view is a guided personalised plan', () => {
-  const html = renderAccreditationPage({}, { practiceName: 'Riverside Medical Centre', targetDate: 'March 2027' })
-  assert.match(html, /Your accreditation plan/)
+test('accreditation view is a source-backed RACGP 5th Edition workspace', () => {
+  const html = renderAccreditationPage({
+    overview: {
+      cycle: { id: 'c1', targetAssessmentDate: null },
+      standardVersion: { name: 'RACGP Standards for general practices', edition: '5th edition' },
+      coverage: { answered: 0, total: 20, percent: 0 },
+      statusCounts: { APPEARS_READY: 0, NEEDS_ATTENTION: 0, CONFIRMED_GAP: 0, NOT_CHECKED: 124 },
+      assessedCount: 0,
+      nextAction: 'Start the Quick Readiness Check.',
+    },
+  }, { practiceName: 'Riverside Medical Centre', signedIn: true })
+  assert.match(html, /Accreditation readiness/)
   assert.match(html, /Riverside Medical Centre/)
-  assert.match(html, /March 2027/)
-  assert.match(html, /practical requirements/i)
-  assert.match(html, /Evidence required/)
-  assert.match(html, /Outstanding actions/)
-  assert.match(html, /Phase 2 preview/)
+  assert.match(html, /RACGP 5TH EDITION/i)
+  assert.match(html, /Quick Check coverage/i)
+  assert.match(html, /Not Checked/i)
+  assert.doesNotMatch(html, /% ready|certified|compliant|pass\/fail/i)
 })
 
-test('accreditation view explains the manual workflow MediQo is replacing', () => {
-  const html = renderAccreditationPage()
-  assert.match(html, /From manual preparation to a guided plan/)
-  assert.match(html, /spreadsheets, folders/i)
-  assert.match(html, /guided plan/i)
+test('accreditation view asks for facts instead of practice-manager self-assessment', () => {
+  const html = renderAccreditationPage({
+    view: 'check',
+    overview: {
+      cycle: { id: 'c1' },
+      coverage: { answered: 0, total: 20, percent: 0 },
+      nextQuestion: {
+        id: 'Q1',
+        wording: 'Is the process currently in place?',
+        answerOptions: ['Yes', 'No', "I'm not sure"],
+        priority: 'P1',
+      },
+    },
+  }, { signedIn: true })
+  assert.match(html, /Is the process currently in place\?/)
+  assert.match(html, /I'm not sure/)
+  assert.match(html, /facts, not a self-assessment/i)
+  assert.match(html, /stays Not Checked/i)
 })
 
 test('every product page keeps the lead-capture headline, CTAs and calendar', () => {
