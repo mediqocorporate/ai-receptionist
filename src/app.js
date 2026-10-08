@@ -1,5 +1,5 @@
 import { renderShell } from './components/shell.js'
-import { renderAskHome, renderAnswerView, renderFallbackView, renderComposer, formatMessageTimestamp } from './components/chat.js'
+import { renderAskHome, renderConversationView, renderComposer, formatMessageTimestamp } from './components/chat.js'
 import { renderAccreditationPage } from './components/accreditation.js'
 import { renderPolicyPage, renderDocumentWizard, renderTemplatePreview } from './components/policies.js'
 import { renderReportsPage, renderReportDialog, accreditationSummary } from './components/reports.js'
@@ -34,6 +34,9 @@ const ui = {
   dialog: null,
   dialogData: {},
   chat: null,
+  conversationTurns: [],
+  pendingTurn: null,
+  failedQuestion: '',
   loading: false,
   error: '',
   policyCategory: 'All',
@@ -54,12 +57,18 @@ function currentProduct() {
 
 function pageContent() {
   if (ui.path === '/') {
-    if (ui.loading && ui.chat?.question) {
-      return renderLoadingQuestion(ui.chat.question)
+    const hasConversation = ui.conversationTurns.length > 0 || ui.pendingTurn || ui.failedQuestion
+    if (hasConversation) {
+      return renderConversationView(ui.conversationTurns, {
+        savedAnswerIds: prototype.savedAnswerIds,
+        loading: ui.loading,
+        pendingQuestion: ui.pendingTurn?.question || '',
+        pendingAskedAt: ui.pendingTurn?.askedAt || null,
+        error: ui.error,
+        failedQuestion: ui.failedQuestion,
+        fallbackSuggestions,
+      })
     }
-    if (ui.chat?.answer) return renderAnswerView(ui.chat.answer, ui.chat.question, { saved: prototype.savedAnswerIds.includes(ui.chat.answer.id) })
-    if (ui.chat?.fallback) return renderFallbackView(ui.chat.question, fallbackSuggestions)
-    if (ui.error && ui.chat?.question) return renderAssistantError(ui.chat.question, ui.error)
     return renderAskHome({ signedIn: Boolean(appUser), history: prototype.questionHistory })
   }
   if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides, { practiceName: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre', targetDate: 'March 2027' })
@@ -193,22 +202,23 @@ async function submitQuestion(rawQuestion) {
     return
   }
 
-  const previousChat = ui.chat
+  const askedAt = new Date().toISOString()
   ui.error = ''
+  ui.failedQuestion = ''
+  ui.pendingTurn = { question, askedAt }
   ui.loading = true
-  ui.chat = { question }
   render()
+
   try {
     const result = await assistantService.ask(question, { conversationId: ui.conversationId })
     if (result.signupRequired) {
       ui.pendingQuestion = question
-      ui.chat = previousChat
+      ui.pendingTurn = null
       openDialog('signup', { trial: false, errors: {}, values: defaultSignupValues() })
       return
     }
 
     if (result.answer) {
-      const askedAt = new Date().toISOString()
       if (result.conversationId) ui.conversationId = result.conversationId
 
       if (shouldRecordLocalQuestion({ live: liveAssistant })) {
@@ -230,13 +240,15 @@ async function submitQuestion(rawQuestion) {
       prototype.questionHistory.push({ question, answerId: result.answer.id, askedAt })
       prototype.questionHistory = prototype.questionHistory.slice(-12)
       savePrototypeState(prototype)
-      ui.chat = { question, answer: result.answer }
+      ui.conversationTurns.push({ question, answer: result.answer, askedAt })
     } else {
-      ui.chat = { question, fallback: true }
+      ui.conversationTurns.push({ question, fallback: true, askedAt })
     }
+    ui.pendingTurn = null
   } catch (error) {
+    ui.pendingTurn = null
+    ui.failedQuestion = question
     ui.error = error?.message || 'Please try again.'
-    ui.chat = { question }
   } finally {
     ui.loading = false
     render()
@@ -499,8 +511,7 @@ async function bootstrapAuth() {
   }
 }
 
-function saveCurrentAnswer() {
-  const id = ui.chat?.answer?.id
+function saveCurrentAnswer(id) {
   if (!id) return
   if (!prototype.savedAnswerIds.includes(id)) prototype.savedAnswerIds.push(id)
   savePrototypeState(prototype)
@@ -647,14 +658,15 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'back-to-ask-home') { ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.error = ''; render(); window.scrollTo({ top: 0, behavior: 'auto' }); return }
   if (action === 'connect-pms') { openDialog('pms'); return }
   if (action === 'help') { openDialog('help'); return }
   if (action === 'evidence-info') { openDialog('evidence'); return }
   if (action === 'close-dialog') { closeDialog(); return }
   if (action === 'pms-demo-confirm') { await pmsService.connect(); closeDialog(); showToast('PMS selection saved'); return }
-  if (action === 'save-answer') { saveCurrentAnswer(); return }
-  if (action === 'retry-question') { if (ui.chat?.question) await submitQuestion(ui.chat.question); return }
+  if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
+  if (action === 'retry-question') { if (ui.failedQuestion) { const question = ui.failedQuestion; ui.failedQuestion = ''; ui.error = ''; await submitQuestion(question) } return }
   if (action === 'ask-accreditation') { navigate('/'); await submitQuestion('For accreditation, what certificates do I need from our doctors?'); return }
   if (action === 'create-document') { openDialog('document', { templateId: 'new-receptionist-onboarding', values: defaultDocumentValues(), generated: false }); return }
   if (action === 'back-wizard') { ui.dialogData.generated = false; render({focusDialog:true}); return }
@@ -673,7 +685,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'terms' || action === 'privacy') { event.preventDefault(); showToast('Legal links will connect to MediQo policy pages'); return }
   if (action === 'reset-prototype') {
     if (confirm('Reset local MediQo data in this browser?')) {
-      resetPrototypeState(); prototype = loadPrototypeState(); ui.chat = null; ui.userMenuOpen = false; render(); showToast('Local data reset')
+      resetPrototypeState(); prototype = loadPrototypeState(); ui.chat = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.userMenuOpen = false; render(); showToast('Local data reset')
     }
   }
 })
