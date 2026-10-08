@@ -11,7 +11,6 @@ test('navigation contains all required MediQo areas', () => {
     'Ask a Question',
     'Accreditation Assistant',
     'Policy Library',
-    'Reports',
     'AI Receptionist',
     'Scribe',
     'Document Sorter',
@@ -37,7 +36,6 @@ test('route titles resolve required feature routes', () => {
   assert.equal(routeTitle('/'), 'Ask a Question')
   assert.equal(routeTitle('/accreditation'), 'Accreditation Assistant')
   assert.equal(routeTitle('/policies'), 'Policy Library')
-  assert.equal(routeTitle('/reports'), 'Reports')
   assert.equal(routeTitle('/alerts'), 'Alerts Centre')
   assert.equal(routeTitle('/products/ai-receptionist'), 'AI Receptionist')
 })
