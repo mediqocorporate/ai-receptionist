@@ -81,7 +81,7 @@ export function createPolicyDocumentHandler({
         const documentType = cleanText(body.documentType, 240)
         const considerations = cleanText(body.considerations, 5000)
         const content = cleanText(body.content, 100000)
-        if (title.length < 2 || documentType.length < 2 || content.length < 20) {
+        if (title.length < 2 || documentType.length < 2 || content.length < 2) {
           return jsonResponse(400, { code: 'document_invalid', message: 'A title, document type and document content are required.' })
         }
         const document = await server.savePracticeDocument({
