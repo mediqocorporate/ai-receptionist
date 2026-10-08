@@ -104,6 +104,7 @@ export async function createMediQoAnswer({
       instructions: INSTRUCTIONS,
       input: String(question).trim(),
       store: false,
+      max_output_tokens: 1600,
       safety_identifier: safetyIdentifier || undefined,
       reasoning: { effort: 'medium' },
       text: {
