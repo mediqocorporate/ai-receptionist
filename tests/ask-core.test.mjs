@@ -69,3 +69,17 @@ test('authenticated users do not reserve anonymous quota', async () => {
   assert.equal(reserved, false)
   assert.equal(result.body.remainingFreeAnswers, null)
 })
+
+test('server rejects overlong questions before reserving quota or calling OpenAI', async () => {
+  let reserved = false
+  let generatedCalled = false
+  const result = await processAsk({ question: 'x'.repeat(501), actor: null, anonymousTokenHash: 'hash' }, {
+    reserveAnonymous: async () => { reserved = true; return { allowed: true } },
+    generateAnswer: async () => { generatedCalled = true; return generated },
+    persistAnswer: async () => ({}), completeAnonymous: async () => ({}), releaseAnonymous: async () => {},
+  })
+  assert.equal(result.statusCode, 400)
+  assert.equal(result.body.code, 'question_too_long')
+  assert.equal(reserved, false)
+  assert.equal(generatedCalled, false)
+})
