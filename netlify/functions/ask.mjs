@@ -75,7 +75,13 @@ export function createAskHandler({
       if (anonymousToken) anonymousTokenHash = await hashFn(anonymousToken)
       if (actor) {
         actor = { ...actor, safetyIdentifier: await hashFn(`mediqo-user:${actor.userId}`) }
-        if (anonymousTokenHash) await server.claimAnonymous(anonymousTokenHash, actor.userId, actor.practiceId)
+        if (anonymousTokenHash) {
+          try {
+            await server.claimAnonymous(anonymousTokenHash, actor.userId, actor.practiceId)
+          } catch (error) {
+            if (!String(error?.message || '').includes('anonymous_session_already_claimed')) throw error
+          }
+        }
       }
 
       const result = await processAskFn({
