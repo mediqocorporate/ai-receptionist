@@ -12,10 +12,12 @@ import { fallbackSuggestions } from './data/demo-questions.js'
 import { assistantService } from './services/assistant-service.js'
 import { authService } from './services/auth-service.js'
 import { leadService } from './services/lead-service.js'
+import { questionService } from './services/question-service.js'
 import { pmsService } from './services/pms-service.js'
 import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './lib/persistence.js'
 import { validateSignup } from './lib/validation.js'
 import { canAskWithoutSignup, recordAnsweredQuestion } from './lib/prototype-rules.js'
+import { shouldRecordLocalQuestion, shouldUseLocalQuestionGate } from './lib/qna-mode.js'
 import { signupSuccessMessage } from './lib/ui-copy.js'
 import { icon } from './components/icons.js'
 
@@ -38,6 +40,7 @@ const ui = {
   openAlertId: null,
   calendarSelection: {},
   pendingQuestion: '',
+  conversationId: null,
   lastFocused: null,
 }
 
@@ -181,35 +184,51 @@ function navigate(target) {
 async function submitQuestion(rawQuestion) {
   const question = String(rawQuestion || '').trim()
   if (!question || ui.loading) return
-  if (!canAskWithoutSignup({ ...prototype, user: appUser })) {
+
+  const liveAssistant = assistantService.isLive()
+  const canAskLocally = canAskWithoutSignup({ ...prototype, user: appUser })
+  if (shouldUseLocalQuestionGate({ live: liveAssistant, user: appUser, canAsk: canAskLocally })) {
     ui.pendingQuestion = question
     openDialog('signup', { trial: false, errors: {}, values: defaultSignupValues() })
     return
   }
 
+  const previousChat = ui.chat
   ui.error = ''
   ui.loading = true
   ui.chat = { question }
   render()
   try {
-    const result = await assistantService.ask(question)
+    const result = await assistantService.ask(question, { conversationId: ui.conversationId })
+    if (result.signupRequired) {
+      ui.pendingQuestion = question
+      ui.chat = previousChat
+      openDialog('signup', { trial: false, errors: {}, values: defaultSignupValues() })
+      return
+    }
+
     if (result.answer) {
       const askedAt = new Date().toISOString()
-      if (!appUser) recordAnsweredQuestion(prototype)
+      if (result.conversationId) ui.conversationId = result.conversationId
+
+      if (shouldRecordLocalQuestion({ live: liveAssistant })) {
+        if (!appUser) recordAnsweredQuestion(prototype)
+        if (appUser) {
+          const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ')
+          prototype.questionLog.push({
+            question,
+            answerId: result.answer.id,
+            userName,
+            email: appUser.email || '',
+            practiceName: appUser.clinicName || prototype.selectedPractice || '',
+            askedAt,
+          })
+          prototype.questionLog = prototype.questionLog.slice(-100)
+        }
+      }
+
       prototype.questionHistory.push({ question, answerId: result.answer.id, askedAt })
       prototype.questionHistory = prototype.questionHistory.slice(-12)
-      if (appUser) {
-        const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ')
-        prototype.questionLog.push({
-          question,
-          answerId: result.answer.id,
-          userName,
-          email: appUser.email || '',
-          practiceName: appUser.clinicName || prototype.selectedPractice || '',
-          askedAt,
-        })
-        prototype.questionLog = prototype.questionLog.slice(-100)
-      }
       savePrototypeState(prototype)
       ui.chat = { question, answer: result.answer }
     } else {
@@ -400,6 +419,7 @@ async function handleSignup(form) {
     appUser = user
     prototype.selectedPractice = user.clinicName
     savePrototypeState(prototype)
+    await syncAuthenticatedAccountState(user)
     const pending = ui.pendingQuestion
     ui.pendingQuestion = ''
     ui.dialog = null
@@ -429,6 +449,7 @@ async function handleLogin(form) {
     appUser = user
     if (user?.clinicName) prototype.selectedPractice = user.clinicName
     savePrototypeState(prototype)
+    await syncAuthenticatedAccountState(user)
     ui.dialog = null
     ui.dialogData = {}
     render()
@@ -444,6 +465,17 @@ async function handleLogin(form) {
   }
 }
 
+async function syncAuthenticatedAccountState(user) {
+  if (!user) return
+  await leadService.syncPlatformAccount()
+  try {
+    prototype.questionHistory = await questionService.loadRecent(12)
+    savePrototypeState(prototype)
+  } catch (error) {
+    console.warn('MediQo question history could not be loaded.', error)
+  }
+}
+
 async function bootstrapAuth() {
   if (!authService.isConfigured()) return
   try {
@@ -451,13 +483,15 @@ async function bootstrapAuth() {
     if (restoredUser) {
       appUser = restoredUser
       if (restoredUser.clinicName) prototype.selectedPractice = restoredUser.clinicName
+      await syncAuthenticatedAccountState(restoredUser)
       savePrototypeState(prototype)
       render()
     }
 
-    await authService.onAuthStateChange((user) => {
+    await authService.onAuthStateChange(async (user) => {
       appUser = user
       if (user?.clinicName) prototype.selectedPractice = user.clinicName
+      if (user) await syncAuthenticatedAccountState(user)
       render()
     })
   } catch (error) {
@@ -613,7 +647,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'connect-pms') { openDialog('pms'); return }
   if (action === 'help') { openDialog('help'); return }
   if (action === 'evidence-info') { openDialog('evidence'); return }
