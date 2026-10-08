@@ -73,3 +73,23 @@ test('service rejects missing session and maps safe API errors', async () => {
   })
   await assert.rejects(() => failing.overview(), /could not load accreditation readiness/i)
 })
+
+
+test('accreditation service falls back to the local API route when runtime config is stale or missing the route', async () => {
+  let request
+  const mod = await loadService()
+  const service = mod.createAccreditationService({
+    config: {},
+    clientProvider: async () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'jwt' } } }) } }),
+    fetchImpl: async (url, init) => {
+      request = { url, init }
+      return response(200, { overview: { cycle: { id: 'c1' } } })
+    },
+  })
+
+  const result = await service.overview()
+
+  assert.equal(request.url, '/api/accreditation')
+  assert.equal(request.init.headers.Authorization, 'Bearer jwt')
+  assert.equal(result.cycle.id, 'c1')
+})
