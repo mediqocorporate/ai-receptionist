@@ -80,7 +80,7 @@ test('accreditation evidence Storage bucket is private and limited at the databa
   const sql = fs.readFileSync(migrationUrl, 'utf8')
   assert.match(sql, /insert into storage\.buckets/i)
   assert.match(sql, /accreditation-evidence/)
-  assert.match(sql, /public[^\n]+false/i)
+  assert.match(sql, /insert into storage\.buckets[\s\S]*?public,[\s\S]*?false,/i)
   assert.match(sql, /10485760/)
   for (const mime of ['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','text/plain','image/png','image/jpeg']) {
     assert.match(sql, new RegExp(mime.replace(/[.*+?^$()|[\]\\]/g, '\\$&')))
