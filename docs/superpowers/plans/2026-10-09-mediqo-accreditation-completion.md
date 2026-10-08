@@ -37,6 +37,78 @@
 
 ---
 
+## Live brief corrections folded in after Elly source recheck
+
+The live Google Doc Build Brief adds MVP work that was not explicit enough in the first approved plan. Treat these as binding additions, not optional polish:
+
+- First-visit experience when no accreditation cycle exists.
+- Functional Explore Accreditation Assistant tour using clearly labelled fictional Example Practice data that never writes to the user's real practice.
+- Accreditation setup wizard covering journey status, assessment date, accrediting agency and practice context without forcing unknown answers.
+- Entry choice to Quick Check, Comprehensive Check or Upload Documents.
+- Practice Information view showing the facts MediQo relies on and their provenance.
+- Obvious back navigation on every accreditation page.
+- Comprehensive assessment path that ultimately maps to every applicable mandatory indicator; aspirational indicators remain visually separate.
+- Evidence Library supports multiple upload and classification correction.
+- Every gap/unknown/status has a direct next action; no dead clickable controls.
+- Readiness Report makes incomplete coverage impossible to overlook and preserves snapshots/history.
+- Exportable evidence/readiness material must remain traceable to current practice state and sources.
+- Assessment-date countdown is shown only when a real date is known.
+- 6th Edition remains P2/future and separate from the current formal workspace.
+
+### Task 1A: First visit, Explore tour and setup wizard
+
+**Files:**
+- Create: `src/components/accreditation/explore.js`
+- Create: `src/components/accreditation/setup.js`
+- Create: `src/components/accreditation/practice-information.js`
+- Modify: `src/components/accreditation.js`
+- Modify: `src/app.js`
+- Modify: `src/services/accreditation-service.js`
+- Modify: `netlify/functions/accreditation.mjs`
+- Modify: `netlify/functions/_shared/supabase-server.mjs`
+- Modify: `src/styles.css`
+- Test: `tests/accreditation-first-visit.test.mjs`
+- Test: `tests/accreditation-explore.test.mjs`
+- Test: `tests/accreditation-setup.test.mjs`
+
+**Interfaces:**
+- First visit without a cycle renders “Let's get your practice ready for accreditation.” with functional `Set up my accreditation` and `Explore Accreditation Assistant`.
+- Explore uses `demo_mode=true` and fictional Riverside Medical Centre data only; no write endpoint accepts demo state.
+- Setup stores only answered facts and never invents assessment dates/countdowns.
+- Setup completion offers Quick Check, Comprehensive Check, or Upload Documents.
+- Practice Information returns value + provenance fields for every fact used in applicability/readiness.
+
+- [ ] **Step 1: Write failing first-visit/explore/setup tests**
+- [ ] **Step 2: Run targeted tests and verify RED**
+- [ ] **Step 3: Implement server cycle/setup/practice-profile interfaces**
+- [ ] **Step 4: Implement Explore and setup UI with functional back navigation and no dead CTA**
+- [ ] **Step 5: Run `npm test && npm run build && npm run smoke`**
+- [ ] **Step 6: Commit `feat: add accreditation explore and setup flows`**
+
+### Task 1B: Comprehensive readiness path and Practice Information provenance
+
+**Files:**
+- Create: `src/components/accreditation/comprehensive-check.js`
+- Modify: `netlify/functions/_shared/supabase-server.mjs`
+- Modify: `netlify/functions/accreditation.mjs`
+- Modify: `src/services/accreditation-service.js`
+- Modify: `src/components/accreditation.js`
+- Modify: `src/app.js`
+- Test: `tests/accreditation-comprehensive-check.test.mjs`
+- Test: `tests/accreditation-practice-information.test.mjs`
+
+**Interfaces:**
+- Comprehensive check returns the next server-selected unanswered question across applicable/needs-confirmation mandatory indicators, keeping aspirational items separate.
+- Practice Information exposes the facts and provenance that drive applicability.
+- Unknown applicability remains Needs confirmation / Not Checked and cannot be silently marked N/A.
+
+- [ ] **Step 1: Write failing comprehensive/provenance tests**
+- [ ] **Step 2: Run targeted tests and verify RED**
+- [ ] **Step 3: Implement server-driven comprehensive question selection and provenance reads**
+- [ ] **Step 4: Implement UI and re-assessment hooks**
+- [ ] **Step 5: Run `npm test && npm run build && npm run smoke`**
+- [ ] **Step 6: Commit `feat: add comprehensive accreditation assessment`**
+
 ### Task 1: Client-ready accreditation navigation and copy polish
 
 **Files:**
