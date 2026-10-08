@@ -86,8 +86,39 @@ export function renderFeatureRequestDialog({ values = {}, submitting = false, se
   </section></div>`
 }
 
-export function renderPmsDialog() {
-  return `<div class="dialog-backdrop" data-dialog="pms"><section class="dialog compact-dialog" role="dialog" aria-modal="true" aria-labelledby="pms-title"><button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button><div class="dialog-icon purple">${icon('refresh',24)}</div><h2 id="pms-title">Connect your practice management system</h2><p>Choose the practice management system your clinic uses. MediQo can use this connection to personalise workflows and reduce double handling.</p><div class="pms-list"><span>Best Practice</span><span>Cliniko</span><span>Halaxy</span><span>Other PMS</span></div><button class="primary-button" type="button" data-action="pms-demo-confirm">Continue</button></section></div>`
+const PMS_VENDORS = ['Nookal', 'Best Practice', 'Cliniko', 'Halaxy']
+
+export function renderPmsDialog({ step = 1, vendor = '', siteId = '', pairKey = '' } = {}) {
+  const safeStep = [1, 2, 3].includes(Number(step)) ? Number(step) : 1
+  const selectedVendor = PMS_VENDORS.includes(vendor) ? vendor : ''
+
+  if (safeStep === 1) {
+    return `<div class="dialog-backdrop" data-dialog="pms"><section class="dialog pms-dialog" role="dialog" aria-modal="true" aria-labelledby="pms-title">
+      <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
+      <div class="dialog-heading"><span class="eyebrow">CONNECT YOUR PMS</span><h2 id="pms-title">Choose your practice management system</h2><p>Select the system your practice uses to continue setup.</p></div>
+      <div class="pms-vendor-grid">${PMS_VENDORS.map((name) => `<article class="pms-vendor-card"><strong>${escapeHtml(name)}</strong><button class="secondary-button" type="button" data-action="pms-select-vendor" data-pms-vendor="${escapeHtml(name)}">Connect</button></article>`).join('')}</div>
+      <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">Close</button></div>
+    </section></div>`
+  }
+
+  if (safeStep === 2) {
+    return `<div class="dialog-backdrop" data-dialog="pms"><section class="dialog pms-dialog" role="dialog" aria-modal="true" aria-labelledby="pms-title">
+      <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
+      <div class="dialog-heading"><span class="eyebrow">CONNECT ${escapeHtml(selectedVendor || 'YOUR PMS').toUpperCase()}</span><h2 id="pms-title">Enter your connection details</h2><p>Add the details provided for your practice management system.</p></div>
+      <form class="pms-connection-form">
+        <label class="field"><span>Site ID</span><input name="siteId" value="${escapeHtml(siteId)}" autocomplete="off" /></label>
+        <label class="field"><span>Pair key</span><input name="pairKey" value="${escapeHtml(pairKey)}" autocomplete="off" /></label>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">Close</button><button class="primary-button" type="button" data-action="pms-continue">Continue</button></div>
+      </form>
+    </section></div>`
+  }
+
+  return `<div class="dialog-backdrop" data-dialog="pms"><section class="dialog pms-dialog pms-calendar-dialog" role="dialog" aria-modal="true" aria-labelledby="pms-title">
+    <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">${icon('x',20)}</button>
+    <div class="dialog-heading"><span class="eyebrow">FINAL STEP</span><h2 id="pms-title">Complete your setup</h2><p>Select a date and time from the options below, and we'll complete your setup with you, enable any new features and show you how to get the most out of MediQo.</p></div>
+    <div class="hubspot-meeting-shell pms-meeting-shell"><div class="meetings-iframe-container" data-src="https://meetings-ap1.hubspot.com/matt-nott/practice-manager-demo?embed=true"></div></div>
+    <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">Close</button></div>
+  </section></div>`
 }
 
 export function renderHelpDialog() {
