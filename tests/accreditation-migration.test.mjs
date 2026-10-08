@@ -44,13 +44,12 @@ test('foundation constrains approved readiness and verification states', () => {
   }
 })
 
-test('practice accreditation tables use RLS and existing membership helpers', () => {
+test('practice accreditation tables use RLS and tenant membership for reads', () => {
   const sql = read(foundationUrl)
   for (const table of ['accreditation_cycles', 'practice_requirements', 'readiness_responses']) {
     assert.match(sql, new RegExp(`alter table public\\.${table} enable row level security`, 'i'))
+    assert.match(sql, new RegExp(`${table}[^;]+for select\\s+to authenticated[^;]+is_practice_member\\s*\\(`, 'is'))
   }
-  assert.match(sql, /is_practice_member\s*\(/i)
-  assert.match(sql, /has_practice_role\s*\(/i)
 })
 
 test('controlled accreditation configuration is authenticated-readable without browser write policies', () => {
