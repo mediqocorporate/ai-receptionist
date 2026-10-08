@@ -155,3 +155,17 @@ test('legacy hard-coded accreditation dataset is removed from the browser bundle
   assert.equal(fs.existsSync(legacy), false)
   assert.doesNotMatch(reports, /data\/accreditation\.js/)
 })
+
+
+test('completed Quick Check does not invite the user to continue an already finished check', async () => {
+  const mod = await load(overviewUrl)
+  assert.ok(mod)
+  const html = mod.renderAccreditationOverview({
+    ...overview,
+    coverage: { answered: 20, total: 20, percent: 100 },
+    nextQuestion: null,
+    nextAction: 'Review evidence for assessed requirements.',
+  })
+  assert.match(html, /Review Quick Check/i)
+  assert.doesNotMatch(html, /Continue Quick Check/i)
+})
