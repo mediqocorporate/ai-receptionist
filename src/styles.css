@@ -189,9 +189,28 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .fallback-suggestions { display: grid; gap: 7px; margin-top: 14px; }
 .fallback-suggestions button { display: flex; align-items: center; justify-content: space-between; border: 1px solid #e2e4ec; background: #fff; color: #405173; padding: 10px 12px; border-radius: 7px; text-align: left; cursor: pointer; }
 .assistant-loading { display: grid; grid-template-columns: 50px 1fr; gap: 12px; align-items: center; margin-top: 12px; }
+.thinking-status { width: fit-content; min-width: 240px; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; background: linear-gradient(110deg, #fff, #faf8ff, #fff); background-size: 220% 100%; box-shadow: 0 6px 22px rgba(56, 42, 92, .05); animation: thinkingShimmer 2.4s ease-in-out infinite; }
+.thinking-label { display: flex; align-items: center; gap: 9px; color: #17264f; }
+.thinking-label strong { font-size: 12.5px; font-weight: 600; }
+.thinking-status > span { display: block; margin-top: 3px; color: #7b88a1; font-size: 11.5px; }
 .typing { width: fit-content; height: 42px; border: 1px solid var(--line); border-radius: 8px; display: flex; align-items: center; gap: 5px; padding: 0 16px; }
+.thinking-status .typing { height: auto; border: 0; border-radius: 0; padding: 0; gap: 4px; }
 .typing i { width: 6px; height: 6px; border-radius: 50%; background: #9d86cd; animation: bounce 1s infinite ease-in-out; }.typing i:nth-child(2){animation-delay:.12s}.typing i:nth-child(3){animation-delay:.24s}
+.answer-reveal { animation: answerReveal .26s ease-out both; }
+.answer-reveal .answer-intro, .answer-reveal .risk-callout, .answer-reveal .answer-section, .answer-reveal .product-recommendation, .answer-reveal .source-block, .answer-reveal .answer-actions { animation: answerChunkReveal .34s ease-out both; }
+.answer-reveal .answer-section:nth-child(1) { animation-delay: .04s; }
+.answer-reveal .answer-section:nth-child(2) { animation-delay: .08s; }
+.answer-reveal .answer-section:nth-child(3) { animation-delay: .12s; }
+.answer-reveal .answer-section:nth-child(4) { animation-delay: .16s; }
+.answer-reveal .answer-section:nth-child(5) { animation-delay: .20s; }
+.answer-reveal .answer-section:nth-child(6) { animation-delay: .24s; }
+@keyframes thinkingShimmer { 0%,100%{background-position:0% 50%}50%{background-position:100% 50%} }
 @keyframes bounce { 0%,70%,100%{transform:translateY(0);opacity:.45}35%{transform:translateY(-4px);opacity:1} }
+@keyframes answerReveal { from{opacity:.25;transform:translateY(4px)}to{opacity:1;transform:translateY(0)} }
+@keyframes answerChunkReveal { from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)} }
+@media (prefers-reduced-motion: reduce) {
+  .thinking-status, .typing i, .answer-reveal, .answer-reveal .answer-intro, .answer-reveal .risk-callout, .answer-reveal .answer-section, .answer-reveal .product-recommendation, .answer-reveal .source-block, .answer-reveal .answer-actions { animation: none !important; }
+}
 .spinner { width: 17px; height: 17px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
