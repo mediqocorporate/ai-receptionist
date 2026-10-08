@@ -11,6 +11,7 @@ export function answerToPlainText(answer = {}) {
 export async function processAsk({ question, conversationId = null, actor = null, anonymousTokenHash = null }, deps) {
   const cleanQuestion = String(question || '').trim()
   if (!cleanQuestion) return { statusCode: 400, body: { code: 'question_required', message: 'Question is required.' } }
+  if (cleanQuestion.length > 500) return { statusCode: 400, body: { code: 'question_too_long', message: 'Keep questions to 500 characters or fewer.' } }
 
   let reservation = null
   if (!actor) {
