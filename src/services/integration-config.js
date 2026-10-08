@@ -3,6 +3,8 @@ export function readIntegrationConfig(source = globalThis.__MEDIQO_CONFIG__ || {
     supabaseUrl: String(source.supabaseUrl || '').trim(),
     supabaseAnonKey: String(source.supabaseAnonKey || '').trim(),
     appUrl: String(source.appUrl || '').trim(),
+    assistantApiUrl: String(source.assistantApiUrl || '').trim(),
+    accountSyncApiUrl: String(source.accountSyncApiUrl || '').trim(),
   })
 }
 
