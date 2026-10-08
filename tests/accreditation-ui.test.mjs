@@ -147,3 +147,11 @@ test('app loads and mutates accreditation through the live service rather than l
   assert.doesNotMatch(source, /function updateAccreditation\(/)
   assert.doesNotMatch(source, /accreditationOverrides\[select\.dataset\.accreditationId\]/)
 })
+
+
+test('legacy hard-coded accreditation dataset is removed from the browser bundle', () => {
+  const legacy = new URL('../src/data/accreditation.js', import.meta.url)
+  const reports = fs.readFileSync(new URL('../src/components/reports.js', import.meta.url), 'utf8')
+  assert.equal(fs.existsSync(legacy), false)
+  assert.doesNotMatch(reports, /data\/accreditation\.js/)
+})
