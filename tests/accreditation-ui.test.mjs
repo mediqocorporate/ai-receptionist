@@ -7,6 +7,7 @@ const overviewUrl = new URL('../src/components/accreditation/overview.js', impor
 const checkUrl = new URL('../src/components/accreditation/readiness-check.js', import.meta.url)
 const requirementsUrl = new URL('../src/components/accreditation/requirements.js', import.meta.url)
 const detailUrl = new URL('../src/components/accreditation/requirement-detail.js', import.meta.url)
+const appUrl = new URL('../src/app.js', import.meta.url)
 
 async function load(url) {
   if (!fs.existsSync(url)) return null
@@ -135,4 +136,14 @@ test('accreditation wrapper is server-driven and does not import the old hard-co
   assert.doesNotMatch(source, /data\/accreditation\.js/)
   assert.doesNotMatch(source, /Math\.round\(\(ready \/ items\.length\)/)
   assert.match(source, /renderAccreditationOverview/)
+})
+
+
+test('app loads and mutates accreditation through the live service rather than local overrides', () => {
+  const source = fs.readFileSync(appUrl, 'utf8')
+  assert.match(source, /accreditationService\.overview\(\)/)
+  assert.match(source, /accreditationService\.answer\(/)
+  assert.match(source, /accreditationService\.requirement\(/)
+  assert.doesNotMatch(source, /function updateAccreditation\(/)
+  assert.doesNotMatch(source, /accreditationOverrides\[select\.dataset\.accreditationId\]/)
 })
