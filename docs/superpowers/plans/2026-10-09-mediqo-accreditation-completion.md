@@ -256,7 +256,7 @@ Expected: FAIL because review/reassessment modules do not exist.
 
 - [ ] **Step 3: Implement extraction boundary**
   - TXT: decode directly.
-  - PDF/DOCX: use a focused extraction helper/library selected for Node/Netlify compatibility.
+  - PDF: use `pdf-parse`; DOCX: use `mammoth`; add both through npm so `package-lock.json` pins the resolved versions.
   - PNG/JPEG: keep NOT_REVIEWED in this batch unless a supported model input path is deliberately added; do not OCR with an unverified local path.
 
 - [ ] **Step 4: Implement structured OpenAI evidence review**
@@ -494,9 +494,9 @@ Expected: all commands exit 0.
 ### Task 8: Connect accreditation document gaps to Policy Library and lock release blockers
 
 **Files:**
-- Modify: `src/components/policy-library.js` or current Policy Library component file discovered at execution time.
+- Modify: `src/components/policies.js`
 - Modify: `src/app.js`
-- Modify: relevant Policy Library service/generation files already in repository.
+- Modify: `src/app.js` for the existing Policy Library document-generation/save/download flow.
 - Modify: `src/components/accreditation/missing.js`
 - Modify: `src/components/accreditation/requirement-detail.js`
 - Create: `tests/accreditation-policy-handoff.test.mjs`
