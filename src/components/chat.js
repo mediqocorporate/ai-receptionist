@@ -84,36 +84,96 @@ function renderProductRecommendation(answer) {
   return `<aside class="product-recommendation"><div class="product-recommendation-icon">${icon('sparkle',18)}</div><div><strong>${escapeHtml(recommendation.title || 'MediQo can also help with this.')}</strong><p>${escapeHtml(recommendation.body || '')}</p><button type="button" data-nav="${escapeHtml(recommendation.path || '/')}">${escapeHtml(recommendation.linkLabel || 'Learn more')} ${icon('chevron',15)}</button></div></aside>`
 }
 
-export function renderAnswerView(answer, question, { saved = false, loading = false, now = new Date() } = {}) {
+function asDate(value) {
+  if (!value) return new Date()
+  const parsed = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
+function renderUserMessage(question, askedAt) {
+  return `<div class="user-message-row">
+    <div class="user-bubble"><span>${escapeHtml(question)}</span><small>${escapeHtml(formatMessageTimestamp(asDate(askedAt)))}</small></div>
+    <span class="message-avatar user-icon">${icon('users', 18)}</span>
+  </div>`
+}
+
+function renderAssistantAnswer(answer, { saved = false } = {}) {
+  return `<div class="assistant-message-row">
+    <span class="assistant-orb">${icon('sparkle', 23)}</span>
+    <article class="assistant-answer">
+      <div class="answer-topline"></div>
+      <p class="answer-intro">${escapeHtml(answer.intro)}</p>
+      ${renderRisk(answer)}
+      <div class="answer-sections">${(answer.sections || []).map(renderSection).join('')}</div>
+      ${renderProductRecommendation(answer)}
+      ${!answer.recommendation && answer.cta ? `<button class="internal-cta" type="button" data-nav="${escapeHtml(answer.cta.path)}">${escapeHtml(answer.cta.label)} ${icon('chevron', 16)}</button>` : ''}
+      ${renderSources(answer)}
+      <div class="answer-actions"><span>Was this helpful?</span><button type="button" aria-label="Helpful" data-action="answer-helpful">${icon('thumbsUp', 16)}</button><button type="button" aria-label="Not helpful" data-action="answer-not-helpful">${icon('thumbsDown', 16)}</button><button type="button" data-action="save-answer" data-answer-id="${escapeHtml(answer.id || '')}" class="save-answer ${saved ? 'saved' : ''}">${icon('bookmark', 16)} ${saved ? 'Saved' : 'Save'}</button></div>
+    </article>
+  </div>`
+}
+
+function renderFallbackAssistant(suggestions = []) {
+  return `<div class="assistant-message-row"><span class="assistant-orb">${icon('sparkle',23)}</span><article class="assistant-answer fallback-answer"><h2>Try one of the prepared practice-manager questions</h2><p>I can help with the prepared practice-manager topics below right now. Choose one to see a structured answer, sources and next actions.</p><div class="fallback-suggestions">${suggestions.map((q) => `<button type="button" data-related-question="${escapeHtml(q)}">${escapeHtml(q)} ${icon('chevron',15)}</button>`).join('')}</div></article></div>`
+}
+
+function renderAssistantErrorMessage(message) {
+  return `<div class="assistant-message-row"><span class="assistant-orb">${icon('alert',20)}</span><article class="assistant-answer"><h2 class="assistant-error-title">We couldn’t prepare that answer</h2><p>${escapeHtml(message)}</p><button class="primary-button" type="button" data-action="retry-question">Retry</button></article></div>`
+}
+
+function renderRelatedRail(answer) {
+  if (!answer) {
+    return `<aside class="related-rail" aria-label="Related information"><section class="rail-card"><div class="rail-heading">${icon('sparkle',20)}<strong>Conversation</strong></div><p class="rail-copy">Your questions and MediQo answers stay together in this conversation.</p></section></aside>`
+  }
+  return `<aside class="related-rail" aria-label="Related information">
+    <section class="rail-card"><div class="rail-heading">${icon('search', 20)}<strong>Related questions</strong></div>${(answer.relatedQuestions || []).map((q) => `<button type="button" class="related-question" data-related-question="${escapeHtml(q)}"><span>${escapeHtml(q)}</span>${icon('chevron', 16)}</button>`).join('')}</section>
+    <section class="rail-card"><div class="rail-heading">${icon('notebook', 20)}<strong>Related resources</strong></div>${(answer.relatedResources || []).map(renderRelatedResource).join('')}</section>
+  </aside>`
+}
+
+export function renderConversationView(turns = [], {
+  savedAnswerIds = [],
+  loading = false,
+  pendingQuestion = '',
+  pendingAskedAt = null,
+  error = '',
+  failedQuestion = '',
+  fallbackSuggestions = [],
+} = {}) {
+  const safeTurns = Array.isArray(turns) ? turns : []
+  const latestAnswer = [...safeTurns].reverse().find((turn) => turn?.answer)?.answer || null
+  const completed = safeTurns.map((turn) => {
+    const answerMarkup = turn?.answer
+      ? renderAssistantAnswer(turn.answer, { saved: savedAnswerIds.includes(turn.answer.id) })
+      : turn?.fallback
+        ? renderFallbackAssistant(fallbackSuggestions)
+        : ''
+    return `<div class="conversation-turn">${renderUserMessage(turn?.question || '', turn?.askedAt)}${answerMarkup}</div>`
+  }).join('')
+
+  const pending = loading && pendingQuestion
+    ? `<div class="conversation-turn pending-turn">${renderUserMessage(pendingQuestion, pendingAskedAt)}<div class="assistant-loading"><span class="assistant-orb">${icon('sparkle',20)}</span><div class="typing" aria-label="MediQo is preparing an answer"><i></i><i></i><i></i></div></div></div>`
+    : ''
+
+  const failed = !loading && error && failedQuestion
+    ? `<div class="conversation-turn failed-turn">${renderUserMessage(failedQuestion, pendingAskedAt)}${renderAssistantErrorMessage(error)}</div>`
+    : ''
+
   return `<section class="conversation-page">
+    <div class="conversation-toolbar"><button type="button" class="conversation-back" data-action="back-to-ask-home">${icon('chevron',16)}<span>Back</span></button><span class="conversation-toolbar-label">Ask MediQo</span></div>
     <div class="conversation-grid">
-      <div class="conversation-main">
-        <div class="user-message-row">
-          <div class="user-bubble"><span>${escapeHtml(question)}</span><small>${escapeHtml(formatMessageTimestamp(now))}</small></div>
-          <span class="message-avatar user-icon">${icon('users', 18)}</span>
-        </div>
-        <div class="assistant-message-row">
-          <span class="assistant-orb">${icon('sparkle', 23)}</span>
-          <article class="assistant-answer">
-            <div class="answer-topline"></div>
-            <p class="answer-intro">${escapeHtml(answer.intro)}</p>
-            ${renderRisk(answer)}
-            <div class="answer-sections">${answer.sections.map(renderSection).join('')}</div>
-            ${renderProductRecommendation(answer)}
-            ${!answer.recommendation && answer.cta ? `<button class="internal-cta" type="button" data-nav="${answer.cta.path}">${escapeHtml(answer.cta.label)} ${icon('chevron', 16)}</button>` : ''}
-            ${renderSources(answer)}
-            <div class="answer-actions"><span>Was this helpful?</span><button type="button" aria-label="Helpful" data-action="answer-helpful">${icon('thumbsUp', 16)}</button><button type="button" aria-label="Not helpful" data-action="answer-not-helpful">${icon('thumbsDown', 16)}</button><button type="button" data-action="save-answer" data-answer-id="${answer.id}" class="save-answer ${saved ? 'saved' : ''}">${icon('bookmark', 16)} ${saved ? 'Saved' : 'Save'}</button></div>
-          </article>
-        </div>
-        ${loading ? '<div class="assistant-loading"><span class="assistant-orb">'+icon('sparkle',20)+'</span><div class="typing"><i></i><i></i><i></i></div></div>' : ''}
-      </div>
-      <aside class="related-rail" aria-label="Related information">
-        <section class="rail-card"><div class="rail-heading">${icon('search', 20)}<strong>Related questions</strong></div>${answer.relatedQuestions.map((q) => `<button type="button" class="related-question" data-related-question="${escapeHtml(q)}"><span>${escapeHtml(q)}</span>${icon('chevron', 16)}</button>`).join('')}</section>
-        <section class="rail-card"><div class="rail-heading">${icon('notebook', 20)}<strong>Related resources</strong></div>${answer.relatedResources.map(renderRelatedResource).join('')}</section>
-      </aside>
+      <div class="conversation-main">${completed}${pending}${failed}</div>
+      ${renderRelatedRail(latestAnswer)}
     </div>
     <div class="conversation-composer-wrap">${renderComposer({ compact: true, loading })}</div>
   </section>`
+}
+
+export function renderAnswerView(answer, question, { saved = false, loading = false, now = new Date() } = {}) {
+  return renderConversationView([{ question, answer, askedAt: now }], {
+    savedAnswerIds: saved && answer?.id ? [answer.id] : [],
+    loading,
+  })
 }
 
 export function renderFallbackView(question, suggestions, { now = new Date() } = {}) {
