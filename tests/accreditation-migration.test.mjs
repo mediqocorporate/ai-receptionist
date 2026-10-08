@@ -61,13 +61,14 @@ test('controlled accreditation configuration is authenticated-readable without b
   assert.doesNotMatch(sql, /accreditation_requirements[^;]+for delete\s+to authenticated/is)
 })
 
-test('RACGP5 dataset migration seeds current workspace and keeps HOLD inactive', () => {
-  const sql = read(datasetUrl)
-  assert.match(sql, /RACGP5/i)
-  assert.match(sql, /RACGP Standards for general practices/i)
-  assert.match(sql, /5th edition/i)
-  assert.match(sql, /RACGP5-QI2-1C/i)
-  assert.match(sql, /'HOLD'/i)
-  assert.match(sql, /false/i)
-  assert.match(sql, /UNVERIFIED/i)
+test('RACGP5 migrations seed current workspace and keep HOLD inactive', () => {
+  const foundation = read(foundationUrl)
+  const dataset = read(datasetUrl)
+  assert.match(foundation, /RACGP5/i)
+  assert.match(foundation, /RACGP Standards for general practices/i)
+  assert.match(foundation, /5th edition/i)
+  assert.match(dataset, /RACGP5-QI2-1C/i)
+  assert.match(dataset, /'HOLD'/i)
+  assert.match(dataset, /false/i)
+  assert.match(dataset, /UNVERIFIED/i)
 })
