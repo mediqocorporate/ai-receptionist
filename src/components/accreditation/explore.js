@@ -29,7 +29,7 @@ const DEMO_STEPS = [
   {
     eyebrow: 'EXAMPLE PRACTICE · READINESS REPORT',
     title: 'Prepare without hiding uncertainty',
-    body: 'The readiness report keeps incomplete coverage, unresolved gaps and evidence issues visible. It is preparation guidance, not a certification or pass/fail result.',
+    body: 'The readiness report keeps incomplete coverage, unresolved gaps and evidence issues visible. It is preparation guidance and does not determine the accreditation outcome.',
     content: '<div class="explore-example-panel"><strong>Example report summary</strong><p>Coverage 82% · 3 confirmed gaps · 11 items need attention · 22 requirements still not checked.</p></div>',
   },
 ]
