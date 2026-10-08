@@ -85,7 +85,7 @@ function normalizeAnswer(value) {
 
 export async function createMediQoAnswer({
   apiKey,
-  model = 'gpt-5.6',
+  model = 'gpt-6.1-sol',
   question,
   safetyIdentifier,
   fetchImpl = fetch,
