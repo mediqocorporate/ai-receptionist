@@ -1,6 +1,6 @@
 import { authenticateUser, createSupabaseServer } from './_shared/supabase-server.mjs'
 import { syncHubSpotContact } from './_shared/hubspot.mjs'
-import { ANONYMOUS_COOKIE_NAME, jsonResponse, parseCookies, sha256Hex } from './_shared/http.mjs'
+import { ANONYMOUS_COOKIE_NAME, buildCookie, isSecureRequest, jsonResponse, parseCookies, sha256Hex } from './_shared/http.mjs'
 
 function header(event, name) {
   const headers = event?.headers || {}
@@ -40,6 +40,9 @@ export function createAccountSyncHandler({
     try {
       const cookies = parseCookies(header(event, 'cookie'))
       const anonymousToken = cookies[ANONYMOUS_COOKIE_NAME] || ''
+      const responseHeaders = anonymousToken ? {
+        'Set-Cookie': buildCookie(ANONYMOUS_COOKIE_NAME, '', { secure: isSecureRequest(event), maxAge: 0 }),
+      } : {}
       if (anonymousToken) {
         const tokenHash = await hashFn(anonymousToken)
         await server.claimAnonymous(tokenHash, actor.userId, actor.practiceId)
@@ -71,11 +74,11 @@ export function createAccountSyncHandler({
             last_error: String(error?.message || 'HubSpot sync failed').slice(0, 1000),
           })
         }
-        return jsonResponse(202, { status: 'queued', crmSync: 'failed_retryable' })
+        return jsonResponse(202, { status: 'queued', crmSync: 'failed_retryable' }, responseHeaders)
       }
 
       if (result?.status !== 'synced') {
-        return jsonResponse(202, { status: 'queued', crmSync: result?.reason || 'hubspot_not_configured' })
+        return jsonResponse(202, { status: 'queued', crmSync: result?.reason || 'hubspot_not_configured' }, responseHeaders)
       }
 
       if (job?.id) {
@@ -86,7 +89,7 @@ export function createAccountSyncHandler({
           last_error: null,
         })
       }
-      return jsonResponse(200, { status: 'synced', contactId: result.contactId || null })
+      return jsonResponse(200, { status: 'synced', contactId: result.contactId || null }, responseHeaders)
     } catch (error) {
       console.error('MediQo account sync failed:', error?.message || error)
       return jsonResponse(202, { status: 'queued', crmSync: 'retryable' })
