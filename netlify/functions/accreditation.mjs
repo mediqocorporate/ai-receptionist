@@ -92,12 +92,77 @@ export function createAccreditationHandler({
     const action = String(body.action || '').trim()
     try {
       if (action === 'overview') {
-        const cycle = await server.getOrCreateAccreditationCycle(actor.practiceId, body.cycleId || null)
+        const cycle = server.findAccreditationCycle
+          ? await server.findAccreditationCycle(actor.practiceId, body.cycleId || null)
+          : await server.getOrCreateAccreditationCycle(actor.practiceId, body.cycleId || null)
+
+        if (!cycle) {
+          const agencies = server.getAccreditationAgencies ? await server.getAccreditationAgencies() : []
+          return jsonResponse(200, {
+            overview: {
+              setupRequired: true,
+              cycle: null,
+              agencies,
+            },
+          })
+        }
+
         const overview = await server.getAccreditationOverview({
           practiceId: actor.practiceId,
           cycleId: cycle.id,
         })
-        return jsonResponse(200, { overview })
+        return jsonResponse(200, { overview: { ...overview, setupRequired: false } })
+      }
+
+      if (action === 'setup') {
+        const allowedJourneyStatuses = new Set(['FIRST_ACCREDITATION', 'REACCREDITATION', 'ASSESSMENT_BOOKED', 'NOT_SURE'])
+        const journeyStatus = allowedJourneyStatuses.has(String(body.journeyStatus || '').trim())
+          ? String(body.journeyStatus).trim()
+          : 'NOT_SURE'
+        const assessmentScheduled = body.assessmentScheduled === true
+          ? true
+          : body.assessmentScheduled === false
+            ? false
+            : null
+        const targetAssessmentDate = assessmentScheduled === true
+          ? String(body.targetAssessmentDate || '').trim() || null
+          : null
+
+        if (assessmentScheduled === true && !/^\d{4}-\d{2}-\d{2}$/.test(String(targetAssessmentDate || ''))) {
+          return jsonResponse(400, { code: 'assessment_date_required', message: 'Add the scheduled assessment date, or choose that the date is not known yet.' })
+        }
+
+        const accreditingAgencyId = String(body.accreditingAgencyId || '').trim() || null
+        const rawContext = body.practiceContext && typeof body.practiceContext === 'object' && !Array.isArray(body.practiceContext)
+          ? body.practiceContext
+          : {}
+        const practiceContext = {
+          services: String(rawContext.services || '').trim().slice(0, 2000),
+          notes: String(rawContext.notes || '').trim().slice(0, 4000),
+        }
+
+        const setup = await server.setupAccreditationWorkspace({
+          practiceId: actor.practiceId,
+          userId: actor.userId,
+          journeyStatus,
+          assessmentScheduled,
+          targetAssessmentDate,
+          accreditingAgencyId,
+          practiceContext,
+        })
+        const overview = await server.getAccreditationOverview({
+          practiceId: actor.practiceId,
+          cycleId: setup.cycle.id,
+        })
+        return jsonResponse(200, { overview: { ...overview, setupRequired: false }, profile: setup.profile })
+      }
+
+      if (action === 'practice_information') {
+        const practiceInformation = await server.getAccreditationPracticeInformation({
+          practiceId: actor.practiceId,
+          cycleId: body.cycleId || null,
+        })
+        return jsonResponse(200, { practiceInformation })
       }
 
       if (action === 'requirement') {
@@ -171,7 +236,7 @@ export function createAccreditationHandler({
         })
       }
 
-      return jsonResponse(400, { code: 'invalid_action', message: 'Choose overview, answer or requirement.' })
+      return jsonResponse(400, { code: 'invalid_action', message: 'Choose overview, setup, practice_information, answer or requirement.' })
     } catch (error) {
       const message = String(error?.message || '')
       if (message === 'accreditation_cycle_not_found') {
