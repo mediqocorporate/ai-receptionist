@@ -44,6 +44,7 @@ const ui = {
   calendarSelection: {},
   pendingQuestion: '',
   conversationId: null,
+  scrollConversationMode: '',
   lastFocused: null,
 }
 
@@ -130,6 +131,7 @@ function render({ focusDialog = false } = {}) {
 
   installLogoFallback()
   activateHubSpotEmbeds()
+  scrollConversationIntoView()
   if (focusDialog && ui.dialog) queueMicrotask(focusFirstDialogControl)
   if (ui.path === '/policies' && ui.query.get('template') && !ui.dialog) {
     const id = ui.query.get('template')
@@ -141,6 +143,20 @@ function render({ focusDialog = false } = {}) {
       render({ focusDialog: true })
     }
   }
+}
+
+function scrollConversationIntoView() {
+  const mode = ui.scrollConversationMode
+  if (!mode || ui.path !== '/') return
+  ui.scrollConversationMode = ''
+  queueMicrotask(() => {
+    const selector = mode === 'pending' ? '[data-chat-pending]' : '[data-chat-latest]'
+    const target = root.querySelector(selector)
+    target?.scrollIntoView({
+      behavior: 'smooth',
+      block: mode === 'pending' ? 'end' : 'start',
+    })
+  })
 }
 
 function installLogoFallback() {
@@ -207,6 +223,7 @@ async function submitQuestion(rawQuestion) {
   ui.failedQuestion = ''
   ui.pendingTurn = { question, askedAt }
   ui.loading = true
+  ui.scrollConversationMode = 'pending'
   render()
 
   try {
@@ -245,10 +262,12 @@ async function submitQuestion(rawQuestion) {
       ui.conversationTurns.push({ question, fallback: true, askedAt })
     }
     ui.pendingTurn = null
+    ui.scrollConversationMode = 'answer'
   } catch (error) {
     ui.pendingTurn = null
     ui.failedQuestion = question
     ui.error = error?.message || 'Please try again.'
+    ui.scrollConversationMode = 'answer'
   } finally {
     ui.loading = false
     render()
