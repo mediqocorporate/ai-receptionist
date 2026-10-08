@@ -38,6 +38,7 @@ export function publicRuntimeConfig(env = {}) {
     appUrl: String(env.APP_URL || '').trim(),
     assistantApiUrl: String(env.MEDIQO_ASSISTANT_API_URL || '').trim(),
     accountSyncApiUrl: String(env.MEDIQO_ACCOUNT_SYNC_API_URL || '').trim(),
+    accreditationApiUrl: String(env.MEDIQO_ACCREDITATION_API_URL || '').trim(),
   }
 }
 
