@@ -15,6 +15,8 @@ export function renderAccreditationOverview(overview = {}, { practiceName = 'You
   const target = overview.cycle?.targetAssessmentDate
     ? new Date(overview.cycle.targetAssessmentDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
     : 'Not set'
+  const quickCheckComplete = Number(coverage.total || 0) > 0 && Number(coverage.answered || 0) >= Number(coverage.total || 0)
+  const quickCheckLabel = quickCheckComplete ? 'Review Quick Check' : coverage.answered ? 'Continue Quick Check' : 'Start Quick Readiness Check'
 
   return `<div class="accreditation-overview">
     <section class="accreditation-standard-banner">
@@ -28,7 +30,7 @@ export function renderAccreditationOverview(overview = {}, { practiceName = 'You
         <div class="coverage-number">${Number(coverage.percent || 0)}%</div>
         <p><strong>${Number(coverage.answered || 0)}</strong> of <strong>${Number(coverage.total || 0)}</strong> priority requirements answered for ${escapeHtml(practiceName)}.</p>
         <div class="coverage-bar" role="progressbar" aria-valuenow="${Number(coverage.percent || 0)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.max(0, Math.min(100, Number(coverage.percent || 0)))}%"></span></div>
-        <button type="button" class="primary-button" data-accreditation-view="check">${icon('clipboard',16)} ${coverage.answered ? 'Continue Quick Check' : 'Start Quick Readiness Check'}</button>
+        <button type="button" class="primary-button" data-accreditation-view="check">${icon('clipboard',16)} ${quickCheckLabel}</button>
       </article>
 
       <article class="panel accreditation-assessment-card">
