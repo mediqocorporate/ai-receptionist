@@ -227,7 +227,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
     },
 
     async getAccreditationOverview({ practiceId, cycleId }) {
-      const [cycleRows, standardRows, requirementRows, questionRows, optionRows, assessmentRows, responseRows] = await Promise.all([
+      const [cycleRows, standardRows, requirementRows, questionRows, optionRows, evidenceRows, assessmentRows, responseRows] = await Promise.all([
         table(
           `accreditation_cycles?select=*&id=eq.${encodeURIComponent(cycleId)}&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`
         ),
@@ -235,6 +235,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         table('accreditation_requirements?select=*&standard_version_id=eq.RACGP5&is_active=eq.true&order=quick_check_priority.asc,national_not_met_rank.asc.nullslast,id.asc'),
         table('accreditation_questions?select=*&is_active=eq.true&order=quick_check_priority.asc,id.asc'),
         table('accreditation_answer_options?select=*&order=question_id.asc,option_order.asc'),
+        table('accreditation_evidence_criteria?select=requirement_id,evidence_type&order=requirement_id.asc,evidence_type.asc'),
         table(
           `practice_requirements?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`
         ),
@@ -250,6 +251,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       const requirements = Array.isArray(requirementRows) ? requirementRows : []
       const questions = Array.isArray(questionRows) ? questionRows : []
       const options = Array.isArray(optionRows) ? optionRows : []
+      const evidenceCriteria = Array.isArray(evidenceRows) ? evidenceRows : []
       const assessments = Array.isArray(assessmentRows) ? assessmentRows : []
       const responses = Array.isArray(responseRows) ? responseRows : []
 
@@ -304,6 +306,30 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       else if (coverageAnswered > 0 && nextQuestion) nextAction = 'Continue the Quick Readiness Check.'
       else if (!nextQuestion && coverageTotal > 0) nextAction = 'Review evidence for assessed requirements.'
 
+      const presentationRequirements = requirements.map((requirement) => {
+        const state = assessmentByRequirement.get(requirement.id)
+        return {
+          id: requirement.id,
+          indicator: requirement.indicator,
+          criterion: requirement.criterion,
+          criterionDescription: requirement.criterion_description,
+          plainEnglishRequirement: requirement.plain_english_requirement,
+          classification: requirement.classification,
+          classificationLabel: requirement.classification === 'UNVERIFIED'
+            ? 'Validation required'
+            : requirement.classification === 'MANDATORY'
+              ? 'Mandatory'
+              : 'Aspirational',
+          readinessStatus: state?.readiness_status || 'NOT_CHECKED',
+          verificationStatus: state?.verification_status || null,
+          evidenceCount: evidenceCriteria.filter((row) => row.requirement_id === requirement.id).length,
+          quickCheckPriority: requirement.quick_check_priority,
+          criticalSafetyArea: Boolean(requirement.critical_safety_area),
+          lastAssessedAt: state?.last_assessed_at || null,
+          requiresReassessment: state?.requires_reassessment ?? true,
+        }
+      })
+
       return {
         cycle: {
           id: cycle.id,
@@ -328,6 +354,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         statusCounts,
         assessedCount,
         totalRequirements: requirements.length,
+        requirements: presentationRequirements,
         nextQuestion: nextQuestion ? {
           id: nextQuestion.id,
           requirementId: nextQuestion.requirement_id,
