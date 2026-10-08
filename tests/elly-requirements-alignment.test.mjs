@@ -8,8 +8,9 @@ import { renderPmsDialog, renderSignupDialog } from '../src/components/dialogs.j
 const appSource = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8')
 const openaiSource = fs.readFileSync(new URL('../netlify/functions/_shared/openai.mjs', import.meta.url), 'utf8')
 
-test('Elly launch scope hides the global Reports menu while question storage remains available elsewhere', () => {
+test('Elly launch scope hides the global Reports menu and direct Reports page functionality', () => {
   assert.equal(APP_ROUTES.some((route) => route.path === '/reports' || route.id === 'reports'), false)
+  assert.doesNotMatch(appSource, /ui\.path === ['"]\/reports['"]|data-action=['"]preview-report['"]|data-action=['"]download-report['"]/) 
 })
 
 test('signup keeps Elly approved copy and Riverside as grey suggestion only', () => {
