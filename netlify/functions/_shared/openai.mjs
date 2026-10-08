@@ -83,30 +83,58 @@ function normalizeAnswer(value) {
   }
 }
 
+function defaultReasoningEffort(model) {
+  return String(model || '').trim() === 'gpt-6.1-sol' ? 'low' : 'none'
+}
+
+function outputTokenBudget(reasoningEffort) {
+  return reasoningEffort === 'none' ? 1600 : 5000
+}
+
+function firstMessageContent(payload = {}) {
+  for (const item of payload.output || []) {
+    if (item?.type !== 'message') continue
+    for (const part of item.content || []) {
+      if (part) return part
+    }
+  }
+  return null
+}
+
 export async function createMediQoAnswer({
   apiKey,
   model = 'gpt-6.1-sol',
   question,
   safetyIdentifier,
+  reasoningEffort,
+  timeoutMs = 22000,
   fetchImpl = fetch,
 }) {
   if (!apiKey) throw new Error('OPENAI_API_KEY is not configured.')
   if (!String(question || '').trim()) throw new Error('Question is required.')
 
-  const response = await fetchImpl('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      instructions: INSTRUCTIONS,
-      input: String(question).trim(),
-      store: false,
-      max_output_tokens: 1600,
-      safety_identifier: safetyIdentifier || undefined,
-      reasoning: { effort: 'medium' },
+  const resolvedReasoningEffort = String(reasoningEffort || defaultReasoningEffort(model)).trim()
+  const signal = timeoutMs > 0 && typeof AbortSignal?.timeout === 'function'
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined
+
+  let response
+  try {
+    response = await fetchImpl('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        instructions: INSTRUCTIONS,
+        input: String(question).trim(),
+        store: false,
+        max_output_tokens: outputTokenBudget(resolvedReasoningEffort),
+        safety_identifier: safetyIdentifier || undefined,
+        reasoning: { effort: resolvedReasoningEffort },
       text: {
         format: {
           type: 'json_schema',
@@ -114,14 +142,30 @@ export async function createMediQoAnswer({
           strict: true,
           schema: RESPONSE_SCHEMA,
         },
-      },
-    }),
-  })
+        },
+      }),
+    })
+  } catch (error) {
+    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+      throw new Error('OpenAI request timed out before MediQo received an answer.')
+    }
+    throw error
+  }
 
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     const message = payload?.error?.message || `OpenAI request failed with status ${response.status}.`
     throw new Error(message)
+  }
+
+  if (payload?.status === 'incomplete') {
+    const reason = payload?.incomplete_details?.reason || 'unknown_reason'
+    throw new Error(`OpenAI response incomplete: ${reason}.`)
+  }
+
+  const firstContent = firstMessageContent(payload)
+  if (firstContent?.type === 'refusal') {
+    throw new Error(firstContent.refusal || 'OpenAI refused this request.')
   }
 
   const outputText = extractResponseText(payload)
