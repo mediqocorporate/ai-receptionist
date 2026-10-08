@@ -169,6 +169,7 @@ set search_path = public
 as $$
 declare
   session_id_value uuid;
+  session_row public.anonymous_sessions%rowtype;
 begin
   if not exists (
     select 1 from public.practice_memberships
@@ -177,12 +178,16 @@ begin
     raise exception 'practice_membership_required';
   end if;
 
-  select id into session_id_value
+  select * into session_row
   from public.anonymous_sessions
   where token_hash = p_token_hash
   for update;
 
-  if session_id_value is null then return null; end if;
+  if not found then return null; end if;
+  if session_row.claimed_by_user_id is not null and session_row.claimed_by_user_id is distinct from p_user_id then
+    raise exception 'anonymous_session_already_claimed';
+  end if;
+  session_id_value := session_row.id;
 
   update public.anonymous_sessions
   set claimed_by_user_id = p_user_id, claimed_at = coalesce(claimed_at, now()), last_seen_at = now()
