@@ -17,7 +17,7 @@ Day 1 already provides Supabase Auth, profiles, practices, practice memberships,
 
 ## Provider decision
 
-The client has changed from Azure OpenAI to the OpenAI API. The production assistant will use the OpenAI Responses API. The default model is `gpt-6.1-sol`; model choice remains environment-configurable. RAG embeddings will later use `text-embedding-3-large`.
+The client has changed from Azure OpenAI to the OpenAI API. The production assistant will use the OpenAI Responses API. The interactive Q&A default is `gpt-6-luna` for low-latency structured responses; heavier accreditation and policy-generation workloads may use `gpt-6.1-sol`. Model choice remains environment-configurable. RAG embeddings will later use `text-embedding-3-large`.
 
 ## Q&A data model
 
