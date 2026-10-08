@@ -4,7 +4,6 @@ import fs from 'node:fs'
 import { renderSignupDialog, renderTrialRequestDialog } from '../src/components/dialogs.js'
 import { renderProductPage } from '../src/components/product-page.js'
 import { renderAnswerView } from '../src/components/chat.js'
-import { renderReportsPage } from '../src/components/reports.js'
 import { products } from '../src/data/products.js'
 import { demoQuestions } from '../src/data/demo-questions.js'
 import { resolveResourceUrl } from '../src/data/resource-links.js'
@@ -72,22 +71,11 @@ test('official source links resolve to specific guidance pages', () => {
   assert.match(resolveResourceUrl({ title: 'Australian Charter of Healthcare Rights', publisher: 'Australian Commission on Safety and Quality in Health Care' }), /understanding-your-healthcare-rights/)
 })
 
-test('logged-in question storage has a dedicated persistent log and Reports table', () => {
+test('logged-in question storage remains available even though the launch Reports UI is hidden', () => {
   assert.deepEqual(createDefaultState('mq_logged').questionLog, [])
-  const html = renderReportsPage({
-    questionLog: [{
-      question: 'How can we stop missing MBS items?',
-      userName: 'Sarah Jones',
-      email: 'sarah@riversideclinic.com.au',
-      practiceName: 'Riverside Medical Centre',
-      askedAt: '2026-10-07T00:00:00.000Z',
-    }],
-  })
-  assert.match(html, /Question activity/)
-  assert.match(html, /Sarah Jones/)
-  assert.match(html, /sarah@riversideclinic\.com\.au/)
-  assert.match(html, /Riverside Medical Centre/)
-  assert.match(html, /How can we stop missing MBS items\?/)
+  const app = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8')
+  assert.match(app, /prototype\.questionLog/)
+  assert.doesNotMatch(app, /ui\.path === ['"]\/reports['"]/)
 })
 
 test('app stores answered questions for signed-in users and activates HubSpot embeds', () => {
