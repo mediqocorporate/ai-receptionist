@@ -72,7 +72,7 @@ function defaultReasoningEffort(model) {
 }
 
 function outputTokenBudget(reasoningEffort) {
-  return reasoningEffort === 'none' ? 1200 : 5000
+  return reasoningEffort === 'none' ? 1600 : 5000
 }
 
 function firstMessageContent(payload = {}) {
