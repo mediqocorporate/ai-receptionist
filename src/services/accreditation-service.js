@@ -73,6 +73,11 @@ export function createAccreditationService({
       return body.practiceInformation
     },
 
+    async comprehensiveCheck({ cycleId }) {
+      const body = await request({ action: 'comprehensive_check', cycleId })
+      return body.comprehensiveCheck
+    },
+
     async answer({ cycleId, questionId, answerLabel, answerDetail = {} }) {
       return request({ action: 'answer', cycleId, questionId, answerLabel, answerDetail })
     },
