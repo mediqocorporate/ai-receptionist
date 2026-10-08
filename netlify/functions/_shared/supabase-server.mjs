@@ -116,6 +116,319 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       return { conversationId: row?.conversation_id, questionLogId: row?.question_log_id }
     },
 
+    async getOrCreateAccreditationCycle(practiceId, cycleId = null) {
+      const safePracticeId = encodeURIComponent(practiceId)
+      const cycleFilter = cycleId ? `&id=eq.${encodeURIComponent(cycleId)}` : ''
+      const rows = await table(
+        `accreditation_cycles?select=*&practice_id=eq.${safePracticeId}&standard_version_id=eq.RACGP5&status=eq.ACTIVE${cycleFilter}&order=started_at.desc&limit=1`
+      )
+      const existing = Array.isArray(rows) ? rows[0] : rows
+      if (existing) return existing
+      if (cycleId) throw new Error('accreditation_cycle_not_found')
+
+      const created = await table('accreditation_cycles', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: [{ practice_id: practiceId, standard_version_id: 'RACGP5', status: 'ACTIVE' }],
+      })
+      return Array.isArray(created) ? created[0] : created
+    },
+
+    async getPracticeRequirement({ practiceId, cycleId, requirementId }) {
+      const rows = await table(
+        `practice_requirements?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&limit=1`
+      )
+      return Array.isArray(rows) ? (rows[0] || null) : rows
+    },
+
+    async getAccreditationQuestion({ questionId }) {
+      const questionRows = await table(
+        `accreditation_questions?select=*&id=eq.${encodeURIComponent(questionId)}&is_active=eq.true&limit=1`
+      )
+      const question = Array.isArray(questionRows) ? questionRows[0] : questionRows
+      if (!question) throw new Error('accreditation_question_not_found')
+
+      const [requirementRows, optionRows] = await Promise.all([
+        table(
+          `accreditation_requirements?select=*&id=eq.${encodeURIComponent(question.requirement_id)}&is_active=eq.true&limit=1`
+        ),
+        table(
+          `accreditation_answer_options?select=question_id,option_order,label,option_type,default_branch_behaviour&question_id=eq.${encodeURIComponent(questionId)}&order=option_order.asc`
+        ),
+      ])
+      const requirement = Array.isArray(requirementRows) ? requirementRows[0] : requirementRows
+      if (!requirement) throw new Error('accreditation_requirement_not_found')
+      const answerOptions = (Array.isArray(optionRows) ? optionRows : [])
+        .map((row) => row.label)
+        .filter(Boolean)
+
+      return { ...question, answer_options: answerOptions, requirement }
+    },
+
+    async saveReadinessResponse({
+      practiceId,
+      cycleId,
+      requirementId,
+      questionId,
+      userId,
+      answerLabel,
+      answerDetail = {},
+      verificationStatus = 'USER_REPORTED',
+    }) {
+      await table(
+        `readiness_responses?practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&question_id=eq.${encodeURIComponent(questionId)}&superseded_at=is.null`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: { superseded_at: new Date().toISOString() },
+        },
+      )
+
+      const rows = await table('readiness_responses', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: [{
+          practice_id: practiceId,
+          cycle_id: cycleId,
+          requirement_id: requirementId,
+          question_id: questionId,
+          user_id: userId,
+          answer_label: answerLabel,
+          answer_detail: answerDetail || {},
+          verification_status: verificationStatus,
+        }],
+      })
+      return Array.isArray(rows) ? rows[0] : rows
+    },
+
+    async upsertPracticeRequirementAssessment({ practiceId, cycleId, requirementId, assessment }) {
+      const rows = await table('practice_requirements?on_conflict=cycle_id,requirement_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: [{
+          practice_id: practiceId,
+          cycle_id: cycleId,
+          requirement_id: requirementId,
+          applicability_status: assessment.applicabilityStatus,
+          readiness_status: assessment.readinessStatus,
+          verification_status: assessment.verificationStatus,
+          confidence: assessment.confidence,
+          status_reason: assessment.statusReason,
+          known_facts: assessment.knownFacts || [],
+          unknown_facts: assessment.unknownFacts || [],
+          potential_gaps: assessment.potentialGaps || [],
+          confirmed_gaps: assessment.confirmedGaps || [],
+          recommended_actions: assessment.recommendedActions || [],
+          last_assessed_at: new Date().toISOString(),
+          requires_reassessment: Boolean(assessment.requiresReassessment),
+        }],
+      })
+      return Array.isArray(rows) ? rows[0] : rows
+    },
+
+    async getAccreditationOverview({ practiceId, cycleId }) {
+      const [cycleRows, standardRows, requirementRows, questionRows, optionRows, assessmentRows, responseRows] = await Promise.all([
+        table(
+          `accreditation_cycles?select=*&id=eq.${encodeURIComponent(cycleId)}&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`
+        ),
+        table('accreditation_standard_versions?select=*&id=eq.RACGP5&workspace_type=eq.CURRENT&is_active=eq.true&limit=1'),
+        table('accreditation_requirements?select=*&standard_version_id=eq.RACGP5&is_active=eq.true&order=quick_check_priority.asc,national_not_met_rank.asc.nullslast,id.asc'),
+        table('accreditation_questions?select=*&is_active=eq.true&order=quick_check_priority.asc,id.asc'),
+        table('accreditation_answer_options?select=*&order=question_id.asc,option_order.asc'),
+        table(
+          `practice_requirements?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`
+        ),
+        table(
+          `readiness_responses?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&superseded_at=is.null&order=answered_at.desc`
+        ),
+      ])
+
+      const cycle = Array.isArray(cycleRows) ? cycleRows[0] : cycleRows
+      const standard = Array.isArray(standardRows) ? standardRows[0] : standardRows
+      if (!cycle || !standard) throw new Error('accreditation_cycle_not_found')
+
+      const requirements = Array.isArray(requirementRows) ? requirementRows : []
+      const questions = Array.isArray(questionRows) ? questionRows : []
+      const options = Array.isArray(optionRows) ? optionRows : []
+      const assessments = Array.isArray(assessmentRows) ? assessmentRows : []
+      const responses = Array.isArray(responseRows) ? responseRows : []
+
+      const assessmentByRequirement = new Map(assessments.map((row) => [row.requirement_id, row]))
+      const responseByQuestion = new Map(responses.map((row) => [row.question_id, row]))
+      const p1Requirements = requirements.filter((row) => row.quick_check_priority === 'P1')
+      const p1Ids = new Set(p1Requirements.map((row) => row.id))
+      const answeredRequirementIds = new Set(
+        responses.filter((row) => p1Ids.has(row.requirement_id)).map((row) => row.requirement_id)
+      )
+
+      const statusCounts = {
+        APPEARS_READY: 0,
+        NEEDS_ATTENTION: 0,
+        CONFIRMED_GAP: 0,
+        NOT_CHECKED: 0,
+      }
+      for (const requirement of requirements) {
+        const status = assessmentByRequirement.get(requirement.id)?.readiness_status || 'NOT_CHECKED'
+        if (Object.hasOwn(statusCounts, status)) statusCounts[status] += 1
+        else statusCounts.NOT_CHECKED += 1
+      }
+
+      const questionsWithOptions = questions.map((question) => ({
+        ...question,
+        answerOptions: options
+          .filter((option) => option.question_id === question.id)
+          .sort((a, b) => a.option_order - b.option_order)
+          .map((option) => option.label),
+      }))
+      const nextQuestion = questionsWithOptions.find(
+        (question) => question.quick_check_priority === 'P1'
+          && p1Ids.has(question.requirement_id)
+          && !responseByQuestion.has(question.id)
+      ) || null
+
+      const assessedCount = statusCounts.APPEARS_READY + statusCounts.NEEDS_ATTENTION + statusCounts.CONFIRMED_GAP
+      const coverageTotal = p1Requirements.length
+      const coverageAnswered = answeredRequirementIds.size
+      const coveragePercent = coverageTotal ? Math.round((coverageAnswered / coverageTotal) * 100) : 0
+
+      const highestGap = requirements.find(
+        (requirement) => assessmentByRequirement.get(requirement.id)?.readiness_status === 'CONFIRMED_GAP'
+      )
+      const highestAttention = requirements.find(
+        (requirement) => assessmentByRequirement.get(requirement.id)?.readiness_status === 'NEEDS_ATTENTION'
+      )
+
+      let nextAction = 'Start the Quick Readiness Check.'
+      if (highestGap) nextAction = `Address confirmed gap: ${highestGap.indicator} — ${highestGap.plain_english_requirement}`
+      else if (highestAttention) nextAction = `Review: ${highestAttention.indicator} — ${highestAttention.plain_english_requirement}`
+      else if (coverageAnswered > 0 && nextQuestion) nextAction = 'Continue the Quick Readiness Check.'
+      else if (!nextQuestion && coverageTotal > 0) nextAction = 'Review evidence for assessed requirements.'
+
+      return {
+        cycle: {
+          id: cycle.id,
+          practiceId: cycle.practice_id,
+          standardVersionId: cycle.standard_version_id,
+          targetAssessmentDate: cycle.target_assessment_date,
+          status: cycle.status,
+          startedAt: cycle.started_at,
+        },
+        standardVersion: {
+          id: standard.id,
+          code: standard.code,
+          name: standard.name,
+          edition: standard.edition,
+          workspaceType: standard.workspace_type,
+        },
+        coverage: {
+          answered: coverageAnswered,
+          total: coverageTotal,
+          percent: coveragePercent,
+        },
+        statusCounts,
+        assessedCount,
+        totalRequirements: requirements.length,
+        nextQuestion: nextQuestion ? {
+          id: nextQuestion.id,
+          requirementId: nextQuestion.requirement_id,
+          wording: nextQuestion.wording,
+          whyWeAsk: nextQuestion.why_we_ask,
+          answerOptions: nextQuestion.answerOptions,
+          priority: nextQuestion.quick_check_priority,
+        } : null,
+        nextAction,
+      }
+    },
+
+    async getAccreditationRequirement({ practiceId, cycleId, requirementId }) {
+      const [requirementRows, questionRows, evidenceRows, branchRows, stateRows, responseRows] = await Promise.all([
+        table(
+          `accreditation_requirements?select=*&id=eq.${encodeURIComponent(requirementId)}&standard_version_id=eq.RACGP5&is_active=eq.true&limit=1`
+        ),
+        table(
+          `accreditation_questions?select=*&requirement_id=eq.${encodeURIComponent(requirementId)}&is_active=eq.true&order=id.asc`
+        ),
+        table(
+          `accreditation_evidence_criteria?select=*&requirement_id=eq.${encodeURIComponent(requirementId)}&order=evidence_type.asc`
+        ),
+        table(
+          `accreditation_branching_rules?select=*&requirement_id=eq.${encodeURIComponent(requirementId)}&order=branch_order.asc`
+        ),
+        table(
+          `practice_requirements?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&limit=1`
+        ),
+        table(
+          `readiness_responses?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&superseded_at=is.null&order=answered_at.desc&limit=1`
+        ),
+      ])
+      const requirement = Array.isArray(requirementRows) ? requirementRows[0] : requirementRows
+      if (!requirement) throw new Error('accreditation_requirement_not_found')
+
+      const questions = Array.isArray(questionRows) ? questionRows : []
+      const questionIds = new Set(questions.map((row) => row.id))
+      const allOptions = questionIds.size
+        ? await table(
+            `accreditation_answer_options?select=*&question_id=in.(${[...questionIds].map(encodeURIComponent).join(',')})&order=question_id.asc,option_order.asc`
+          )
+        : []
+      const options = Array.isArray(allOptions) ? allOptions : []
+      const state = Array.isArray(stateRows) ? stateRows[0] : stateRows
+      const response = Array.isArray(responseRows) ? responseRows[0] : responseRows
+      const sourceUrls = requirement.source_urls && typeof requirement.source_urls === 'object'
+        ? requirement.source_urls
+        : {}
+
+      return {
+        id: requirement.id,
+        indicator: requirement.indicator,
+        criterion: requirement.criterion,
+        criterionDescription: requirement.criterion_description,
+        classification: requirement.classification,
+        classificationLabel: requirement.classification === 'UNVERIFIED' ? 'Validation required' : requirement.classification,
+        plainEnglishRequirement: requirement.plain_english_requirement,
+        applicabilityRule: requirement.applicability_rule,
+        quickCheckPriority: requirement.quick_check_priority,
+        criticalSafetyArea: requirement.critical_safety_area,
+        contentValidationStatus: requirement.content_validation_status,
+        sourceUrls,
+        readinessStatus: state?.readiness_status || 'NOT_CHECKED',
+        verificationStatus: state?.verification_status || null,
+        statusReason: state?.status_reason || 'More information required.',
+        knownFacts: state?.known_facts || [],
+        unknownFacts: state?.unknown_facts || [requirement.plain_english_requirement],
+        potentialGaps: state?.potential_gaps || [],
+        confirmedGaps: state?.confirmed_gaps || [],
+        recommendedActions: state?.recommended_actions || [],
+        lastAssessedAt: state?.last_assessed_at || null,
+        requiresReassessment: state?.requires_reassessment ?? true,
+        questions: questions.map((question) => ({
+          id: question.id,
+          wording: question.wording,
+          purpose: question.purpose,
+          whyWeAsk: question.why_we_ask,
+          evidencePrompt: question.evidence_prompt,
+          answerOptions: options
+            .filter((option) => option.question_id === question.id)
+            .sort((a, b) => a.option_order - b.option_order)
+            .map((option) => option.label),
+        })),
+        branchingRules: Array.isArray(branchRows) ? branchRows : [],
+        evidenceCriteria: Array.isArray(evidenceRows) ? evidenceRows.map((row) => ({
+          evidenceType: row.evidence_type,
+          role: row.role,
+          evidenceRule: row.evidence_rule,
+          assessmentDimensions: row.assessment_dimensions || [],
+        })) : [],
+        currentResponse: response ? {
+          questionId: response.question_id,
+          answerLabel: response.answer_label,
+          answerDetail: response.answer_detail || {},
+          verificationStatus: response.verification_status,
+          answeredAt: response.answered_at,
+        } : null,
+      }
+    },
+
     async upsertCrmJob({ userId, practiceId, eventType, payload }) {
       const rows = await table('crm_sync_jobs?on_conflict=user_id,event_type', {
         method: 'POST',
