@@ -1,51 +1,6 @@
-const RESPONSE_SCHEMA = {
-  type: 'object',
-  properties: {
-    intro: { type: 'string', minLength: 1 },
-    sections: {
-      type: 'array',
-      minItems: 1,
-      maxItems: 6,
-      items: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', minLength: 1 },
-          body: { type: 'string' },
-          items: { type: 'array', items: { type: 'string' }, maxItems: 8 },
-        },
-        required: ['title', 'body', 'items'],
-        additionalProperties: false,
-      },
-    },
-    risk: { type: 'boolean' },
-    relatedQuestions: {
-      type: 'array',
-      minItems: 0,
-      maxItems: 5,
-      items: { type: 'string' },
-    },
-    recommendation: {
-      anyOf: [
-        { type: 'null' },
-        {
-          type: 'object',
-          properties: {
-            title: { type: 'string' },
-            body: { type: 'string' },
-            path: { type: 'string' },
-            linkLabel: { type: 'string' },
-          },
-          required: ['title', 'body', 'path', 'linkLabel'],
-          additionalProperties: false,
-        },
-      ],
-    },
-  },
-  required: ['intro', 'sections', 'risk', 'relatedQuestions', 'recommendation'],
-  additionalProperties: false,
-}
-
 const INSTRUCTIONS = `You are MediQo, an AI Practice Manager Assistant for Australian general practice.
+Return JSON only with exactly these top-level keys: intro, sections, risk, relatedQuestions, recommendation.
+Each section must contain title, body and items. risk must be a boolean. relatedQuestions must be an array of strings. recommendation must be null unless a MediQo product directly solves the user's stated problem; when present it must be an object with title, body, path and linkLabel.
 Give practical, cautious operational guidance. Do not claim formal accreditation compliance, legal certainty, or clinical certainty.
 Do not invent citations, URLs, legislation, Medicare item numbers, or regulator requirements. If current authoritative evidence is required and none is provided, say the user should verify the current official source.
 Avoid unnecessary patient-identifying information. If the user includes patient details, do not repeat identifiers unless required for the answer.
@@ -63,23 +18,50 @@ export function extractResponseText(payload = {}) {
   return ''
 }
 
+function normalizeRisk(value) {
+  if (typeof value === 'boolean') return value
+  if (typeof value !== 'string') return Boolean(value)
+  const normalized = value.trim().toLowerCase()
+  if (!normalized || ['false', 'no', 'none', 'n/a'].includes(normalized)) return false
+  return true
+}
+
+function normalizeRecommendation(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const title = String(value.title || '').trim()
+  const body = String(value.body || '').trim()
+  const path = String(value.path || '').trim()
+  const linkLabel = String(value.linkLabel || '').trim()
+  if (!title || !body || !path.startsWith('/') || !linkLabel) return null
+  return { title, body, path, linkLabel }
+}
+
 function normalizeAnswer(value) {
   if (!value || typeof value !== 'object') throw new Error('OpenAI returned an invalid answer payload.')
-  if (!String(value.intro || '').trim()) throw new Error('OpenAI returned an answer without an introduction.')
+  const intro = String(value.intro || '').trim()
+  if (!intro) throw new Error('OpenAI returned an answer without an introduction.')
   if (!Array.isArray(value.sections) || value.sections.length === 0) throw new Error('OpenAI returned an answer without sections.')
+
+  const sections = value.sections
+    .slice(0, 6)
+    .map((section) => ({
+      title: String(section?.title || '').trim(),
+      body: String(section?.body || '').trim(),
+      items: Array.isArray(section?.items) ? section.items.slice(0, 8).map((item) => String(item)) : [],
+    }))
+    .filter((section) => section.title)
+
+  if (!sections.length) throw new Error('OpenAI returned answer sections without titles.')
+
   return {
     id: `ai_${crypto.randomUUID()}`,
-    intro: String(value.intro).trim(),
-    sections: value.sections.map((section) => ({
-      title: String(section.title || '').trim(),
-      body: String(section.body || '').trim(),
-      items: Array.isArray(section.items) ? section.items.map((item) => String(item)) : [],
-    })),
-    risk: Boolean(value.risk),
+    intro,
+    sections,
+    risk: normalizeRisk(value.risk),
     sources: [],
-    relatedQuestions: Array.isArray(value.relatedQuestions) ? value.relatedQuestions.map((item) => String(item)) : [],
+    relatedQuestions: Array.isArray(value.relatedQuestions) ? value.relatedQuestions.slice(0, 5).map((item) => String(item)) : [],
     relatedResources: [],
-    recommendation: value.recommendation || null,
+    recommendation: normalizeRecommendation(value.recommendation),
   }
 }
 
@@ -130,18 +112,13 @@ export async function createMediQoAnswer({
       body: JSON.stringify({
         model,
         instructions: INSTRUCTIONS,
-        input: String(question).trim(),
+        input: `Return the answer as JSON. ${String(question).trim()}`,
         store: false,
         max_output_tokens: outputTokenBudget(resolvedReasoningEffort),
         safety_identifier: safetyIdentifier || undefined,
         reasoning: { effort: resolvedReasoningEffort },
-      text: {
-        format: {
-          type: 'json_schema',
-          name: 'mediqo_practice_manager_answer',
-          strict: true,
-          schema: RESPONSE_SCHEMA,
-        },
+        text: {
+          format: { type: 'json_object' },
         },
       }),
     })
