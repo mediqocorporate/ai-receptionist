@@ -6,7 +6,6 @@ export function readIntegrationConfig(source = globalThis.__MEDIQO_CONFIG__ || {
     assistantApiUrl: String(source.assistantApiUrl || '').trim(),
     accountSyncApiUrl: String(source.accountSyncApiUrl || '').trim(),
     accreditationApiUrl: String(source.accreditationApiUrl || '').trim(),
-    policyDocumentApiUrl: String(source.policyDocumentApiUrl || '').trim(),
   })
 }
 
