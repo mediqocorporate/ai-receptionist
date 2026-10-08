@@ -38,8 +38,8 @@ test('createMediQoAnswer keeps the OpenAI key server-side and requests structure
   assert.equal(request.body.max_output_tokens, 5000)
   assert.deepEqual(request.body.reasoning, { effort: 'low' })
   assert.equal(request.body.safety_identifier, 'user_hash')
-  assert.equal(request.body.text.format.type, 'json_schema')
-  assert.equal(request.body.text.format.strict, true)
+  assert.equal(request.body.text.format.type, 'json_object')
+  assert.match(request.body.input, /json/i)
   assert.equal(result.responseId, 'resp_123')
   assert.equal(result.answer.intro, 'Start here.')
   assert.deepEqual(result.answer.sources, [])
@@ -120,4 +120,30 @@ test('interactive adapter defaults to GPT-6 Luna with no reasoning', async () =>
   assert.equal(request.model, 'gpt-6-luna')
   assert.deepEqual(request.reasoning, { effort: 'none' })
   assert.equal(request.max_output_tokens, 1600)
+})
+
+
+test('JSON mode normalizes loose risk and recommendation shapes safely', async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({
+    id: 'resp_loose_json',
+    status: 'completed',
+    output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({
+      intro: 'Practical answer.',
+      sections: [{ title: 'First step', body: 'Review the site.', items: ['Confirm access'] }],
+      risk: 'Verify current NSW requirements before opening.',
+      relatedQuestions: ['What records should I keep?'],
+      recommendation: 'Assign an owner to every action.'
+    }) }] }]
+  }), { status: 200, headers: { 'content-type': 'application/json' } })
+
+  const result = await createMediQoAnswer({
+    apiKey: 'sk-test-secret',
+    model: 'gpt-6-luna',
+    question: 'Give me a checklist',
+    fetchImpl,
+  })
+
+  assert.equal(result.answer.risk, true)
+  assert.equal(result.answer.recommendation, null)
+  assert.deepEqual(result.answer.sections[0].items, ['Confirm access'])
 })
