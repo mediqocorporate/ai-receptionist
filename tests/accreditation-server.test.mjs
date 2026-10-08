@@ -1,0 +1,102 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { createSupabaseServer } from '../netlify/functions/_shared/supabase-server.mjs'
+
+const env = {
+  SUPABASE_URL: 'https://project.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY: 'publishable',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-secret',
+}
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
+}
+
+test('accreditation cycle lookup and creation are scoped by practice', async () => {
+  const calls = []
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, options, body: options.body ? JSON.parse(options.body) : null })
+    if (options.method === 'GET') return json([])
+    return json([{ id: 'cycle_1', practice_id: 'practice_1', standard_version_id: 'RACGP5', status: 'ACTIVE' }])
+  }
+  const server = createSupabaseServer({ env, fetchImpl })
+  assert.equal(typeof server.getOrCreateAccreditationCycle, 'function')
+  const cycle = await server.getOrCreateAccreditationCycle('practice_1')
+  assert.equal(cycle.id, 'cycle_1')
+  assert.match(calls[0].url, /practice_id=eq\.practice_1/)
+  assert.match(calls[0].url, /standard_version_id=eq\.RACGP5/)
+  assert.equal(calls[1].body[0].practice_id, 'practice_1')
+})
+
+test('practice requirement reads always include practice and cycle filters', async () => {
+  let calledUrl = ''
+  const server = createSupabaseServer({
+    env,
+    fetchImpl: async (url) => { calledUrl = url; return json([]) },
+  })
+  assert.equal(typeof server.getPracticeRequirement, 'function')
+  await server.getPracticeRequirement({ practiceId: 'p1', cycleId: 'c1', requirementId: 'R1' })
+  assert.match(calledUrl, /practice_id=eq\.p1/)
+  assert.match(calledUrl, /cycle_id=eq\.c1/)
+  assert.match(calledUrl, /requirement_id=eq\.R1/)
+})
+
+test('saving readiness response never accepts a client practice id outside server payload', async () => {
+  const calls = []
+  const server = createSupabaseServer({
+    env,
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options, body: options.body ? JSON.parse(options.body) : null })
+      if (options.method === 'PATCH') return json([])
+      return json([{ id: 'resp_1' }])
+    },
+  })
+  assert.equal(typeof server.saveReadinessResponse, 'function')
+  await server.saveReadinessResponse({
+    practiceId: 'practice_1',
+    cycleId: 'cycle_1',
+    requirementId: 'R1',
+    questionId: 'Q1',
+    userId: 'user_1',
+    answerLabel: 'Yes',
+    answerDetail: {},
+    verificationStatus: 'USER_REPORTED',
+  })
+  const insert = calls.find((call) => call.options.method === 'POST')
+  assert.equal(insert.body[0].practice_id, 'practice_1')
+  assert.equal(insert.body[0].user_id, 'user_1')
+})
+
+test('practice assessment upsert is keyed to authenticated practice and cycle', async () => {
+  let call
+  const server = createSupabaseServer({
+    env,
+    fetchImpl: async (url, options = {}) => {
+      call = { url, options, body: JSON.parse(options.body) }
+      return json([{ id: 'pr_1' }])
+    },
+  })
+  assert.equal(typeof server.upsertPracticeRequirementAssessment, 'function')
+  await server.upsertPracticeRequirementAssessment({
+    practiceId: 'p1',
+    cycleId: 'c1',
+    requirementId: 'R1',
+    assessment: {
+      applicabilityStatus: 'APPLICABLE',
+      readinessStatus: 'NEEDS_ATTENTION',
+      verificationStatus: 'USER_REPORTED',
+      confidence: 0.4,
+      statusReason: 'Evidence needed.',
+      knownFacts: [],
+      unknownFacts: [],
+      potentialGaps: [],
+      confirmedGaps: [],
+      recommendedActions: [],
+      requiresReassessment: true,
+    },
+  })
+  assert.match(call.url, /on_conflict=cycle_id,requirement_id/)
+  assert.equal(call.body[0].practice_id, 'p1')
+  assert.equal(call.body[0].cycle_id, 'c1')
+  assert.equal(call.body[0].readiness_status, 'NEEDS_ATTENTION')
+})
