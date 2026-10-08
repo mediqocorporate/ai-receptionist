@@ -14,6 +14,7 @@ import { authService } from './services/auth-service.js'
 import { leadService } from './services/lead-service.js'
 import { questionService } from './services/question-service.js'
 import { pmsService } from './services/pms-service.js'
+import { accreditationService } from './services/accreditation-service.js'
 import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './lib/persistence.js'
 import { validateSignup } from './lib/validation.js'
 import { canAskWithoutSignup, recordAnsweredQuestion } from './lib/prototype-rules.js'
@@ -45,6 +46,15 @@ const ui = {
   pendingQuestion: '',
   conversationId: null,
   scrollConversationMode: '',
+  accreditation: {
+    loading: false,
+    submitting: false,
+    error: '',
+    view: 'overview',
+    filter: 'ALL',
+    overview: null,
+    requirement: null,
+  },
   lastFocused: null,
 }
 
@@ -72,7 +82,10 @@ function pageContent() {
     }
     return renderAskHome({ signedIn: Boolean(appUser), history: prototype.questionHistory })
   }
-  if (ui.path === '/accreditation') return renderAccreditationPage(prototype.accreditationOverrides, { practiceName: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre', targetDate: 'March 2027' })
+  if (ui.path === '/accreditation') return renderAccreditationPage(ui.accreditation, {
+    practiceName: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre',
+    signedIn: Boolean(appUser),
+  })
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
   if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverrides: prototype.accreditationOverrides, questionLog: prototype.questionLog })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)
@@ -204,6 +217,7 @@ function navigate(target) {
   ui.error = ''
   render()
   window.scrollTo({ top: 0, behavior: 'auto' })
+  if (ui.path === '/accreditation' && appUser) void loadAccreditationOverview()
 }
 
 async function submitQuestion(rawQuestion) {
@@ -517,6 +531,7 @@ async function bootstrapAuth() {
       await syncAuthenticatedAccountState(restoredUser)
       savePrototypeState(prototype)
       render()
+      if (ui.path === '/accreditation') await loadAccreditationOverview()
     }
 
     await authService.onAuthStateChange(async (user) => {
@@ -524,9 +539,72 @@ async function bootstrapAuth() {
       if (user?.clinicName) prototype.selectedPractice = user.clinicName
       if (user) await syncAuthenticatedAccountState(user)
       render()
+      if (user && ui.path === '/accreditation') await loadAccreditationOverview()
     })
   } catch (error) {
     console.warn('MediQo auth session could not be restored.', error)
+  }
+}
+
+async function loadAccreditationOverview({ preserveView = true } = {}) {
+  if (!appUser || !accreditationService.isLive()) return
+  ui.accreditation.loading = true
+  ui.accreditation.error = ''
+  if (!preserveView) ui.accreditation.view = 'overview'
+  render()
+  try {
+    ui.accreditation.overview = await accreditationService.overview()
+    if (ui.accreditation.view === 'requirement' && !ui.accreditation.requirement) ui.accreditation.view = 'requirements'
+  } catch (error) {
+    ui.accreditation.error = error?.message || 'Could not load accreditation readiness.'
+  } finally {
+    ui.accreditation.loading = false
+    render()
+  }
+}
+
+async function answerAccreditationQuestion(button) {
+  const overview = ui.accreditation.overview
+  if (!overview?.cycle?.id || ui.accreditation.submitting) return
+  const questionId = String(button.dataset.questionId || '').trim()
+  const answerLabel = String(button.dataset.answerLabel || '').trim()
+  if (!questionId || !answerLabel) return
+
+  ui.accreditation.submitting = true
+  ui.accreditation.error = ''
+  render()
+  try {
+    const result = await accreditationService.answer({
+      cycleId: overview.cycle.id,
+      questionId,
+      answerLabel,
+      answerDetail: {},
+    })
+    ui.accreditation.overview = result.overview
+    ui.accreditation.requirement = null
+    showToast('Readiness answer saved')
+  } catch (error) {
+    ui.accreditation.error = error?.message || 'Could not save this readiness answer.'
+  } finally {
+    ui.accreditation.submitting = false
+    render()
+  }
+}
+
+async function openAccreditationRequirement(requirementId) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!cycleId || !requirementId) return
+  ui.accreditation.loading = true
+  ui.accreditation.error = ''
+  render()
+  try {
+    ui.accreditation.requirement = await accreditationService.requirement({ cycleId, requirementId })
+    ui.accreditation.view = 'requirement'
+  } catch (error) {
+    ui.accreditation.error = error?.message || 'Could not load this accreditation requirement.'
+  } finally {
+    ui.accreditation.loading = false
+    render()
   }
 }
 
@@ -536,13 +614,6 @@ function saveCurrentAnswer(id) {
   savePrototypeState(prototype)
   render()
   showToast('Answer saved')
-}
-
-function updateAccreditation(select) {
-  prototype.accreditationOverrides[select.dataset.accreditationId] = select.value
-  savePrototypeState(prototype)
-  render()
-  showToast('Accreditation status updated')
 }
 
 function renderPolicyPreview(template) {
@@ -662,6 +733,34 @@ root.addEventListener('click', async (event) => {
     render(); return
   }
 
+  const accreditationView = event.target.closest('[data-accreditation-view]')
+  if (accreditationView) {
+    ui.accreditation.view = accreditationView.dataset.accreditationView || 'overview'
+    if (ui.accreditation.view !== 'requirement') ui.accreditation.requirement = null
+    render()
+    return
+  }
+
+  const accreditationFilter = event.target.closest('[data-accreditation-filter]')
+  if (accreditationFilter) {
+    ui.accreditation.filter = accreditationFilter.dataset.accreditationFilter || 'ALL'
+    ui.accreditation.view = 'requirements'
+    render()
+    return
+  }
+
+  const accreditationAnswer = event.target.closest('[data-accreditation-answer]')
+  if (accreditationAnswer) {
+    await answerAccreditationQuestion(accreditationAnswer)
+    return
+  }
+
+  const accreditationRequirement = event.target.closest('[data-accreditation-requirement]')
+  if (accreditationRequirement) {
+    await openAccreditationRequirement(accreditationRequirement.dataset.accreditationRequirement)
+    return
+  }
+
   const actionEl = event.target.closest('[data-action]')
   if (!actionEl) return
   const action = actionEl.dataset.action
@@ -677,11 +776,12 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.error = ''; render(); window.scrollTo({ top: 0, behavior: 'auto' }); return }
   if (action === 'connect-pms') { openDialog('pms'); return }
   if (action === 'help') { openDialog('help'); return }
   if (action === 'evidence-info') { openDialog('evidence'); return }
+  if (action === 'retry-accreditation') { await loadAccreditationOverview(); return }
   if (action === 'close-dialog') { closeDialog(); return }
   if (action === 'pms-demo-confirm') { await pmsService.connect(); closeDialog(); showToast('PMS selection saved'); return }
   if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
@@ -757,8 +857,6 @@ root.addEventListener('change', (event) => {
     if (label) label.textContent = name ? `Selected: ${name}` : ''
     return
   }
-  const select = event.target.closest('[data-accreditation-id]')
-  if (select) updateAccreditation(select)
 })
 
 document.addEventListener('keydown', (event) => {
@@ -775,6 +873,7 @@ window.addEventListener('popstate', () => {
   ui.alertsOpen = false
   ui.userMenuOpen = false
   render()
+  if (ui.path === '/accreditation' && appUser) void loadAccreditationOverview()
 })
 
 render()
