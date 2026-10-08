@@ -15,8 +15,10 @@ export function createAccreditationService({
   clientProvider = getSupabaseClient,
   fetchImpl = fetch,
 } = {}) {
+  const endpoint = String(config.accreditationApiUrl || '/api/accreditation').trim()
+
   async function request(payload) {
-    const url = String(config.accreditationApiUrl || '').trim()
+    const url = endpoint
     if (!url) throw new Error('MediQo accreditation services are not configured yet.')
     const token = await bearerToken(clientProvider)
     const response = await fetchImpl(url, {
@@ -40,7 +42,7 @@ export function createAccreditationService({
 
   return {
     isLive() {
-      return Boolean(String(config.accreditationApiUrl || '').trim())
+      return Boolean(endpoint)
     },
 
     async overview() {
