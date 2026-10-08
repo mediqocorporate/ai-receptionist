@@ -97,10 +97,10 @@ function renderUserMessage(question, askedAt) {
   </div>`
 }
 
-function renderAssistantAnswer(answer, { saved = false } = {}) {
+function renderAssistantAnswer(answer, { saved = false, reveal = false } = {}) {
   return `<div class="assistant-message-row">
     <span class="assistant-orb">${icon('sparkle', 23)}</span>
-    <article class="assistant-answer">
+    <article class="assistant-answer ${reveal ? 'answer-reveal' : ''}">
       <div class="answer-topline"></div>
       <p class="answer-intro">${escapeHtml(answer.intro)}</p>
       ${renderRisk(answer)}
@@ -142,17 +142,18 @@ export function renderConversationView(turns = [], {
 } = {}) {
   const safeTurns = Array.isArray(turns) ? turns : []
   const latestAnswer = [...safeTurns].reverse().find((turn) => turn?.answer)?.answer || null
-  const completed = safeTurns.map((turn) => {
+  const completed = safeTurns.map((turn, index) => {
+    const isLatest = index === safeTurns.length - 1
     const answerMarkup = turn?.answer
-      ? renderAssistantAnswer(turn.answer, { saved: savedAnswerIds.includes(turn.answer.id) })
+      ? renderAssistantAnswer(turn.answer, { saved: savedAnswerIds.includes(turn.answer.id), reveal: isLatest && !loading })
       : turn?.fallback
         ? renderFallbackAssistant(fallbackSuggestions)
         : ''
-    return `<div class="conversation-turn">${renderUserMessage(turn?.question || '', turn?.askedAt)}${answerMarkup}</div>`
+    return `<div class="conversation-turn" ${isLatest ? 'data-chat-latest' : ''}>${renderUserMessage(turn?.question || '', turn?.askedAt)}${answerMarkup}</div>`
   }).join('')
 
   const pending = loading && pendingQuestion
-    ? `<div class="conversation-turn pending-turn">${renderUserMessage(pendingQuestion, pendingAskedAt)}<div class="assistant-loading"><span class="assistant-orb">${icon('sparkle',20)}</span><div class="typing" aria-label="MediQo is preparing an answer"><i></i><i></i><i></i></div></div></div>`
+    ? `<div class="conversation-turn pending-turn" data-chat-pending>${renderUserMessage(pendingQuestion, pendingAskedAt)}<div class="assistant-loading"><span class="assistant-orb">${icon('sparkle',20)}</span><div class="thinking-status" role="status" aria-live="polite"><div class="thinking-label"><strong>MediQo is thinking</strong><div class="typing" aria-hidden="true"><i></i><i></i><i></i></div></div><span>Preparing practical guidance…</span></div></div></div>`
     : ''
 
   const failed = !loading && error && failedQuestion
