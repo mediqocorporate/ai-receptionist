@@ -36,6 +36,8 @@ export function publicRuntimeConfig(env = {}) {
     supabaseUrl: String(env.SUPABASE_URL || '').trim(),
     supabaseAnonKey: String(env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || '').trim(),
     appUrl: String(env.APP_URL || '').trim(),
+    assistantApiUrl: String(env.MEDIQO_ASSISTANT_API_URL || '').trim(),
+    accountSyncApiUrl: String(env.MEDIQO_ACCOUNT_SYNC_API_URL || '').trim(),
   }
 }
 
