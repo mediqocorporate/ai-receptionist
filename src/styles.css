@@ -127,6 +127,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Conversation */
 .conversation-page { min-height: calc(100vh - var(--topbar-height)); background: #fff; padding: 16px 26px 90px; }
+.conversation-toolbar { max-width: 1220px; margin: 0 auto 14px; min-height: 36px; display: flex; align-items: center; gap: 10px; }
+.conversation-back { border: 1px solid var(--line); background: #fff; border-radius: 8px; min-height: 34px; padding: 0 10px 0 8px; display: inline-flex; align-items: center; gap: 5px; color: #445776; cursor: pointer; font-size: 12px; }
+.conversation-back .icon { transform: rotate(180deg); }
+.conversation-back:hover { color: var(--purple); border-color: #cfbdf8; background: #faf8ff; }
+.conversation-toolbar-label { color: #8a96aa; font-size: 11.5px; }
+.conversation-turn { padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1px solid #eef1f6; }
+.conversation-turn:last-child { margin-bottom: 0; }
+.pending-turn, .failed-turn { border-bottom: 0; }
+.assistant-error-title { font-size: 16px; color: #0d1b4d; margin: 0 0 6px; }
 .conversation-grid { max-width: 1220px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 326px; gap: 28px; align-items: start; }
 .conversation-main { min-width: 0; }
 .user-message-row { display: flex; justify-content: flex-end; align-items: flex-start; gap: 12px; margin: 0 0 14px 80px; }
