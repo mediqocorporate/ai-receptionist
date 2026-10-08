@@ -463,6 +463,76 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       }
     },
 
+    async getAccreditationComprehensiveCheck({ practiceId, cycleId }) {
+      const [requirementRows, questionRows, optionRows, assessmentRows, responseRows] = await Promise.all([
+        table('accreditation_requirements?select=id,indicator,classification,plain_english_requirement,quick_check_priority,national_not_met_rank,is_active&standard_version_id=eq.RACGP5&is_active=eq.true&order=quick_check_priority.asc,national_not_met_rank.asc.nullslast,id.asc'),
+        table('accreditation_questions?select=id,requirement_id,wording,why_we_ask,is_active&is_active=eq.true&order=id.asc'),
+        table('accreditation_answer_options?select=question_id,option_order,label&order=question_id.asc,option_order.asc'),
+        table(
+          `practice_requirements?select=requirement_id,applicability_status&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`
+        ),
+        table(
+          `readiness_responses?select=requirement_id,question_id,answer_label,answered_at&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&superseded_at=is.null&order=answered_at.desc`
+        ),
+      ])
+
+      const requirements = Array.isArray(requirementRows) ? requirementRows : []
+      const questions = Array.isArray(questionRows) ? questionRows : []
+      const options = Array.isArray(optionRows) ? optionRows : []
+      const assessments = Array.isArray(assessmentRows) ? assessmentRows : []
+      const responses = Array.isArray(responseRows) ? responseRows : []
+
+      const applicability = new Map(assessments.map((row) => [row.requirement_id, row.applicability_status]))
+      const responseByQuestion = new Map(responses.map((row) => [row.question_id, row]))
+      const questionByRequirement = new Map()
+      for (const question of questions) {
+        if (!questionByRequirement.has(question.requirement_id)) questionByRequirement.set(question.requirement_id, question)
+      }
+
+      const mandatory = requirements.filter(
+        (requirement) => requirement.classification === 'MANDATORY'
+          && applicability.get(requirement.id) !== 'NOT_APPLICABLE'
+          && questionByRequirement.has(requirement.id)
+      )
+      const answeredIds = new Set(
+        mandatory
+          .filter((requirement) => responseByQuestion.has(questionByRequirement.get(requirement.id).id))
+          .map((requirement) => requirement.id)
+      )
+      const nextRequirement = mandatory.find((requirement) => !answeredIds.has(requirement.id)) || null
+      const next = nextRequirement ? questionByRequirement.get(nextRequirement.id) : null
+      const coverageTotal = mandatory.length
+      const coverageAnswered = answeredIds.size
+
+      return {
+        coverage: {
+          answered: coverageAnswered,
+          total: coverageTotal,
+          percent: coverageTotal ? Math.round((coverageAnswered / coverageTotal) * 100) : 0,
+        },
+        nextQuestion: next ? {
+          id: next.id,
+          requirementId: next.requirement_id,
+          indicator: nextRequirement.indicator,
+          wording: next.wording,
+          whyWeAsk: next.why_we_ask,
+          priority: nextRequirement.quick_check_priority,
+          answerOptions: options
+            .filter((option) => option.question_id === next.id)
+            .sort((a, b) => a.option_order - b.option_order)
+            .map((option) => option.label),
+        } : null,
+        aspirationalCount: requirements.filter(
+          (requirement) => requirement.classification === 'ASPIRATIONAL'
+            && applicability.get(requirement.id) !== 'NOT_APPLICABLE'
+        ).length,
+        classificationPendingCount: requirements.filter(
+          (requirement) => requirement.classification === 'UNVERIFIED'
+            && applicability.get(requirement.id) !== 'NOT_APPLICABLE'
+        ).length,
+      }
+    },
+
     async getAccreditationRequirement({ practiceId, cycleId, requirementId }) {
       const [requirementRows, questionRows, evidenceRows, branchRows, stateRows, responseRows] = await Promise.all([
         table(
