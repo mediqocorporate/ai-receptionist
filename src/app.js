@@ -2,7 +2,6 @@ import { renderShell } from './components/shell.js'
 import { renderAskHome, renderConversationView, renderComposer, formatMessageTimestamp } from './components/chat.js'
 import { renderAccreditationPage } from './components/accreditation.js'
 import { renderPolicyPage, renderDocumentWizard, renderTemplatePreview } from './components/policies.js'
-import { renderReportsPage, renderReportDialog, accreditationSummary } from './components/reports.js'
 import { renderAlertsPage } from './components/alerts.js'
 import { renderProductPage, shiftCalendarSelection, formatCalendarDate } from './components/product-page.js'
 import { renderSignupDialog, renderLoginDialog, renderTrialRequestDialog, renderFeatureRequestDialog, renderPmsDialog, renderHelpDialog, renderEvidenceDialog } from './components/dialogs.js'
@@ -87,7 +86,6 @@ function pageContent() {
     signedIn: Boolean(appUser),
   })
   if (ui.path === '/policies') return renderPolicyPage({ category: ui.policyCategory })
-  if (ui.path === '/reports') return renderReportsPage({ savedAnswerIds: prototype.savedAnswerIds, accreditationOverview: ui.accreditation.overview, questionLog: prototype.questionLog })
   if (ui.path === '/alerts') return renderAlertsPage(ui.openAlertId)
   const product = currentProduct()
   if (product) return renderProductPage(product, ui.calendarSelection[product.slug] || {})
@@ -116,7 +114,6 @@ function dialogMarkup() {
   if (ui.dialog === 'pms') return renderPmsDialog(ui.dialogData)
   if (ui.dialog === 'help') return renderHelpDialog()
   if (ui.dialog === 'evidence') return renderEvidenceDialog()
-  if (ui.dialog === 'report') return renderReportDialog(ui.dialogData.reportId, { savedAnswerIds: prototype.savedAnswerIds, accreditationOverview: ui.accreditation.overview })
   if (ui.dialog === 'document') {
     const template = policyTemplates.find((item) => item.id === ui.dialogData.templateId)
     return renderDocumentWizard(template, ui.dialogData.values || {}, ui.dialogData.generated || false)
@@ -634,31 +631,6 @@ function handleDocumentForm(form) {
   render({ focusDialog: true })
 }
 
-function downloadReport(reportId = 'practice') {
-  const accreditation = accreditationSummary(ui.accreditation.overview)
-  const reportCopy = {
-    accreditation: ['Accreditation Readiness Summary', `Quick Check coverage: ${accreditation.coveragePercent}%`, `Appears Ready: ${accreditation.appearsReady}`, `Needs Attention: ${accreditation.needsAttention}`, `Confirmed Gap: ${accreditation.confirmedGaps}`, `Not Checked: ${accreditation.notChecked}`],
-    policies: ['Policy Coverage Summary', 'Current policies: 14', 'Due for review: 3', 'Priority areas: 2'],
-    training: ['Training & Expiry Summary', 'Due soon: 4', 'Current: 18', 'Needs evidence: 2'],
-    advice: ['Recent Advice / Saved Answers', `Saved practice answers: ${Math.max(3, prototype.savedAnswerIds.length)}`],
-  }
-  const lines = [
-    'MediQo Practice Report',
-    prototype.selectedPractice || 'Riverside Medical Centre',
-    '',
-    ...(reportCopy[reportId] || ['Practice summary']),
-    '',
-    'Generated from the current MediQo workspace.',
-  ]
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `MediQo-${reportId}-report.txt`
-  a.click()
-  URL.revokeObjectURL(url)
-  showToast('Report downloaded')
-}
 function confirmDemo() {
   const product = currentProduct()
   const selection = product ? ui.calendarSelection[product.slug] : null
@@ -791,8 +763,6 @@ root.addEventListener('click', async (event) => {
   if (action === 'create-document') { openDialog('document', { templateId: 'new-receptionist-onboarding', values: defaultDocumentValues(), generated: false }); return }
   if (action === 'back-wizard') { ui.dialogData.generated = false; render({focusDialog:true}); return }
   if (action === 'save-draft') { closeDialog(); showToast('Draft saved to Policy Library'); return }
-  if (action === 'preview-report') { openDialog('report', { reportId: actionEl.dataset.reportId }); return }
-  if (action === 'download-report') { downloadReport(actionEl.dataset.reportId || 'practice'); return }
   if (action === 'toggle-alert') { ui.openAlertId = ui.openAlertId === actionEl.dataset.alertId ? null : actionEl.dataset.alertId; render(); return }
   if (action === 'scroll-calendar') { document.querySelector('#demo-calendar')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
   if (action === 'start-trial') { openDialog('trial-request', { errors: {}, values: defaultLeadValues() }); return }
