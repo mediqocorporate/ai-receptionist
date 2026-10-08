@@ -31,7 +31,7 @@ function renderFirstVisit(practiceName) {
       <div><span class="eyebrow">RACGP 5TH EDITION</span><h2>Let's get your practice ready for accreditation.</h2><p>MediQo can guide ${escapeHtml(practiceName)} through readiness questions, requirements, evidence and next actions while keeping unknown information visible.</p></div>
       <div class="accreditation-first-actions"><button class="primary-button" type="button" data-action="accreditation-start-setup">Set up my accreditation</button><button class="secondary-button" type="button" data-action="accreditation-explore">Explore Accreditation Assistant</button></div>
     </article>
-    <aside class="panel readiness-check-help"><span class="eyebrow">NO SELF-ASSESSMENT NEEDED</span><h3>Answer facts, not “Are we compliant?”</h3><p>MediQo asks practical questions, checks available evidence and separates what is known from what still needs confirmation.</p></aside>
+    <aside class="panel readiness-check-help"><span class="eyebrow">NO SELF-ASSESSMENT NEEDED</span><h3>Answer facts, not “Does this meet the standard?”</h3><p>MediQo asks practical questions, checks available evidence and separates what is known from what still needs confirmation.</p></aside>
   </section>`
 }
 
