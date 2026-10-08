@@ -50,6 +50,29 @@ export function createAccreditationService({
       return body.overview
     },
 
+    async setup({
+      journeyStatus = 'NOT_SURE',
+      assessmentScheduled = null,
+      targetAssessmentDate = null,
+      accreditingAgencyId = null,
+      practiceContext = {},
+    } = {}) {
+      const body = await request({
+        action: 'setup',
+        journeyStatus,
+        assessmentScheduled,
+        targetAssessmentDate,
+        accreditingAgencyId,
+        practiceContext,
+      })
+      return body
+    },
+
+    async practiceInformation({ cycleId = null } = {}) {
+      const body = await request({ action: 'practice_information', cycleId })
+      return body.practiceInformation
+    },
+
     async answer({ cycleId, questionId, answerLabel, answerDetail = {} }) {
       return request({ action: 'answer', cycleId, questionId, answerLabel, answerDetail })
     },
