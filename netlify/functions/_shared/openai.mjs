@@ -1,3 +1,5 @@
+export const INTERACTIVE_OPENAI_TIMEOUT_MS = 27000
+
 const INSTRUCTIONS = `You are MediQo, an AI Practice Manager Assistant for Australian general practice.
 Return JSON only with exactly these top-level keys: intro, sections, risk, relatedQuestions, recommendation.
 Each section must contain title, body and items. risk must be a boolean. relatedQuestions must be an array of strings. recommendation must be null unless a MediQo product directly solves the user's stated problem; when present it must be an object with title, body, path and linkLabel.
@@ -70,7 +72,7 @@ function defaultReasoningEffort(model) {
 }
 
 function outputTokenBudget(reasoningEffort) {
-  return reasoningEffort === 'none' ? 1600 : 5000
+  return reasoningEffort === 'none' ? 1200 : 5000
 }
 
 function firstMessageContent(payload = {}) {
@@ -89,7 +91,7 @@ export async function createMediQoAnswer({
   question,
   safetyIdentifier,
   reasoningEffort,
-  timeoutMs = 22000,
+  timeoutMs = INTERACTIVE_OPENAI_TIMEOUT_MS,
   fetchImpl = fetch,
 }) {
   if (!apiKey) throw new Error('OPENAI_API_KEY is not configured.')
