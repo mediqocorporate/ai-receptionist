@@ -165,6 +165,15 @@ export function createAccreditationHandler({
         return jsonResponse(200, { practiceInformation })
       }
 
+      if (action === 'comprehensive_check') {
+        const cycle = await server.getOrCreateAccreditationCycle(actor.practiceId, body.cycleId || null)
+        const comprehensiveCheck = await server.getAccreditationComprehensiveCheck({
+          practiceId: actor.practiceId,
+          cycleId: cycle.id,
+        })
+        return jsonResponse(200, { comprehensiveCheck, cycleId: cycle.id })
+      }
+
       if (action === 'requirement') {
         const requirementId = String(body.requirementId || '').trim()
         if (!requirementId) {
@@ -236,7 +245,7 @@ export function createAccreditationHandler({
         })
       }
 
-      return jsonResponse(400, { code: 'invalid_action', message: 'Choose overview, setup, practice_information, answer or requirement.' })
+      return jsonResponse(400, { code: 'invalid_action', message: 'Choose overview, setup, practice_information, comprehensive_check, answer or requirement.' })
     } catch (error) {
       const message = String(error?.message || '')
       if (message === 'accreditation_cycle_not_found') {
