@@ -45,7 +45,11 @@ export function createAccountSyncHandler({
       } : {}
       if (anonymousToken) {
         const tokenHash = await hashFn(anonymousToken)
-        await server.claimAnonymous(tokenHash, actor.userId, actor.practiceId)
+        try {
+          await server.claimAnonymous(tokenHash, actor.userId, actor.practiceId)
+        } catch (error) {
+          if (!String(error?.message || '').includes('anonymous_session_already_claimed')) throw error
+        }
       }
 
       const contact = {
