@@ -283,8 +283,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           .map((option) => option.label),
       }))
       const nextQuestion = questionsWithOptions.find(
-        (question) => question.quick_check_priority === 'P1'
-          && p1Ids.has(question.requirement_id)
+        (question) => p1Ids.has(question.requirement_id)
           && !responseByQuestion.has(question.id)
       ) || null
 
@@ -361,7 +360,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           wording: nextQuestion.wording,
           whyWeAsk: nextQuestion.why_we_ask,
           answerOptions: nextQuestion.answerOptions,
-          priority: nextQuestion.quick_check_priority,
+          priority: requirementRows.find((row) => row.id === nextQuestion.requirement_id)?.quick_check_priority || 'P1',
         } : null,
         nextAction,
       }
