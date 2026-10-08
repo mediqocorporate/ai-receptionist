@@ -25,7 +25,7 @@ test('seeded answer renders presentation-ready sources and related content', () 
 })
 
 test('feature pages render required headings', () => {
-  assert.match(renderAccreditationPage(), /Your accreditation plan/)
+  assert.match(renderAccreditationPage(), /Accreditation readiness/)
   assert.match(renderPolicyPage(), /Policy Library/)
   assert.match(renderReportsPage(), /Practice reports/)
   assert.match(renderAlertsPage(), /Alerts Centre/)
