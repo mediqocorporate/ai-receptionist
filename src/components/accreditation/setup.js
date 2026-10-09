@@ -82,7 +82,7 @@ export function renderAccreditationSetup({
     </select><small>Choose what you know today. You can change this later.</small></label>`
   } else if (safeStep === 2) {
     fields = `<label class="field"><span>Do you have your next accreditation assessment scheduled?</span><select name="assessmentScheduled">${optionList([['UNKNOWN','Not sure'],['YES','Yes'],['NO','Not yet']], value(values, 'assessmentScheduled', 'UNKNOWN'))}</select></label>
-      <label class="field"><span>Assessment date, if known</span><input type="date" name="targetAssessmentDate" value="${escapeHtml(value(values, 'targetAssessmentDate', ''))}" /><small>Leave this blank unless a real assessment date is known. MediQo will never invent a countdown.</small></label>`
+      <label class="field"><span>Assessment date, if known</span><input type="date" name="targetAssessmentDate" value="${escapeHtml(value(values, 'targetAssessmentDate', ''))}" /><small>Leave this blank unless a real assessment date is known. MediQo will only use a date you provide.</small></label>`
   } else if (safeStep === 3) {
     fields = `<label class="field"><span>Have you selected your accrediting agency?</span><select name="accreditingAgencyId">
       <option value="" ${selected(value(values, 'accreditingAgencyId', ''), '')}>Not yet / I'm not sure</option>
