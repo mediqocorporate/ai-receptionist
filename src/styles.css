@@ -856,3 +856,20 @@ button.accreditation-status-card:focus-visible { outline: 2px solid #8a55ea; out
   .evidence-upload-footer .primary-button,.evidence-map-controls .secondary-button{width:100%;justify-content:center}
   .evidence-item-statuses{justify-content:flex-start}
 }
+
+/* Accreditation Evidence QA cleanup */
+.evidence-upload-progress{display:grid;gap:8px;margin-top:4px;padding:12px 14px;border:1px solid #e6dcff;border-radius:10px;background:#faf8ff}
+.evidence-progress-copy{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--heading);font-size:12px}
+.evidence-progress-copy strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.evidence-progress-copy span{font-weight:700;color:#7134e8;white-space:nowrap}
+.evidence-progress-track{height:8px;border-radius:999px;background:#eee9f8;overflow:hidden}
+.evidence-progress-bar{display:block;height:100%;border-radius:inherit;background:#7134e8;transition:width .18s ease}
+.evidence-progress-meta{font-size:11px;color:var(--muted)}
+.requirement-mapped-evidence{margin-top:16px;padding:20px}
+.requirement-mapped-evidence-list{display:grid;gap:10px}
+.requirement-mapped-evidence-item{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 0;border-top:1px solid var(--line)}
+.requirement-mapped-evidence-item:first-child{border-top:0}
+.requirement-mapped-evidence-item h3{margin:4px 0;color:var(--heading);font-size:14px}
+.requirement-mapped-evidence-item p{margin:0;color:var(--muted);font-size:11px}
+.requirement-mapped-evidence-actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+@media (max-width:860px){.requirement-mapped-evidence-item{align-items:stretch;flex-direction:column}.requirement-mapped-evidence-actions{justify-content:space-between}}
