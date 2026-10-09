@@ -1,6 +1,7 @@
 import { icon } from '../icons.js'
 import { escapeHtml } from '../../lib/html.js'
 import { readinessLabel, readinessClass, verificationLabel } from './status.js'
+import { evidenceCategoryLabel, evidenceReviewLabel } from './evidence.js'
 
 function listBlock(title, items = [], empty = 'None recorded') {
   return `<section class="requirement-detail-block"><h3>${escapeHtml(title)}</h3>${items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(typeof item === 'string' ? item : JSON.stringify(item))}</li>`).join('')}</ul>` : `<p class="muted-copy">${escapeHtml(empty)}</p>`}</section>`
@@ -30,6 +31,23 @@ function readinessQuestion(requirement, question) {
   </section>`
 }
 
+function mappedEvidenceSection(requirement, evidenceItems = []) {
+  const requirementId = String(requirement?.id || '')
+  const mapped = (Array.isArray(evidenceItems) ? evidenceItems : []).filter((item) =>
+    item?.status === 'ACTIVE'
+      && (Array.isArray(item.mappings) ? item.mappings : []).some((mapping) => String(mapping?.requirementId || '') === requirementId)
+  )
+  if (!mapped.length) return ''
+  return `<section class="panel requirement-mapped-evidence">
+    <div class="panel-heading"><div><span class="eyebrow">CURRENT EVIDENCE</span><h2>Mapped evidence</h2><p>These active files are mapped to this requirement. Evidence stays Not Reviewed until an evidence review is completed.</p></div></div>
+    <div class="requirement-mapped-evidence-list">
+      ${mapped.map((item) => `<article class="requirement-mapped-evidence-item">
+        <div><span class="eyebrow">${escapeHtml(evidenceCategoryLabel(item.category))}</span><h3>${escapeHtml(item.title || item.originalFilename || 'Evidence')}</h3><p>${escapeHtml(item.originalFilename || '')}${item.version ? ` · Version ${escapeHtml(String(item.version))}` : ''}</p></div>
+        <div class="requirement-mapped-evidence-actions"><span class="evidence-review-pill">${escapeHtml(evidenceReviewLabel(item))}</span><button type="button" class="secondary-button" data-action="evidence-download" data-evidence-id="${escapeHtml(item.id || '')}">${icon('download',16)} Download</button></div>
+      </article>`).join('')}
+    </div>
+  </section>`
+}
 function requirementSide(requirement) {
   return `<aside class="requirement-detail-side">
     <section class="panel requirement-detail-block"><h3>Classification</h3><p>${escapeHtml(requirement.classificationLabel || requirement.classification || '')}</p></section>
@@ -52,7 +70,7 @@ function notApplicableView(requirement, plainEnglish) {
     </div>`
 }
 
-export function renderRequirementDetail(requirement = {}) {
+export function renderRequirementDetail(requirement = {}, { evidenceItems = [] } = {}) {
   const questions = Array.isArray(requirement.questions) ? requirement.questions : []
   const evidence = Array.isArray(requirement.evidenceCriteria) ? requirement.evidenceCriteria : []
   const plainEnglish = isTemplatePlainEnglish(requirement.plainEnglishRequirement) ? '' : requirement.plainEnglishRequirement
@@ -91,6 +109,8 @@ export function renderRequirementDetail(requirement = {}) {
         <div class="panel-heading"><div><h2>Additional readiness questions</h2><p>Answer the facts you know today. Unknown answers stay visible as not checked.</p></div></div>
         ${questions.slice(1).map((question) => `<article class="requirement-question-config"><strong>${escapeHtml(question.wording || '')}</strong><p>${escapeHtml((question.answerOptions || []).join(' · '))}</p></article>`).join('')}
       </section>` : ''}
+
+      ${mappedEvidenceSection(requirement, evidenceItems)}
 
       <section class="panel requirement-config-section">
         <div class="panel-heading"><div><h2>Possible evidence</h2><p>Examples of evidence that may help. You can demonstrate this requirement in other ways where appropriate.</p></div><button type="button" class="primary-button" data-action="evidence-upload-for-requirement" data-requirement-id="${escapeHtml(requirement.id || '')}">${icon('upload',16)} Upload evidence</button></div>
