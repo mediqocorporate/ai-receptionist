@@ -21,18 +21,20 @@ test('Reports stays removed and Accreditation Assistant expands in the left navi
   assert.match(html, /data-accreditation-view="check"/)
   assert.match(html, /data-accreditation-view="comprehensive"/)
   assert.match(html, /data-accreditation-view="requirements"/)
+  assert.match(html, /data-accreditation-view="evidence"/)
   assert.match(html, /data-accreditation-view="practice-information"/)
-  assert.match(html, /aria-disabled="true"[^>]*>Evidence</i)
+  assert.doesNotMatch(html, /aria-disabled="true"[^>]*>Evidence</i)
 })
 
-test('setup completion offers the three client-specified starting paths without a fake evidence action', () => {
+test('setup completion offers all three client-specified starting paths now that Evidence is live', () => {
   const html = renderAccreditationSetup({ complete: true })
   assert.match(html, /Quick readiness check/i)
   assert.match(html, /Comprehensive readiness check/i)
   assert.match(html, /Upload my accreditation documents/i)
   assert.match(html, /data-accreditation-view="check"/)
   assert.match(html, /data-accreditation-view="comprehensive"/)
-  assert.match(html, /Upload my accreditation documents[\s\S]*disabled|disabled[\s\S]*Upload my accreditation documents/i)
+  assert.match(html, /data-accreditation-view="evidence"/)
+  assert.doesNotMatch(html, /Upload my accreditation documents[\s\S]*disabled|disabled[\s\S]*Upload my accreditation documents/i)
 })
 
 test('Practice Information keeps provenance visible and provides an edit action', () => {
