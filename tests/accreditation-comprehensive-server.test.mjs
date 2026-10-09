@@ -64,7 +64,7 @@ test('comprehensive check skips already answered mandatory questions', async () 
       { question_id: 'Q2', option_order: 1, label: 'Yes' },
     ])
     if (url.includes('practice_requirements?')) return json([])
-    if (url.includes('readiness_responses?')) return json([{ question_id: 'Q1', requirement_id: 'R1' }])
+    if (url.includes('readiness_responses?')) return json([{ question_id: 'Q1', requirement_id: 'R1', answer_label: 'Yes' }])
     if (url.includes('accreditation_practice_profiles?')) return json([])
     throw new Error(`unexpected ${url}`)
   }
