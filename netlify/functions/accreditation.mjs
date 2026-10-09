@@ -1,4 +1,5 @@
 import { assessRequirement } from './_shared/accreditation-assessment.mjs'
+import { normalizeAccreditationSetup } from './_shared/accreditation-setup.mjs'
 import { authenticateUser, createSupabaseServer } from './_shared/supabase-server.mjs'
 import { jsonResponse, parseJsonBody } from './_shared/http.mjs'
 
@@ -115,40 +116,15 @@ export function createAccreditationHandler({
       }
 
       if (action === 'setup') {
-        const allowedJourneyStatuses = new Set(['FIRST_ACCREDITATION', 'REACCREDITATION', 'ASSESSMENT_BOOKED', 'NOT_SURE'])
-        const journeyStatus = allowedJourneyStatuses.has(String(body.journeyStatus || '').trim())
-          ? String(body.journeyStatus).trim()
-          : 'NOT_SURE'
-        const assessmentScheduled = body.assessmentScheduled === true
-          ? true
-          : body.assessmentScheduled === false
-            ? false
-            : null
-        const targetAssessmentDate = assessmentScheduled === true
-          ? String(body.targetAssessmentDate || '').trim() || null
-          : null
-
-        if (assessmentScheduled === true && !/^\d{4}-\d{2}-\d{2}$/.test(String(targetAssessmentDate || ''))) {
+        const normalized = normalizeAccreditationSetup(body)
+        if (normalized.assessmentScheduled === true && !normalized.targetAssessmentDate) {
           return jsonResponse(400, { code: 'assessment_date_required', message: 'Add the scheduled assessment date, or choose that the date is not known yet.' })
-        }
-
-        const accreditingAgencyId = String(body.accreditingAgencyId || '').trim() || null
-        const rawContext = body.practiceContext && typeof body.practiceContext === 'object' && !Array.isArray(body.practiceContext)
-          ? body.practiceContext
-          : {}
-        const practiceContext = {
-          services: String(rawContext.services || '').trim().slice(0, 2000),
-          notes: String(rawContext.notes || '').trim().slice(0, 4000),
         }
 
         const setup = await server.setupAccreditationWorkspace({
           practiceId: actor.practiceId,
           userId: actor.userId,
-          journeyStatus,
-          assessmentScheduled,
-          targetAssessmentDate,
-          accreditingAgencyId,
-          practiceContext,
+          ...normalized,
         })
         const overview = await server.getAccreditationOverview({
           practiceId: actor.practiceId,

@@ -48,8 +48,9 @@ export function renderAccreditationPage(state = {}, options = {}) {
   if (!signedIn) body = renderSignIn()
   else if (currentView === 'explore') body = renderAccreditationExplore({ step: state.exploreStep || 0 })
   else if (currentView === 'setup') body = renderAccreditationSetup({
+    step: state.setup?.step || 1,
     values: state.setup?.values || {},
-    agencies: overview?.agencies || [],
+    agencies: state.practiceInformation?.agencies || overview?.agencies || [],
     submitting: Boolean(state.setup?.submitting),
     error: state.setup?.error || '',
     complete: Boolean(state.setup?.complete),

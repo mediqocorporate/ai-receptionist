@@ -28,18 +28,42 @@ test('Explore Accreditation Assistant is clearly Example Practice data and has n
   assert.doesNotMatch(html, /data-accreditation-answer|data-action="save/i)
 })
 
-test('setup asks only for useful practice facts and allows unknown assessment date and agency', () => {
-  const html = renderAccreditationPage({
+test('setup is a short guided wizard and allows unknown accreditation details', () => {
+  const base = {
     view: 'setup',
-    overview: { setupRequired: true, cycle: null, agencies: [] },
+    overview: { setupRequired: true, cycle: null, agencies: [{ id: 'agency_1', name: 'Example agency' }] },
+  }
+  const step1 = renderAccreditationPage({
+    ...base,
     setup: { step: 1, values: {} },
   }, { signedIn: true, practiceName: 'Harbour Medical Centre' })
-  assert.match(html, /Set up your accreditation workspace/i)
-  assert.match(html, /journeyStatus/)
-  assert.match(html, /assessmentScheduled/)
-  assert.match(html, /I'm not sure|Not sure/i)
-  assert.match(html, /Accrediting agency/i)
-  assert.doesNotMatch(html, /days remaining|countdown/i)
+  assert.match(step1, /Set up your accreditation workspace/i)
+  assert.match(step1, /Step 1 of 4/i)
+  assert.match(step1, /journeyStatus/)
+  assert.match(step1, /Not sure/i)
+
+  const step2 = renderAccreditationPage({
+    ...base,
+    setup: { step: 2, values: { journeyStatus: 'NOT_SURE' } },
+  }, { signedIn: true, practiceName: 'Harbour Medical Centre' })
+  assert.match(step2, /assessmentScheduled/)
+  assert.match(step2, /targetAssessmentDate/)
+  assert.doesNotMatch(step2, /days remaining|countdown/i)
+
+  const step3 = renderAccreditationPage({
+    ...base,
+    setup: { step: 3, values: {} },
+  }, { signedIn: true, practiceName: 'Harbour Medical Centre' })
+  assert.match(step3, /Accrediting agency/i)
+  assert.match(step3, /Example agency/i)
+
+  const step4 = renderAccreditationPage({
+    ...base,
+    setup: { step: 4, values: {} },
+  }, { signedIn: true, practiceName: 'Harbour Medical Centre' })
+  for (const name of ['stateOrTerritory', 'locationsCount', 'gpCount', 'nursingWorkforce', 'alliedHealth', 'adminWorkforce', 'vaccinations', 'procedures', 'telehealth', 'pathologyCollection', 'pointOfCareTesting', 'vaccineStorage']) {
+    assert.match(step4, new RegExp(`name="${name}"`))
+  }
 })
 
 test('Practice Information shows the facts and provenance MediQo relies on', () => {

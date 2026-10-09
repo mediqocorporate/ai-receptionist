@@ -56,7 +56,7 @@ const ui = {
     overview: null,
     requirement: null,
     exploreStep: 0,
-    setup: { values: {}, submitting: false, error: '', complete: false },
+    setup: { step: 1, values: {}, submitting: false, error: '', complete: false },
     practiceInformation: null,
     practiceInformationLoading: false,
     comprehensive: null,
@@ -151,6 +151,7 @@ function render({ focusDialog = false } = {}) {
     devMode,
     selectedPractice: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre',
     user: appUser,
+    accreditationView: ui.accreditation.view,
   }) + dialogMarkup()
 
   installLogoFallback()
@@ -633,34 +634,75 @@ async function loadAccreditationPracticeInformation() {
 async function handleAccreditationSetupForm(form) {
   if (!appUser || ui.accreditation.setup?.submitting) return
   const data = new FormData(form)
-  const assessmentValue = String(data.get('assessmentScheduled') || 'UNKNOWN')
-  const values = {
-    journeyStatus: String(data.get('journeyStatus') || 'NOT_SURE'),
-    assessmentScheduled: assessmentValue,
-    targetAssessmentDate: String(data.get('targetAssessmentDate') || ''),
-    accreditingAgencyId: String(data.get('accreditingAgencyId') || ''),
-    services: String(data.get('services') || ''),
-    notes: String(data.get('notes') || ''),
+  const step = Math.max(1, Math.min(4, Number(form.dataset.setupStep || ui.accreditation.setup?.step || 1)))
+  const values = { ...(ui.accreditation.setup?.values || {}) }
+  const fields = [
+    'journeyStatus',
+    'assessmentScheduled',
+    'targetAssessmentDate',
+    'accreditingAgencyId',
+    'stateOrTerritory',
+    'practiceType',
+    'locationsCount',
+    'gpCount',
+    'nursingWorkforce',
+    'alliedHealth',
+    'adminWorkforce',
+    'vaccinations',
+    'procedures',
+    'telehealth',
+    'pathologyCollection',
+    'pointOfCareTesting',
+    'vaccineStorage',
+    'services',
+    'notes',
+  ]
+  for (const field of fields) {
+    if (data.has(field)) values[field] = String(data.get(field) || '')
   }
-  ui.accreditation.setup = { values, submitting: true, error: '', complete: false }
+
+  if (step < 4) {
+    ui.accreditation.setup = { step: step + 1, values, submitting: false, error: '', complete: false }
+    render()
+    return
+  }
+
+  const assessmentValue = String(values.assessmentScheduled || 'UNKNOWN')
+  ui.accreditation.setup = { step, values, submitting: true, error: '', complete: false }
   render()
   try {
     const result = await accreditationService.setup({
-      journeyStatus: values.journeyStatus,
+      journeyStatus: values.journeyStatus || 'NOT_SURE',
       assessmentScheduled: assessmentValue === 'YES' ? true : assessmentValue === 'NO' ? false : null,
       targetAssessmentDate: values.targetAssessmentDate || null,
       accreditingAgencyId: values.accreditingAgencyId || null,
-      practiceContext: { services: values.services, notes: values.notes },
+      practiceContext: {
+        stateOrTerritory: values.stateOrTerritory || '',
+        practiceType: values.practiceType || '',
+        locationsCount: values.locationsCount ?? '',
+        gpCount: values.gpCount ?? '',
+        nursingWorkforce: values.nursingWorkforce ?? '',
+        alliedHealth: values.alliedHealth ?? '',
+        adminWorkforce: values.adminWorkforce ?? '',
+        vaccinations: values.vaccinations || 'UNKNOWN',
+        procedures: values.procedures || 'UNKNOWN',
+        telehealth: values.telehealth || 'UNKNOWN',
+        pathologyCollection: values.pathologyCollection || 'UNKNOWN',
+        pointOfCareTesting: values.pointOfCareTesting || 'UNKNOWN',
+        vaccineStorage: values.vaccineStorage || 'UNKNOWN',
+        services: values.services || '',
+        notes: values.notes || '',
+      },
     })
     ui.accreditation.overview = result.overview
     ui.accreditation.requirement = null
     ui.accreditation.practiceInformation = null
     ui.accreditation.comprehensive = null
-    ui.accreditation.setup = { values, submitting: false, error: '', complete: true }
+    ui.accreditation.setup = { step: 4, values, submitting: false, error: '', complete: true }
     ui.accreditation.view = 'setup'
     showToast('Accreditation workspace set up')
   } catch (error) {
-    ui.accreditation.setup = { values, submitting: false, error: error?.message || 'Could not save accreditation setup.', complete: false }
+    ui.accreditation.setup = { step, values, submitting: false, error: error?.message || 'Could not save accreditation setup.', complete: false }
   }
   render()
 }
@@ -933,7 +975,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, comprehensive: null, comprehensiveLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, comprehensive: null, comprehensiveLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -946,7 +988,61 @@ root.addEventListener('click', async (event) => {
   if (action === 'accreditation-exit-explore') { ui.accreditation.view = 'overview'; ui.accreditation.exploreStep = 0; render(); return }
   if (action === 'accreditation-explore-next') { ui.accreditation.exploreStep = Math.min(4, Number(ui.accreditation.exploreStep || 0) + 1); render(); return }
   if (action === 'accreditation-explore-prev') { ui.accreditation.exploreStep = Math.max(0, Number(ui.accreditation.exploreStep || 0) - 1); render(); return }
-  if (action === 'accreditation-start-setup') { ui.accreditation.view = 'setup'; ui.accreditation.setup = { values: { journeyStatus: 'NOT_SURE', assessmentScheduled: 'UNKNOWN', targetAssessmentDate: '', accreditingAgencyId: '', services: '', notes: '' }, submitting: false, error: '', complete: false }; render(); return }
+  if (action === 'accreditation-start-setup') {
+    ui.accreditation.view = 'setup'
+    ui.accreditation.setup = {
+      step: 1,
+      values: {
+        journeyStatus: 'NOT_SURE',
+        assessmentScheduled: 'UNKNOWN',
+        targetAssessmentDate: '',
+        accreditingAgencyId: '',
+        stateOrTerritory: '',
+        practiceType: '',
+        locationsCount: '',
+        gpCount: '',
+        nursingWorkforce: '',
+        alliedHealth: '',
+        adminWorkforce: '',
+        vaccinations: 'UNKNOWN',
+        procedures: 'UNKNOWN',
+        telehealth: 'UNKNOWN',
+        pathologyCollection: 'UNKNOWN',
+        pointOfCareTesting: 'UNKNOWN',
+        vaccineStorage: 'UNKNOWN',
+        services: '',
+        notes: '',
+      },
+      submitting: false,
+      error: '',
+      complete: false,
+    }
+    render()
+    return
+  }
+  if (action === 'accreditation-setup-back') {
+    ui.accreditation.setup = {
+      ...ui.accreditation.setup,
+      step: Math.max(1, Number(ui.accreditation.setup?.step || 1) - 1),
+      error: '',
+      complete: false,
+    }
+    render()
+    return
+  }
+  if (action === 'accreditation-edit-practice-information') {
+    if (!ui.accreditation.practiceInformation) await loadAccreditationPracticeInformation()
+    ui.accreditation.view = 'setup'
+    ui.accreditation.setup = {
+      step: 1,
+      values: { ...(ui.accreditation.practiceInformation?.values || {}) },
+      submitting: false,
+      error: '',
+      complete: false,
+    }
+    render()
+    return
+  }
   if (action === 'close-dialog') { closeDialog(); return }
   if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
   if (action === 'retry-question') { if (ui.failedQuestion) { const question = ui.failedQuestion; ui.failedQuestion = ''; ui.error = ''; await submitQuestion(question) } return }

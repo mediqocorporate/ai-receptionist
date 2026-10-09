@@ -1,4 +1,4 @@
-import { APP_ROUTES, PRODUCT_ROUTES } from '../data/routes.js'
+import { APP_ROUTES, PRODUCT_ROUTES, ACCREDITATION_SUBROUTES } from '../data/routes.js'
 import { icon } from './icons.js'
 import { escapeHtml } from '../lib/html.js'
 
@@ -20,7 +20,17 @@ function navLink(route, path) {
   </a>`
 }
 
-export function renderShell({ path = '/', content = '', alertsOpen = false, userMenuOpen = false, mobileOpen = false, sidebarCollapsed = false, devMode = false, selectedPractice = 'Riverside Medical Centre', user = null } = {}) {
+function accreditationSubmenu(currentView = 'overview') {
+  return `<div class="accreditation-sidebar-submenu" aria-label="Accreditation Assistant sections">${ACCREDITATION_SUBROUTES.map((item) => {
+    const active = item.view === currentView || (currentView === 'requirement' && item.view === 'requirements')
+    if (!item.available) {
+      return `<span class="accreditation-sidebar-item is-disabled" aria-disabled="true" title="This section will activate as its production workflow is connected.">${escapeHtml(item.label)}</span>`
+    }
+    return `<button type="button" class="accreditation-sidebar-item ${active ? 'active' : ''}" data-accreditation-view="${escapeHtml(item.view)}" aria-current="${active ? 'page' : 'false'}">${escapeHtml(item.label)}</button>`
+  }).join('')}</div>`
+}
+
+export function renderShell({ path = '/', content = '', alertsOpen = false, userMenuOpen = false, mobileOpen = false, sidebarCollapsed = false, devMode = false, selectedPractice = 'Riverside Medical Centre', user = null, accreditationView = 'overview' } = {}) {
   const signedIn = Boolean(user)
   const profileInitials = signedIn ? userInitials(user) : ''
   const role = user?.jobTitle || 'Practice Manager'
@@ -40,7 +50,7 @@ export function renderShell({ path = '/', content = '', alertsOpen = false, user
         <span class="avatar avatar-sm">${initials(selectedPractice)}</span><span class="practice-name">${escapeHtml(selectedPractice)}</span><span class="practice-chevron">${icon('down', 16)}</span>
       </button>` : ''}
       <nav class="sidebar-nav">
-        <div class="nav-group">${APP_ROUTES.map((r) => navLink(r, path)).join('')}</div>
+        <div class="nav-group">${APP_ROUTES.map((r) => `${navLink(r, path)}${r.id === 'accreditation' && path === '/accreditation' ? accreditationSubmenu(accreditationView) : ''}`).join('')}</div>
         <div class="nav-divider"></div>
         <div class="nav-group product-group">${PRODUCT_ROUTES.map((r) => navLink(r, path)).join('')}</div>
       </nav>

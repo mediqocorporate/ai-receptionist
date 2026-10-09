@@ -1,3 +1,5 @@
+import { buildAccreditationPracticeInformation } from './accreditation-setup.mjs'
+
 function readConfig(env = process.env) {
   const url = String(env.SUPABASE_URL || '').replace(/\/$/, '')
   const publishableKey = String(env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || '')
@@ -214,21 +216,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
       const agencies = Array.isArray(agencyRows) ? agencyRows : []
       const cycle = await findAccreditationCycleRow(practiceId, cycleId)
-      const agency = agencies.find((item) => item.id === profile?.accrediting_agency_id) || null
-      const context = profile?.practice_context && typeof profile.practice_context === 'object' ? profile.practice_context : {}
-
-      return {
-        facts: [
-          { key: 'practice_name', label: 'Practice name', value: practice?.name || null, provenance: practice?.name ? 'MediQo account' : 'Not provided' },
-          { key: 'jurisdictions', label: 'State / territory', value: Array.isArray(practice?.jurisdictions) ? practice.jurisdictions.join(', ') : null, provenance: Array.isArray(practice?.jurisdictions) && practice.jurisdictions.length ? 'MediQo account' : 'Not provided' },
-          { key: 'practice_type', label: 'Practice type', value: practice?.practice_type || null, provenance: practice?.practice_type ? 'MediQo account' : 'Not provided' },
-          { key: 'journey_status', label: 'Accreditation journey', value: profile?.journey_status || null, provenance: profile?.journey_status ? 'Accreditation setup' : 'Not provided' },
-          { key: 'assessment_date', label: 'Next assessment date', value: cycle?.target_assessment_date || null, provenance: cycle?.target_assessment_date ? 'Accreditation setup' : 'Not provided' },
-          { key: 'accrediting_agency', label: 'Accrediting agency', value: agency?.name || null, provenance: agency?.name ? 'Accreditation setup' : 'Not provided' },
-          { key: 'services', label: 'Services / practice context', value: context.services || null, provenance: context.services ? 'Accreditation setup' : 'Not provided' },
-          { key: 'notes', label: 'Additional practice context', value: context.notes || null, provenance: context.notes ? 'Accreditation setup' : 'Not provided' },
-        ],
-      }
+      return buildAccreditationPracticeInformation({ practice, profile, cycle, agencies })
     },
 
     async getPracticeRequirement({ practiceId, cycleId, requirementId }) {
