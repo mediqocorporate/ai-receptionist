@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { buildAccreditationPracticeInformation } from './accreditation-setup.mjs'
 import { effectiveRequirementState, isInformativeReadinessAnswer } from './accreditation-applicability.mjs'
 
@@ -92,6 +93,29 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       body: body === undefined ? undefined : JSON.stringify(body),
     })
     return parseJson(response)
+  }
+
+
+  async function storage(path, { method = 'POST', body, headers = {} } = {}) {
+    const response = await fetchImpl(`${config.url}/storage/v1/${path}`, {
+      method,
+      headers: { ...serviceHeaders, ...headers },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    return parseJson(response)
+  }
+
+  function storagePath(value) {
+    return String(value || '').split('/').map((part) => encodeURIComponent(part)).join('/')
+  }
+
+  async function requireEvidenceRow({ practiceId, cycleId, evidenceId }) {
+    const rows = await table(
+      `accreditation_evidence?select=*&id=eq.${encodeURIComponent(evidenceId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&limit=1`
+    )
+    const row = Array.isArray(rows) ? rows[0] : rows
+    if (!row) throw new Error('accreditation_evidence_not_found')
+    return row
   }
 
   async function findAccreditationCycleRow(practiceId, cycleId = null) {
@@ -636,6 +660,194 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
             && effectiveByRequirement.get(requirement.id)?.applicabilityStatus !== 'NOT_APPLICABLE'
         ).length,
       }
+    },
+
+    async prepareAccreditationEvidenceUpload({
+      practiceId,
+      cycleId,
+      userId,
+      originalFilename,
+      mimeType,
+      sizeBytes,
+      category = 'OTHER',
+    }) {
+      const extension = String(originalFilename || '').toLowerCase().match(/\.(pdf|docx|xlsx|csv|png|jpe?g)$/)?.[1] || 'bin'
+      const normalizedExtension = extension === 'jpeg' ? 'jpg' : extension
+      const folderId = randomUUID()
+      const storage_path = `${practiceId}/${cycleId}/${folderId}/evidence.${normalizedExtension}`
+      const created = await table('accreditation_evidence', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: [{
+          practice_id: practiceId,
+          cycle_id: cycleId,
+          uploaded_by_user_id: userId,
+          storage_bucket: 'accreditation-evidence',
+          storage_path,
+          original_filename: originalFilename,
+          mime_type: mimeType,
+          size_bytes: sizeBytes,
+          category,
+          title: String(originalFilename || '').replace(/\.[^.]+$/, ''),
+          status: 'ACTIVE',
+          processing_status: 'NOT_REVIEWED',
+        }],
+      })
+      const evidence = Array.isArray(created) ? created[0] : created
+      const signed = await storage(
+        `object/upload/sign/accreditation-evidence/${storagePath(storage_path)}`,
+        { method: 'POST', body: { upsert: false } },
+      )
+      let token = String(signed?.token || '')
+      if (!token && signed?.url) {
+        try { token = new URL(String(signed.url), config.url).searchParams.get('token') || '' } catch {}
+      }
+      return {
+        evidence,
+        upload: {
+          bucket: 'accreditation-evidence',
+          path: storage_path,
+          token,
+          signedUrl: signed?.url || null,
+        },
+      }
+    },
+
+    async finalizeAccreditationEvidenceUpload({
+      practiceId,
+      cycleId,
+      evidenceId,
+      title,
+      description = '',
+      documentDate = null,
+      reviewDate = null,
+      notes = '',
+    }) {
+      await requireEvidenceRow({ practiceId, cycleId, evidenceId })
+      const updated = await table(
+        `accreditation_evidence?id=eq.${encodeURIComponent(evidenceId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: {
+            title,
+            description,
+            document_date: documentDate,
+            review_date: reviewDate,
+            notes,
+            processing_status: 'NOT_REVIEWED',
+          },
+        },
+      )
+      return Array.isArray(updated) ? updated[0] : updated
+    },
+
+    async listAccreditationEvidence({ practiceId, cycleId }) {
+      const [evidenceRows, linkRows, assessmentRows] = await Promise.all([
+        table(
+          `accreditation_evidence?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&status=neq.ARCHIVED&order=created_at.desc`
+        ),
+        table(
+          `accreditation_evidence_requirement_links?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&is_active=eq.true&order=created_at.asc`
+        ),
+        table(
+          `accreditation_evidence_assessments?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&is_active=eq.true&order=created_at.desc`
+        ),
+      ])
+      const evidence = Array.isArray(evidenceRows) ? evidenceRows : []
+      const links = Array.isArray(linkRows) ? linkRows : []
+      const assessments = Array.isArray(assessmentRows) ? assessmentRows : []
+      return evidence.map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        originalFilename: row.original_filename,
+        mimeType: row.mime_type,
+        sizeBytes: row.size_bytes,
+        category: row.category,
+        status: row.status,
+        processingStatus: row.processing_status,
+        documentDate: row.document_date,
+        reviewDate: row.review_date,
+        version: row.version,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        mappings: links.filter((link) => link.evidence_id === row.id).map((link) => ({
+          id: link.id,
+          requirementId: link.requirement_id,
+          relationshipType: link.relationship_type,
+          mappedBy: link.mapped_by,
+          mappingConfidence: link.mapping_confidence,
+          mappingReason: link.mapping_reason,
+        })),
+        assessments: assessments.filter((item) => item.evidence_id === row.id).map((item) => ({
+          id: item.id,
+          requirementId: item.requirement_id,
+          reviewStatus: item.review_status,
+          reason: item.reason,
+          recommendedAction: item.recommended_action,
+          reviewedAt: item.reviewed_at,
+        })),
+      }))
+    },
+
+    async linkAccreditationEvidence({ practiceId, cycleId, evidenceId, requirementId }) {
+      const evidence = await requireEvidenceRow({ practiceId, cycleId, evidenceId })
+      if (evidence.status !== 'ACTIVE') throw new Error('accreditation_evidence_inactive')
+      const requirementRows = await table(
+        `accreditation_requirements?select=id,is_active&id=eq.${encodeURIComponent(requirementId)}&standard_version_id=eq.RACGP5&is_active=eq.true&limit=1`
+      )
+      const requirement = Array.isArray(requirementRows) ? requirementRows[0] : requirementRows
+      if (!requirement) throw new Error('accreditation_requirement_not_found')
+      const rows = await table('accreditation_evidence_requirement_links?on_conflict=evidence_id,requirement_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: [{
+          practice_id: practiceId,
+          cycle_id: cycleId,
+          evidence_id: evidenceId,
+          requirement_id: requirementId,
+          relationship_type: 'SUPPORTS',
+          mapped_by: 'USER',
+          mapping_reason: 'Mapped by practice user.',
+          is_active: true,
+        }],
+      })
+      return Array.isArray(rows) ? rows[0] : rows
+    },
+
+    async supersedeAccreditationEvidence({ practiceId, cycleId, evidenceId }) {
+      await requireEvidenceRow({ practiceId, cycleId, evidenceId })
+      const links = await table(
+        `accreditation_evidence_requirement_links?select=requirement_id&evidence_id=eq.${encodeURIComponent(evidenceId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&is_active=eq.true`
+      )
+      const affectedRequirementIds = [...new Set((Array.isArray(links) ? links : []).map((row) => row.requirement_id).filter(Boolean))]
+      const updated = await table(
+        `accreditation_evidence?id=eq.${encodeURIComponent(evidenceId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`,
+        { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: { status: 'SUPERSEDED', processing_status: 'NOT_REVIEWED' } },
+      )
+      await table(
+        `accreditation_evidence_requirement_links?evidence_id=eq.${encodeURIComponent(evidenceId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`,
+        { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { is_active: false } },
+      )
+      await table(
+        `accreditation_evidence_assessments?evidence_id=eq.${encodeURIComponent(evidenceId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`,
+        { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { is_active: false } },
+      )
+      return { evidence: Array.isArray(updated) ? updated[0] : updated, affectedRequirementIds }
+    },
+
+    async createAccreditationEvidenceDownload({ practiceId, cycleId, evidenceId }) {
+      const evidence = await requireEvidenceRow({ practiceId, cycleId, evidenceId })
+      const signed = await storage(
+        `object/sign/${storagePath(evidence.storage_bucket || 'accreditation-evidence')}/${storagePath(evidence.storage_path)}`,
+        { method: 'POST', body: { expiresIn: 600 } },
+      )
+      const raw = signed?.signedURL || signed?.signedUrl || signed?.url || ''
+      const signedUrl = /^https?:\/\//i.test(String(raw))
+        ? String(raw)
+        : `${config.url}/storage/v1${String(raw).startsWith('/') ? '' : '/'}${raw}`
+      return { signedUrl }
     },
 
     async getAccreditationRequirement({ practiceId, cycleId, requirementId }) {

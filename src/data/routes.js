@@ -9,7 +9,7 @@ export const ACCREDITATION_SUBROUTES = [
   { view: 'check', label: 'Quick Check', available: true },
   { view: 'comprehensive', label: 'Comprehensive Check', available: true },
   { view: 'requirements', label: 'Requirements', available: true },
-  { view: 'evidence', label: 'Evidence', available: false },
+  { view: 'evidence', label: 'Evidence', available: true },
   { view: 'missing', label: "What's Missing", available: false },
   { view: 'actions', label: 'Actions', available: false },
   { view: 'team', label: 'Team', available: false },

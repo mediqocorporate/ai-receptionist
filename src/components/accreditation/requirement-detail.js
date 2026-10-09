@@ -93,7 +93,7 @@ export function renderRequirementDetail(requirement = {}) {
       </section>` : ''}
 
       <section class="panel requirement-config-section">
-        <div class="panel-heading"><div><h2>Possible evidence</h2><p>Examples of evidence that may help. You can demonstrate this requirement in other ways where appropriate.</p></div></div>
+        <div class="panel-heading"><div><h2>Possible evidence</h2><p>Examples of evidence that may help. You can demonstrate this requirement in other ways where appropriate.</p></div><button type="button" class="primary-button" data-action="evidence-upload-for-requirement" data-requirement-id="${escapeHtml(requirement.id || '')}">${icon('upload',16)} Upload evidence</button></div>
         ${evidence.length ? evidence.map((item) => `<article class="requirement-evidence-config"><strong>${escapeHtml(item.evidenceType || '')}</strong><p>${escapeHtml(item.evidenceRule || '')}</p></article>`).join('') : '<div class="accreditation-empty-state"><p>No evidence examples are configured for this requirement.</p></div>'}
       </section>
     `}

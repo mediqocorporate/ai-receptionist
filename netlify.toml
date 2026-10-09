@@ -21,6 +21,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/accreditation-evidence"
+  to = "/.netlify/functions/accreditation-evidence"
+  status = 200
+
+[[redirects]]
   from = "/api/policy-document"
   to = "/.netlify/functions/policy-document"
   status = 200

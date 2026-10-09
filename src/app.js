@@ -14,6 +14,7 @@ import { leadService } from './services/lead-service.js'
 import { questionService } from './services/question-service.js'
 import { pmsService } from './services/pms-service.js'
 import { accreditationService } from './services/accreditation-service.js'
+import { accreditationEvidenceService } from './services/accreditation-evidence-service.js'
 import { policyDocumentService } from './services/policy-document-service.js'
 import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './lib/persistence.js'
 import { validateSignup } from './lib/validation.js'
@@ -64,6 +65,7 @@ const ui = {
     practiceInformationError: '',
     comprehensive: null,
     comprehensiveLoading: false,
+    evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '' },
   },
   lastFocused: null,
 }
@@ -634,6 +636,107 @@ async function loadAccreditationPracticeInformation() {
   }
 }
 
+
+async function loadAccreditationEvidence() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId) return
+  ui.accreditation.evidence.loading = true
+  ui.accreditation.evidence.error = ''
+  render()
+  try {
+    ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
+  } catch (error) {
+    ui.accreditation.evidence.error = error?.message || 'Could not load accreditation evidence.'
+  } finally {
+    ui.accreditation.evidence.loading = false
+    render()
+  }
+}
+
+async function handleAccreditationEvidenceUpload(form) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId || ui.accreditation.evidence.uploading) return
+  const input = form.querySelector('input[name="evidenceFiles"]')
+  const files = Array.from(input?.files || [])
+  const category = String(new FormData(form).get('category') || 'OTHER')
+  if (!files.length) {
+    ui.accreditation.evidence.error = 'Choose at least one evidence file.'
+    render()
+    return
+  }
+
+  ui.accreditation.evidence.uploading = true
+  ui.accreditation.evidence.error = ''
+  render()
+  try {
+    await accreditationEvidenceService.uploadBatch({
+      cycleId,
+      files,
+      category,
+      requirementId: ui.accreditation.evidence.prefillRequirementId || '',
+    })
+    ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
+    ui.accreditation.overview = await accreditationService.overview()
+    showToast(files.length === 1 ? 'Evidence uploaded' : `${files.length} evidence files uploaded`)
+  } catch (error) {
+    ui.accreditation.evidence.error = error?.message || 'Could not upload evidence.'
+  } finally {
+    ui.accreditation.evidence.uploading = false
+    render()
+  }
+}
+
+async function linkAccreditationEvidence(button) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  const evidenceId = String(button.dataset.evidenceId || '')
+  const card = button.closest('[data-evidence-card]')
+  const requirementId = String(card?.querySelector('[data-evidence-requirement]')?.value || '')
+  if (!cycleId || !evidenceId || !requirementId) {
+    showToast('Choose a requirement to map this evidence', 'error')
+    return
+  }
+  try {
+    await accreditationEvidenceService.link({ cycleId, evidenceId, requirementId })
+    ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
+    ui.accreditation.overview = await accreditationService.overview()
+    render()
+    showToast('Evidence mapped to requirement')
+  } catch (error) {
+    showToast(error?.message || 'Could not map evidence', 'error')
+  }
+}
+
+async function downloadAccreditationEvidence(evidenceId) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!cycleId || !evidenceId) return
+  try {
+    const download = await accreditationEvidenceService.download({ cycleId, evidenceId })
+    if (!download?.signedUrl) throw new Error('A secure download link could not be created.')
+    const anchor = document.createElement('a')
+    anchor.href = download.signedUrl
+    anchor.target = '_blank'
+    anchor.rel = 'noopener noreferrer'
+    anchor.click()
+  } catch (error) {
+    showToast(error?.message || 'Could not download evidence', 'error')
+  }
+}
+
+async function supersedeAccreditationEvidence(evidenceId) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!cycleId || !evidenceId) return
+  if (!confirm('Mark this evidence as superseded? The file will remain in the audit history but active mappings will be removed.')) return
+  try {
+    await accreditationEvidenceService.supersede({ cycleId, evidenceId })
+    ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
+    ui.accreditation.overview = await accreditationService.overview()
+    render()
+    showToast('Evidence marked superseded')
+  } catch (error) {
+    showToast(error?.message || 'Could not supersede evidence', 'error')
+  }
+}
+
 async function handleAccreditationSetupForm(form) {
   if (!appUser || ui.accreditation.setup?.submitting) return
   const data = new FormData(form)
@@ -996,6 +1099,7 @@ root.addEventListener('click', async (event) => {
     render()
     if (ui.accreditation.view === 'practice-information') await loadAccreditationPracticeInformation()
     if (ui.accreditation.view === 'comprehensive') await loadAccreditationComprehensiveCheck()
+    if (ui.accreditation.view === 'evidence') await loadAccreditationEvidence()
     return
   }
 
@@ -1034,7 +1138,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -1103,6 +1207,28 @@ root.addEventListener('click', async (event) => {
     render()
     return
   }
+
+  if (action === 'evidence-upload-for-requirement') {
+    const requirementId = String(actionEl.dataset.requirementId || '')
+    ui.accreditation.evidence.prefillRequirementId = requirementId
+    ui.accreditation.view = 'evidence'
+    ui.accreditation.requirement = null
+    render()
+    await loadAccreditationEvidence()
+    return
+  }
+  if (action === 'evidence-link') {
+    await linkAccreditationEvidence(actionEl)
+    return
+  }
+  if (action === 'evidence-download') {
+    await downloadAccreditationEvidence(String(actionEl.dataset.evidenceId || ''))
+    return
+  }
+  if (action === 'evidence-supersede') {
+    await supersedeAccreditationEvidence(String(actionEl.dataset.evidenceId || ''))
+    return
+  }
   if (action === 'close-dialog') { closeDialog(); return }
   if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
   if (action === 'retry-question') { if (ui.failedQuestion) { const question = ui.failedQuestion; ui.failedQuestion = ''; ui.error = ''; await submitQuestion(question) } return }
@@ -1157,6 +1283,9 @@ root.addEventListener('submit', async (event) => {
   if (form.matches('[data-accreditation-practice-information-form]')) {
     event.preventDefault(); await handleAccreditationPracticeInformationForm(form); return
   }
+  if (form.matches('[data-accreditation-evidence-upload-form]')) {
+    event.preventDefault(); await handleAccreditationEvidenceUpload(form); return
+  }
 })
 
 root.addEventListener('input', (event) => {
@@ -1186,6 +1315,13 @@ root.addEventListener('change', (event) => {
     const name = attachment.files?.[0]?.name || ''
     const label = attachment.closest('.chat-composer')?.querySelector('.attachment-name')
     if (label) label.textContent = name ? `Selected: ${name}` : ''
+    return
+  }
+  const evidenceInput = event.target.closest('input[name="evidenceFiles"]')
+  if (evidenceInput) {
+    const files = Array.from(evidenceInput.files || [])
+    const label = evidenceInput.closest('form')?.querySelector('[data-evidence-selected-summary]')
+    if (label) label.textContent = files.length ? `${files.length} file${files.length === 1 ? '' : 's'} selected` : 'No files selected'
     return
   }
 })
