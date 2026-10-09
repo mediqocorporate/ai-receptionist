@@ -8,6 +8,7 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_test
 MEDIQO_ASSISTANT_API_URL=/api/ask
 MEDIQO_ACCOUNT_SYNC_API_URL=/api/account-sync
 MEDIQO_ACCREDITATION_API_URL=/api/accreditation
+MEDIQO_ACCREDITATION_EVIDENCE_API_URL=/api/accreditation-evidence
 SUPABASE_SERVICE_ROLE_KEY=secret
 OPENAI_API_KEY=secret2
 HUBSPOT_ACCESS_TOKEN=secret3
@@ -19,6 +20,7 @@ HUBSPOT_ACCESS_TOKEN=secret3
     assistantApiUrl: '/api/ask',
     accountSyncApiUrl: '/api/account-sync',
     accreditationApiUrl: '/api/accreditation',
+    accreditationEvidenceApiUrl: '/api/accreditation-evidence',
   })
 })
 
