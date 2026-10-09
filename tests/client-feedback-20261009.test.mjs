@@ -8,6 +8,7 @@ import { renderRequirementDetail } from '../src/components/accreditation/require
 import { renderPracticeInformation } from '../src/components/accreditation/practice-information.js'
 import { renderAccreditationOverview } from '../src/components/accreditation/overview.js'
 import { assessRequirement } from '../netlify/functions/_shared/accreditation-assessment.mjs'
+import { effectiveRequirementState } from '../netlify/functions/_shared/accreditation-applicability.mjs'
 import { createSupabaseServer } from '../netlify/functions/_shared/supabase-server.mjs'
 import { createAccountSyncHandler } from '../netlify/functions/account-sync.mjs'
 
@@ -135,6 +136,27 @@ test('positive user report is reported-complete, not a Needs Attention problem',
   })
   assert.equal(result.readinessStatus, 'NOT_CHECKED')
   assert.equal(result.verificationStatus, 'USER_REPORTED')
+  assert.match(result.statusReason, /reported complete/i)
+  assert.match(result.unknownFacts.join(' '), /evidence/i)
+})
+
+test('legacy positive user reports do not remain Needs Attention after the trust-rule update', () => {
+  const result = effectiveRequirementState({
+    requirement: { applicability_rule: 'Universal' },
+    state: {
+      applicability_status: 'APPLICABLE',
+      readiness_status: 'NEEDS_ATTENTION',
+      verification_status: 'USER_REPORTED',
+      status_reason: 'Positive user report recorded; supporting evidence or verification is still required before this requirement can appear ready.',
+      known_facts: [],
+      unknown_facts: [],
+      potential_gaps: [],
+      confirmed_gaps: [],
+    },
+    response: { answer_label: 'Yes' },
+    practiceContext: {},
+  })
+  assert.equal(result.readinessStatus, 'NOT_CHECKED')
   assert.match(result.statusReason, /reported complete/i)
   assert.match(result.unknownFacts.join(' '), /evidence/i)
 })
