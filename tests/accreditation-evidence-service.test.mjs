@@ -92,3 +92,94 @@ test('list, link, download and supersede use bearer-authenticated evidence endpo
   await service.supersede({ cycleId: 'c1', evidenceId: 'e1' })
   assert.equal(payloads.every((entry) => entry.auth === 'Bearer jwt'), true)
 })
+
+
+test('evidence service exposes client-side file validation for immediate picker feedback', async () => {
+  const service = createAccreditationEvidenceService({
+    clientProvider: async () => client(),
+    fetchImpl: async () => response(200, {}),
+  })
+  assert.equal(typeof service.validateFiles, 'function')
+  assert.throws(
+    () => service.validateFiles([{ name: 'notes.txt', type: 'text/plain', size: 10 }]),
+    /not a supported evidence file/i,
+  )
+  assert.doesNotThrow(
+    () => service.validateFiles([{ name: 'records.pdf', type: 'application/pdf', size: 10 }]),
+  )
+})
+
+test('uploadBatch reports real aggregate progress while signed uploads are in flight', async () => {
+  const progress = []
+  const fakeClient = {
+    auth: { getSession: async () => ({ data: { session: { access_token: 'jwt' } } }) },
+    storage: {
+      from() {
+        return {
+          async uploadToSignedUrl() {
+            return { data: { path: 'fallback' }, error: null }
+          },
+        }
+      },
+    },
+  }
+  let prepared = 0
+  const service = createAccreditationEvidenceService({
+    config: {
+      accreditationEvidenceApiUrl: '/api/accreditation-evidence',
+      supabaseUrl: 'https://example.supabase.co',
+    },
+    clientProvider: async () => fakeClient,
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body)
+      if (body.action === 'prepareUpload') {
+        prepared += 1
+        return response(200, {
+          evidence: { id: `e${prepared}` },
+          upload: {
+            bucket: 'accreditation-evidence',
+            path: `p/c/e${prepared}/file.pdf`,
+            token: `token-${prepared}`,
+            signedUrl: `/object/upload/sign/accreditation-evidence/p/c/e${prepared}/file.pdf?token=token-${prepared}`,
+          },
+        })
+      }
+      if (body.action === 'finalizeUpload') return response(200, { evidence: { id: body.evidenceId } })
+      throw new Error(`unexpected action ${body.action}`)
+    },
+    xhrFactory: () => {
+      const xhr = {
+        upload: {},
+        status: 0,
+        responseText: '',
+        open(method, url) {
+          this.method = method
+          this.url = url
+        },
+        setRequestHeader() {},
+        send() {
+          this.upload.onprogress?.({ lengthComputable: true, loaded: 50, total: 100 })
+          this.status = 200
+          this.onload?.()
+        },
+      }
+      return xhr
+    },
+  })
+
+  await service.uploadBatch({
+    cycleId: 'c1',
+    files: [
+      { name: 'one.pdf', type: 'application/pdf', size: 100 },
+      { name: 'two.pdf', type: 'application/pdf', size: 100 },
+    ],
+    onProgress: (entry) => progress.push(entry),
+  })
+
+  assert.ok(progress.length >= 4)
+  assert.equal(progress.at(-1).percent, 100)
+  assert.equal(progress.at(-1).loadedBytes, 200)
+  assert.equal(progress.at(-1).totalBytes, 200)
+  assert.equal(progress.some((entry) => entry.percent === 25 && entry.currentFileIndex === 1), true)
+  assert.equal(progress.some((entry) => entry.percent === 75 && entry.currentFileIndex === 2), true)
+})
