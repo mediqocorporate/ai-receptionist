@@ -65,7 +65,7 @@ export function renderAccreditationPage(state = {}, options = {}) {
   else if (currentView === 'comprehensive') body = renderComprehensiveCheck(state.comprehensive, { submitting: state.submitting })
   else if (currentView === 'requirements') body = renderRequirementsView(overview.requirements || [], { filter: state.filter || 'ALL' })
   else if (currentView === 'evidence') body = renderAccreditationEvidence(state.evidence || {}, { requirements: overview.requirements || [] })
-  else if (currentView === 'requirement' && state.requirement) body = renderRequirementDetail(state.requirement)
+  else if (currentView === 'requirement' && state.requirement) body = renderRequirementDetail(state.requirement, { evidenceItems: state.evidence?.items || [] })
   else if (currentView === 'practice-information') body = renderPracticeInformation(state.practiceInformation || {}, { loading: state.practiceInformationLoading, editing: state.practiceInformationEditing, submitting: state.practiceInformationSubmitting, error: state.practiceInformationError || '' })
   else body = renderAccreditationOverview(overview, { practiceName })
 
