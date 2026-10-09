@@ -13,11 +13,11 @@ const CATEGORIES = [
   ['OTHER', 'Other'],
 ]
 
-function categoryLabel(value) {
+export function evidenceCategoryLabel(value) {
   return CATEGORIES.find(([id]) => id === value)?.[1] || 'Other'
 }
 
-function reviewLabel(item) {
+export function evidenceReviewLabel(item) {
   const active = Array.isArray(item.assessments) ? item.assessments[0] : null
   if (!active) return 'Not Reviewed'
   const labels = {
@@ -51,12 +51,12 @@ function evidenceCard(item, requirements, prefillRequirementId) {
   return `<article class="panel evidence-item-card" data-evidence-card="${escapeHtml(item.id)}">
     <div class="evidence-item-heading">
       <div>
-        <span class="eyebrow">${escapeHtml(categoryLabel(item.category))}</span>
+        <span class="eyebrow">${escapeHtml(evidenceCategoryLabel(item.category))}</span>
         <h3>${escapeHtml(item.title || item.originalFilename || 'Evidence')}</h3>
         <p>${escapeHtml(item.originalFilename || '')}${item.version ? ` · Version ${escapeHtml(String(item.version))}` : ''}</p>
       </div>
       <div class="evidence-item-statuses">
-        <span class="evidence-review-pill">${escapeHtml(reviewLabel(item))}</span>
+        <span class="evidence-review-pill">${escapeHtml(evidenceReviewLabel(item))}</span>
         ${item.status === 'SUPERSEDED' ? '<span class="evidence-status-pill">Superseded</span>' : ''}
       </div>
     </div>
@@ -85,6 +85,13 @@ export function renderAccreditationEvidence(state = {}, { requirements = [] } = 
   const eligibleRequirements = (Array.isArray(requirements) ? requirements : []).filter((item) => item.applicabilityStatus !== 'NOT_APPLICABLE')
   const prefillRequirementId = String(state.prefillRequirementId || '')
   const selectedFileCount = Array.isArray(state.selectedFiles) ? state.selectedFiles.length : 0
+  const selectedCategory = String(state.selectedCategory || 'POLICY_PROCEDURE')
+  const progress = state.uploadProgress && typeof state.uploadProgress === 'object' ? state.uploadProgress : null
+  const progressPercent = Math.max(0, Math.min(100, Number(progress?.percent || 0)))
+  const progressCurrent = Math.max(0, Number(progress?.currentFileIndex || 0))
+  const progressTotal = Math.max(0, Number(progress?.totalFiles || selectedFileCount || 0))
+  const progressFilename = String(progress?.currentFilename || '')
+  const hasLoaded = Boolean(state.loaded)
   const prefill = eligibleRequirements.find((item) => item.id === prefillRequirementId)
 
   return `<section class="accreditation-evidence-library">
@@ -95,7 +102,7 @@ export function renderAccreditationEvidence(state = {}, { requirements = [] } = 
       </div>
       <form data-accreditation-evidence-upload-form class="evidence-upload-form">
         <div class="evidence-upload-row">
-          <label class="evidence-category-field"><span>Evidence category</span><select name="category">${CATEGORIES.map(([value,label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join('')}</select></label>
+          <label class="evidence-category-field"><span>Evidence category</span><select name="category">${CATEGORIES.map(([value,label]) => `<option value="${value}" ${value === selectedCategory ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label>
           <label class="evidence-file-picker">
             <span class="evidence-file-icon">${icon('upload',20)}</span>
             <span><strong>Choose evidence files</strong><small>PDF, DOCX, XLSX, CSV, JPG, JPEG or PNG · 25 MB per file · up to 50 files per batch</small></span>
@@ -106,14 +113,24 @@ export function renderAccreditationEvidence(state = {}, { requirements = [] } = 
           <span class="muted-copy" data-evidence-selected-summary>${selectedFileCount ? `${selectedFileCount} file${selectedFileCount === 1 ? '': 's'} selected` : 'No files selected'}</span>
           <button type="submit" class="primary-button" ${state.uploading ? 'disabled' : ''}>${state.uploading ? 'Uploading…' : 'Upload selected files'}</button>
         </div>
+        ${state.uploading ? `<div class="evidence-upload-progress" data-evidence-upload-progress>
+          <div class="evidence-progress-copy">
+            <strong data-evidence-progress-label>Uploading ${escapeHtml(progressFilename || 'evidence')}</strong>
+            <span data-evidence-progress-percent>${progressPercent}%</span>
+          </div>
+          <div class="evidence-progress-track" role="progressbar" aria-label="Evidence upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPercent}">
+            <span class="evidence-progress-bar" data-evidence-progress-bar style="width:${progressPercent}%"></span>
+          </div>
+          <div class="evidence-progress-meta" data-evidence-progress-batch>${progressTotal > 1 && progressCurrent ? `${progressCurrent} of ${progressTotal} files` : 'Uploading securely to your Evidence Library'}</div>
+        </div>` : ''}
       </form>
-      ${state.error ? `<div class="accreditation-inline-error">${escapeHtml(state.error)}</div>` : ''}
+      <div class="accreditation-inline-error" data-evidence-upload-error ${state.error ? '' : 'hidden'}>${escapeHtml(state.error || '')}</div>
     </section>
 
     <section class="evidence-library-list">
       <div class="evidence-list-heading"><div><h2>Your evidence</h2><p>Map each file to the requirements it supports. Review status stays explicit until evidence intelligence or a human review is completed.</p></div><span>${items.length} ${items.length === 1 ? 'file' : 'files'}</span></div>
-      ${state.loading && !items.length ? '<section class="panel accreditation-loading-state"><p>Loading evidence…</p></section>' : ''}
-      ${!state.loading && !items.length ? '<section class="panel accreditation-empty-state"><h3>No evidence uploaded yet</h3><p>Upload existing policies, registers, certificates, audits and other supporting files to start building your Evidence Library.</p></section>' : ''}
+      ${(!hasLoaded || state.loading) && !items.length ? '<section class="panel accreditation-loading-state"><p>Loading evidence…</p></section>' : ''}
+      ${hasLoaded && !state.loading && !items.length ? '<section class="panel accreditation-empty-state"><h3>No evidence uploaded yet</h3><p>Upload existing policies, registers, certificates, audits and other supporting files to start building your Evidence Library.</p></section>' : ''}
       ${items.map((item) => evidenceCard(item, eligibleRequirements, prefillRequirementId)).join('')}
     </section>
   </section>`
