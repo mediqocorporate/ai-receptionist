@@ -597,6 +597,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .accreditation-tab { border: 0; background: transparent; padding: 11px 14px; color: #647491; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; font-size: 12.5px; }
 .accreditation-tab.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 600; }
 .accreditation-inline-error { margin: 0 0 16px; border: 1px solid #f0c9cd; background: #fff4f5; color: #9f3540; border-radius: 9px; padding: 10px 12px; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.accreditation-inline-error[hidden] { display: none; }
 .accreditation-loading-state, .accreditation-error-state, .accreditation-signin-state { min-height: 170px; padding: 26px; display: flex; align-items: center; gap: 18px; }
 .accreditation-loading-state h2, .accreditation-error-state h2, .accreditation-signin-state h2 { margin: 0 0 5px; color: var(--heading); font-size: 18px; }
 .accreditation-loading-state p, .accreditation-error-state p, .accreditation-signin-state p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 12.5px; }

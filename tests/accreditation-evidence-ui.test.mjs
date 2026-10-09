@@ -7,6 +7,7 @@ import { renderRequirementDetail } from '../src/components/accreditation/require
 import { ACCREDITATION_SUBROUTES } from '../src/data/routes.js'
 
 const appSource = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8')
+const stylesSource = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
 
 const requirements = [
   { id: 'R1', indicator: 'C7.1C', criterionDescription: 'Patient health records', classificationLabel: 'Mandatory', applicabilityStatus: 'APPLICABLE' },
@@ -180,4 +181,9 @@ test('app validates file selection immediately, clears stale errors and hardens 
   assert.match(appSource, /ui\.accreditation\.evidence\.error\s*=\s*''/)
   assert.match(appSource, /root\.addEventListener\('input'[\s\S]*handleEvidenceFileSelection\(evidenceInput\)/)
   assert.match(appSource, /root\.addEventListener\('change'[\s\S]*handleEvidenceFileSelection\(evidenceInput\)/)
+})
+
+
+test('hidden evidence upload errors do not render as an empty red bar', () => {
+  assert.match(stylesSource, /\.accreditation-inline-error\[hidden\]\s*\{[^}]*display:\s*none/i)
 })
