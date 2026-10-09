@@ -107,3 +107,77 @@ test('selected evidence files survive accreditation rerenders until upload compl
   assert.match(appSource, /const files = Array\.from\(ui\.accreditation\.evidence\.selectedFiles \|\| input\?\.files \|\| \[\]\)/)
   assert.match(appSource, /ui\.accreditation\.evidence\.selectedFiles\s*=\s*\[\]/)
 })
+
+
+test('Evidence Library renders real upload progress and an initial loading state', () => {
+  const progressHtml = renderAccreditationEvidence({
+    items: [],
+    loaded: true,
+    uploading: true,
+    uploadProgress: {
+      percent: 42,
+      currentFilename: 'records.pdf',
+      currentFileIndex: 1,
+      totalFiles: 2,
+    },
+  }, { requirements })
+  assert.match(progressHtml, /role="progressbar"/)
+  assert.match(progressHtml, /42%/)
+  assert.match(progressHtml, /1 of 2 files/i)
+  assert.match(progressHtml, /records\.pdf/i)
+
+  const loadingHtml = renderAccreditationEvidence({
+    items: [],
+    loaded: false,
+    loading: false,
+  }, { requirements })
+  assert.match(loadingHtml, /Loading evidence/i)
+  assert.doesNotMatch(loadingHtml, /No evidence uploaded yet/i)
+})
+
+test('requirement detail shows active mapped evidence without treating it as readiness', () => {
+  const detail = renderRequirementDetail({
+    id: 'R1', indicator: 'C7.1C', criterion: 'C7.1', criterionDescription: 'Patient health records',
+    classificationLabel: 'Mandatory', applicabilityStatus: 'APPLICABLE', readinessStatus: 'CONFIRMED_GAP',
+    verificationStatus: 'USER_REPORTED', statusReason: 'Gap confirmed.', knownFacts: [], unknownFacts: [],
+    potentialGaps: [], confirmedGaps: ['Gap'], recommendedActions: [], sourceUrls: {}, evidenceCriteria: [],
+    questions: [{ id: 'Q1', wording: 'Is this in place?', answerOptions: ['Yes','No'] }],
+  }, {
+    evidenceItems: [
+      {
+        id: 'active-evidence',
+        title: 'Patient record audit',
+        originalFilename: 'patient-record-audit.pdf',
+        category: 'AUDIT_REPORT',
+        status: 'ACTIVE',
+        mappings: [{ requirementId: 'R1' }],
+        assessments: [],
+      },
+      {
+        id: 'old-evidence',
+        title: 'Old audit',
+        originalFilename: 'old-audit.pdf',
+        category: 'AUDIT_REPORT',
+        status: 'SUPERSEDED',
+        mappings: [{ requirementId: 'R1' }],
+        assessments: [],
+      },
+    ],
+  })
+  assert.match(detail, /Mapped evidence/i)
+  assert.match(detail, /Patient record audit/i)
+  assert.match(detail, /patient-record-audit\.pdf/i)
+  assert.match(detail, /Audit \/ report/i)
+  assert.match(detail, /Not Reviewed/i)
+  assert.match(detail, /data-action="evidence-download"/)
+  assert.doesNotMatch(detail, /Old audit/i)
+  assert.match(detail, /Confirmed Gap/i)
+})
+
+test('app validates file selection immediately, clears stale errors and hardens first-attempt selection', () => {
+  assert.match(appSource, /function handleEvidenceFileSelection\(/)
+  assert.match(appSource, /validateEvidenceFiles\(files\)/)
+  assert.match(appSource, /ui\.accreditation\.evidence\.error\s*=\s*''/)
+  assert.match(appSource, /root\.addEventListener\('input'[\s\S]*handleEvidenceFileSelection\(evidenceInput\)/)
+  assert.match(appSource, /root\.addEventListener\('change'[\s\S]*handleEvidenceFileSelection\(evidenceInput\)/)
+})
