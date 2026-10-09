@@ -8,6 +8,10 @@ function lower(value) {
   return clean(value).toLowerCase()
 }
 
+function uniqueText(items = []) {
+  return [...new Set((Array.isArray(items) ? items : []).map((item) => clean(item)).filter(Boolean))]
+}
+
 function baseResult(previousState = {}) {
   return {
     applicabilityStatus: previousState.applicabilityStatus || 'UNKNOWN',
@@ -15,11 +19,11 @@ function baseResult(previousState = {}) {
     verificationStatus: previousState.verificationStatus || null,
     confidence: 0,
     statusReason: 'More information required.',
-    knownFacts: Array.isArray(previousState.knownFacts) ? [...previousState.knownFacts] : [],
-    unknownFacts: Array.isArray(previousState.unknownFacts) ? [...previousState.unknownFacts] : [],
-    potentialGaps: Array.isArray(previousState.potentialGaps) ? [...previousState.potentialGaps] : [],
-    confirmedGaps: Array.isArray(previousState.confirmedGaps) ? [...previousState.confirmedGaps] : [],
-    recommendedActions: Array.isArray(previousState.recommendedActions) ? [...previousState.recommendedActions] : [],
+    knownFacts: uniqueText(previousState.knownFacts),
+    unknownFacts: uniqueText(previousState.unknownFacts),
+    potentialGaps: uniqueText(previousState.potentialGaps),
+    confirmedGaps: uniqueText(previousState.confirmedGaps),
+    recommendedActions: uniqueText(previousState.recommendedActions),
     requiresReassessment: true,
   }
 }
@@ -27,6 +31,17 @@ function baseResult(previousState = {}) {
 function answerFact(question, answerLabel) {
   const wording = clean(question?.wording) || 'Readiness question'
   return `${wording} — reported answer: ${answerLabel}`
+}
+
+function replaceReportedFact(items, question, fact) {
+  const wording = clean(question?.wording) || 'Readiness question'
+  const prefix = `${wording} — reported answer:`
+  return uniqueText([...(Array.isArray(items) ? items : []).filter((item) => !clean(item).startsWith(prefix)), fact])
+}
+
+function withRequirementGap(items, requirement) {
+  const label = requirementLabel(requirement)
+  return uniqueText([...(Array.isArray(items) ? items : []).filter((item) => clean(item) !== label), label])
 }
 
 function requirementLabel(requirement) {
@@ -105,8 +120,8 @@ export function assessRequirement({
       verificationStatus,
       confidence: 0.2,
       statusReason: 'More information required; the practice has reported that this fact is not currently known.',
-      knownFacts: [...result.knownFacts, fact],
-      unknownFacts: [...result.unknownFacts, requirementLabel(requirement)],
+      knownFacts: replaceReportedFact(result.knownFacts, question, fact),
+      unknownFacts: uniqueText([...result.unknownFacts, requirementLabel(requirement)]),
       confirmedGaps: [],
       recommendedActions: ['Confirm the missing fact or provide relevant evidence before reassessment.'],
     }
@@ -120,8 +135,8 @@ export function assessRequirement({
       verificationStatus,
       confidence: 0.35,
       statusReason: 'The practice reports this requirement is not applicable; applicability remains separate from readiness and should be verified.',
-      knownFacts: [...result.knownFacts, fact],
-      unknownFacts: [...result.unknownFacts, 'Applicability has not yet been independently verified.'],
+      knownFacts: replaceReportedFact(result.knownFacts, question, fact),
+      unknownFacts: uniqueText([...result.unknownFacts, 'Applicability has not yet been independently verified.']),
       confirmedGaps: [],
       recommendedActions: ['Verify the applicability condition before excluding this requirement from the active readiness check.'],
     }
@@ -137,8 +152,8 @@ export function assessRequirement({
         verificationStatus,
         confidence: 0.45,
         statusReason: 'A negative user report needs attention, but this requirement classification is unverified and requires accreditation-content validation before a confirmed readiness conclusion.',
-        knownFacts: [...result.knownFacts, fact],
-        potentialGaps: [...result.potentialGaps, requirementLabel(requirement)],
+        knownFacts: replaceReportedFact(result.knownFacts, question, fact),
+        potentialGaps: withRequirementGap(result.potentialGaps, requirement),
         confirmedGaps: [],
         recommendedActions: ['Validate the controlled requirement classification, then confirm the reported gap and remediation needed.'],
       }
@@ -151,9 +166,9 @@ export function assessRequirement({
       verificationStatus,
       confidence: 0.65,
       statusReason: 'The practice has explicitly reported that an applicable verified requirement element is not in place.',
-      knownFacts: [...result.knownFacts, fact],
+      knownFacts: replaceReportedFact(result.knownFacts, question, fact),
       potentialGaps: [],
-      confirmedGaps: [...result.confirmedGaps, requirementLabel(requirement)],
+      confirmedGaps: withRequirementGap(result.confirmedGaps, requirement),
       recommendedActions: ['Address the confirmed gap, record the corrective action, and re-check this requirement.'],
     }
   }
@@ -166,8 +181,8 @@ export function assessRequirement({
       verificationStatus,
       confidence: 0.5,
       statusReason: 'The practice reports partial implementation or coverage; more information and supporting evidence are needed.',
-      knownFacts: [...result.knownFacts, fact],
-      potentialGaps: [...result.potentialGaps, requirementLabel(requirement)],
+      knownFacts: replaceReportedFact(result.knownFacts, question, fact),
+      potentialGaps: withRequirementGap(result.potentialGaps, requirement),
       confirmedGaps: [],
       recommendedActions: ['Clarify what is incomplete and provide supporting evidence for the unresolved parts.'],
     }
@@ -186,7 +201,7 @@ export function assessRequirement({
         verificationStatus: previousVerification,
         confidence: previousVerification === 'MANUALLY_VERIFIED' ? 0.95 : 0.85,
         statusReason: 'The positive practice response is supported by an existing reviewed verification state and no confirmed gap is recorded.',
-        knownFacts: [...result.knownFacts, fact],
+        knownFacts: replaceReportedFact(result.knownFacts, question, fact),
         unknownFacts: [],
         potentialGaps: [],
         confirmedGaps: [],
@@ -202,8 +217,8 @@ export function assessRequirement({
       verificationStatus,
       confidence: 0.4,
       statusReason: 'Reported complete — evidence not yet checked.',
-      knownFacts: [...result.knownFacts, fact],
-      unknownFacts: [...result.unknownFacts, 'Supporting evidence has not yet been reviewed.'],
+      knownFacts: replaceReportedFact(result.knownFacts, question, fact),
+      unknownFacts: uniqueText([...result.unknownFacts, 'Supporting evidence has not yet been reviewed.']),
       potentialGaps: [],
       confirmedGaps: [],
       recommendedActions: ['Upload or confirm supporting evidence, then re-check this requirement.'],
@@ -217,8 +232,8 @@ export function assessRequirement({
     verificationStatus,
     confidence: 0.1,
     statusReason: 'More information required; the reported answer could not be mapped to controlled assessment logic.',
-    knownFacts: [...result.knownFacts, fact],
-    unknownFacts: [...result.unknownFacts, requirementLabel(requirement)],
+    knownFacts: replaceReportedFact(result.knownFacts, question, fact),
+    unknownFacts: uniqueText([...result.unknownFacts, requirementLabel(requirement)]),
     confirmedGaps: [],
     recommendedActions: ['Clarify the response using the configured answer options before reassessment.'],
   }

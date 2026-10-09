@@ -11,11 +11,28 @@ const FILTERS = [
   ['CRITICAL', 'Critical safety'],
 ]
 
+function applicabilityStatus(item) {
+  return String(item?.applicabilityStatus || 'APPLICABLE').toUpperCase()
+}
+
 function matchesFilter(item, filter) {
+  const applicability = applicabilityStatus(item)
   if (filter === 'ALL') return true
-  if (filter === 'P1') return item.quickCheckPriority === 'P1'
-  if (filter === 'CRITICAL') return Boolean(item.criticalSafetyArea)
+  if (filter === 'P1') return applicability !== 'NOT_APPLICABLE' && item.quickCheckPriority === 'P1'
+  if (filter === 'CRITICAL') return applicability !== 'NOT_APPLICABLE' && Boolean(item.criticalSafetyArea)
+  if (applicability !== 'APPLICABLE') return false
   return item.readinessStatus === filter
+}
+
+function readinessDisplay(item) {
+  const applicability = applicabilityStatus(item)
+  if (applicability === 'NOT_APPLICABLE') {
+    return '<span class="applicability-pill not-applicable">Not Applicable</span>'
+  }
+  if (applicability === 'UNKNOWN') {
+    return '<span class="applicability-pill needs-confirmation">Applicability not confirmed</span>'
+  }
+  return `<span class="readiness-pill ${readinessClass(item.readinessStatus)}">${escapeHtml(readinessLabel(item.readinessStatus))}</span>`
 }
 
 function evidenceLabel(count) {
@@ -35,7 +52,7 @@ export function renderRequirementsView(requirements = [], { filter = 'ALL' } = {
         ${items.map((item) => `<tr data-accreditation-requirement="${escapeHtml(item.id || '')}" role="link" tabindex="0" aria-label="Open ${escapeHtml(item.indicator || item.id || 'requirement')}">
           <td><strong>${escapeHtml(item.indicator || item.id || '')}</strong><small>${escapeHtml(item.criterionDescription || item.plainEnglishRequirement || '')}</small>${item.criticalSafetyArea ? '<span class="critical-safety-badge">Critical safety</span>' : ''}</td>
           <td><span class="classification-pill ${item.classification === 'UNVERIFIED' ? 'validation-required' : ''}">${escapeHtml(item.classificationLabel || (item.classification === 'UNVERIFIED' ? 'Validation required' : item.classification || ''))}</span></td>
-          <td><span class="readiness-pill ${readinessClass(item.readinessStatus)}">${escapeHtml(readinessLabel(item.readinessStatus))}</span></td>
+          <td>${readinessDisplay(item)}</td>
           <td>${escapeHtml(verificationLabel(item.verificationStatus))}</td>
           <td>${escapeHtml(evidenceLabel(item.evidenceCount))}</td>
           <td>${escapeHtml(item.quickCheckPriority || '')}</td>

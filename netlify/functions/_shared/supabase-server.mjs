@@ -1,6 +1,22 @@
 import { buildAccreditationPracticeInformation } from './accreditation-setup.mjs'
 import { effectiveRequirementState, isInformativeReadinessAnswer } from './accreditation-applicability.mjs'
 
+function uniqueText(items = []) {
+  return [...new Set((Array.isArray(items) ? items : []).map((item) => String(item ?? '').trim()).filter(Boolean))]
+}
+
+function currentReportedFacts({ storedFacts = [], questions = [], responses = [] } = {}) {
+  const questionById = new Map((Array.isArray(questions) ? questions : []).map((question) => [question.id, question]))
+  const durableFacts = (Array.isArray(storedFacts) ? storedFacts : [])
+    .filter((fact) => !String(fact || '').includes(' — reported answer:'))
+  const reportedFacts = (Array.isArray(responses) ? responses : []).map((response) => {
+    const question = questionById.get(response.question_id)
+    if (!question?.wording || !response?.answer_label) return ''
+    return `${String(question.wording).trim()} — reported answer: ${String(response.answer_label).trim()}`
+  })
+  return uniqueText([...durableFacts, ...reportedFacts])
+}
+
 function readConfig(env = process.env) {
   const url = String(env.SUPABASE_URL || '').replace(/\/$/, '')
   const publishableKey = String(env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || '')
@@ -380,7 +396,9 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         NOT_CHECKED: 0,
       }
       for (const requirement of requirements) {
-        const status = effectiveByRequirement.get(requirement.id)?.readinessStatus || 'NOT_CHECKED'
+        const state = effectiveByRequirement.get(requirement.id) || {}
+        if (state.applicabilityStatus !== 'APPLICABLE') continue
+        const status = state.readinessStatus || 'NOT_CHECKED'
         if (Object.hasOwn(statusCounts, status)) statusCounts[status] += 1
         else statusCounts.NOT_CHECKED += 1
       }
@@ -577,10 +595,19 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           .filter((requirement) => responseByQuestion.has(questionByRequirement.get(requirement.id).id))
           .map((requirement) => requirement.id)
       )
+      const informativeIds = new Set(
+        mandatory
+          .filter((requirement) => {
+            const question = questionByRequirement.get(requirement.id)
+            const response = responseByQuestion.get(question?.id)
+            return response && isInformativeReadinessAnswer(response.answer_label)
+          })
+          .map((requirement) => requirement.id)
+      )
       const nextRequirement = mandatory.find((requirement) => !answeredIds.has(requirement.id)) || null
       const next = nextRequirement ? questionByRequirement.get(nextRequirement.id) : null
       const coverageTotal = mandatory.length
-      const coverageAnswered = answeredIds.size
+      const coverageAnswered = informativeIds.size
 
       return {
         coverage: {
@@ -629,7 +656,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           `practice_requirements?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&limit=1`
         ),
         table(
-          `readiness_responses?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&superseded_at=is.null&order=answered_at.desc&limit=1`
+          `readiness_responses?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&superseded_at=is.null&order=answered_at.desc`
         ),
         table(
           `accreditation_practice_profiles?select=practice_context&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`
@@ -647,12 +674,18 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         : []
       const options = Array.isArray(allOptions) ? allOptions : []
       const state = Array.isArray(stateRows) ? (stateRows[0] || {}) : (stateRows || {})
-      const response = Array.isArray(responseRows) ? responseRows[0] : responseRows
+      const responses = Array.isArray(responseRows) ? responseRows : (responseRows ? [responseRows] : [])
+      const response = responses[0] || null
       const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
       const practiceContext = profile?.practice_context && typeof profile.practice_context === 'object'
         ? profile.practice_context
         : {}
       const effectiveState = effectiveRequirementState({ requirement, state, response: response || {}, practiceContext })
+      const knownFacts = currentReportedFacts({
+        storedFacts: effectiveState.knownFacts,
+        questions,
+        responses,
+      })
       const sourceUrls = requirement.source_urls && typeof requirement.source_urls === 'object'
         ? requirement.source_urls
         : {}
@@ -675,11 +708,11 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         readinessStatus: effectiveState.readinessStatus,
         verificationStatus: effectiveState.verificationStatus,
         statusReason: effectiveState.statusReason,
-        knownFacts: effectiveState.knownFacts,
-        unknownFacts: effectiveState.unknownFacts.length ? effectiveState.unknownFacts : (effectiveState.readinessStatus === 'NOT_CHECKED' ? ['More information or reviewed evidence is required.'] : []),
-        potentialGaps: effectiveState.potentialGaps,
-        confirmedGaps: effectiveState.confirmedGaps,
-        recommendedActions: effectiveState.recommendedActions,
+        knownFacts,
+        unknownFacts: uniqueText(effectiveState.unknownFacts.length ? effectiveState.unknownFacts : (effectiveState.readinessStatus === 'NOT_CHECKED' && effectiveState.applicabilityStatus === 'APPLICABLE' ? ['More information or reviewed evidence is required.'] : [])),
+        potentialGaps: uniqueText(effectiveState.potentialGaps),
+        confirmedGaps: uniqueText(effectiveState.confirmedGaps),
+        recommendedActions: uniqueText(effectiveState.recommendedActions),
         lastAssessedAt: effectiveState.lastAssessedAt,
         requiresReassessment: effectiveState.requiresReassessment,
         questions: questions.map((question) => ({

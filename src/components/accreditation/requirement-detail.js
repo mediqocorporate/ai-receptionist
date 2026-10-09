@@ -30,47 +30,72 @@ function readinessQuestion(requirement, question) {
   </section>`
 }
 
+function requirementSide(requirement) {
+  return `<aside class="requirement-detail-side">
+    <section class="panel requirement-detail-block"><h3>Classification</h3><p>${escapeHtml(requirement.classificationLabel || requirement.classification || '')}</p></section>
+    <section class="panel requirement-detail-block"><h3>Controlled sources</h3>${sourceLinks(requirement.sourceUrls)}</section>
+  </aside>`
+}
+
+function notApplicableView(requirement, plainEnglish) {
+  const reason = requirement.applicabilityReason || requirement.statusReason || 'Based on the current Practice Information, this requirement does not apply.'
+  return `<section class="panel requirement-applicability-note">
+      <div><span class="eyebrow">APPLICABILITY</span><h3>Not Applicable</h3><p>${escapeHtml(reason)}</p></div>
+      <button type="button" class="secondary-button" data-accreditation-view="practice-information">Change this information</button>
+    </section>
+    <div class="requirement-detail-grid">
+      <section class="panel requirement-detail-main">
+        <div class="requirement-reason"><span class="label">Why this requirement is not applicable</span><p>${escapeHtml(reason)}</p></div>
+        ${plainEnglish ? `<section class="requirement-detail-block"><h3>What this requirement means</h3><p>${escapeHtml(plainEnglish)}</p></section>` : ''}
+      </section>
+      ${requirementSide(requirement)}
+    </div>`
+}
+
 export function renderRequirementDetail(requirement = {}) {
   const questions = Array.isArray(requirement.questions) ? requirement.questions : []
   const evidence = Array.isArray(requirement.evidenceCriteria) ? requirement.evidenceCriteria : []
   const plainEnglish = isTemplatePlainEnglish(requirement.plainEnglishRequirement) ? '' : requirement.plainEnglishRequirement
   const primaryQuestion = questions[0] || null
+  const notApplicable = String(requirement.applicabilityStatus || '').toUpperCase() === 'NOT_APPLICABLE'
+  const statusMarkup = notApplicable
+    ? '<span class="applicability-pill not-applicable">Not Applicable</span>'
+    : `<span class="readiness-pill ${readinessClass(requirement.readinessStatus)}">${escapeHtml(readinessLabel(requirement.readinessStatus))}</span><span>${escapeHtml(verificationLabel(requirement.verificationStatus))}</span>`
 
   return `<section class="requirement-detail">
     <button type="button" class="conversation-back requirement-back" data-accreditation-view="requirements">${icon('chevron-left',15)} Back to requirements</button>
     <section class="panel requirement-detail-hero">
       <div><span class="eyebrow">${escapeHtml(requirement.criterion || 'RACGP 5TH EDITION')}</span><h2>${escapeHtml(requirement.indicator || requirement.id || '')} · ${escapeHtml(requirement.criterionDescription || '')}</h2>${plainEnglish ? `<p>${escapeHtml(plainEnglish)}</p>` : ''}</div>
-      <div class="requirement-detail-status"><span class="readiness-pill ${readinessClass(requirement.readinessStatus)}">${escapeHtml(readinessLabel(requirement.readinessStatus))}</span><span>${escapeHtml(verificationLabel(requirement.verificationStatus))}</span></div>
+      <div class="requirement-detail-status">${statusMarkup}</div>
     </section>
 
-    ${readinessQuestion(requirement, primaryQuestion)}
+    ${notApplicable ? notApplicableView(requirement, plainEnglish) : `
+      ${readinessQuestion(requirement, primaryQuestion)}
 
-    <div class="requirement-detail-grid">
-      <section class="panel requirement-detail-main">
-        <div class="requirement-reason"><span class="label">Why MediQo shows this status</span><p>${escapeHtml(requirement.statusReason || 'More information required.')}</p></div>
-        <div class="requirement-fact-grid">
-          ${listBlock('Known facts', requirement.knownFacts || [], 'No reliable practice facts recorded yet.')}
-          ${listBlock('Unknown facts', requirement.unknownFacts || [], 'No unresolved facts recorded.')}
-          ${listBlock('Potential gaps', requirement.potentialGaps || [], 'No potential gaps recorded.')}
-          ${listBlock('Confirmed gaps', requirement.confirmedGaps || [], 'No confirmed gaps recorded.')}
-        </div>
-        ${listBlock('Recommended next action', requirement.recommendedActions || [], 'Continue gathering reliable practice information.')}
+      <div class="requirement-detail-grid">
+        <section class="panel requirement-detail-main">
+          <div class="requirement-reason"><span class="label">Why MediQo shows this status</span><p>${escapeHtml(requirement.statusReason || 'More information required.')}</p></div>
+          <div class="requirement-fact-grid">
+            ${listBlock('Known facts', requirement.knownFacts || [], 'No reliable practice facts recorded yet.')}
+            ${listBlock('Unknown facts', requirement.unknownFacts || [], 'No unresolved facts recorded.')}
+            ${listBlock('Potential gaps', requirement.potentialGaps || [], 'No potential gaps recorded.')}
+            ${listBlock('Confirmed gaps', requirement.confirmedGaps || [], 'No confirmed gaps recorded.')}
+          </div>
+          ${listBlock('Recommended next action', requirement.recommendedActions || [], 'Continue gathering reliable practice information.')}
+        </section>
+
+        ${requirementSide(requirement)}
+      </div>
+
+      ${questions.length > 1 ? `<section class="panel requirement-config-section">
+        <div class="panel-heading"><div><h2>Additional readiness questions</h2><p>Answer the facts you know today. Unknown answers stay visible as not checked.</p></div></div>
+        ${questions.slice(1).map((question) => `<article class="requirement-question-config"><strong>${escapeHtml(question.wording || '')}</strong><p>${escapeHtml((question.answerOptions || []).join(' · '))}</p></article>`).join('')}
+      </section>` : ''}
+
+      <section class="panel requirement-config-section">
+        <div class="panel-heading"><div><h2>Possible evidence</h2><p>Examples of evidence that may help. You can demonstrate this requirement in other ways where appropriate.</p></div></div>
+        ${evidence.length ? evidence.map((item) => `<article class="requirement-evidence-config"><strong>${escapeHtml(item.evidenceType || '')}</strong><p>${escapeHtml(item.evidenceRule || '')}</p></article>`).join('') : '<div class="accreditation-empty-state"><p>No evidence examples are configured for this requirement.</p></div>'}
       </section>
-
-      <aside class="requirement-detail-side">
-        <section class="panel requirement-detail-block"><h3>Classification</h3><p>${escapeHtml(requirement.classificationLabel || requirement.classification || '')}</p></section>
-        <section class="panel requirement-detail-block"><h3>Controlled sources</h3>${sourceLinks(requirement.sourceUrls)}</section>
-      </aside>
-    </div>
-
-    ${questions.length > 1 ? `<section class="panel requirement-config-section">
-      <div class="panel-heading"><div><h2>Additional readiness questions</h2><p>Answer the facts you know today. Unknown answers stay visible as not checked.</p></div></div>
-      ${questions.slice(1).map((question) => `<article class="requirement-question-config"><strong>${escapeHtml(question.wording || '')}</strong><p>${escapeHtml((question.answerOptions || []).join(' · '))}</p></article>`).join('')}
-    </section>` : ''}
-
-    <section class="panel requirement-config-section">
-      <div class="panel-heading"><div><h2>Possible evidence</h2><p>Examples of evidence that may help. You can demonstrate this requirement in other ways where appropriate.</p></div></div>
-      ${evidence.length ? evidence.map((item) => `<article class="requirement-evidence-config"><strong>${escapeHtml(item.evidenceType || '')}</strong><p>${escapeHtml(item.evidenceRule || '')}</p></article>`).join('') : '<div class="accreditation-empty-state"><p>No evidence examples are configured for this requirement.</p></div>'}
-    </section>
+    `}
   </section>`
 }
