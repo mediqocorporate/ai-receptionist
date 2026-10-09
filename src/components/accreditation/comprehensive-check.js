@@ -1,6 +1,12 @@
 import { icon } from '../icons.js'
 import { escapeHtml } from '../../lib/html.js'
 
+function userFacingWhy(value = '') {
+  const text = String(value || '').trim()
+  if (/explain the specific missing fact or evidence that prevents assessment/i.test(text)) return ''
+  return text
+}
+
 export function renderComprehensiveCheck(check = {}, { submitting = false } = {}) {
   const coverage = check.coverage || { answered: 0, total: 0, percent: 0 }
   const question = check.nextQuestion || null
@@ -29,7 +35,7 @@ export function renderComprehensiveCheck(check = {}, { submitting = false } = {}
       <div class="readiness-question">
         <span class="question-priority">${escapeHtml(question.indicator || question.priority || 'RACGP 5')}</span>
         <h2>${escapeHtml(question.wording || '')}</h2>
-        ${question.whyWeAsk ? `<p>${escapeHtml(question.whyWeAsk)}</p>` : ''}
+        ${userFacingWhy(question.whyWeAsk) ? `<p>${escapeHtml(userFacingWhy(question.whyWeAsk))}</p>` : ''}
       </div>
       <div class="readiness-answer-grid">
         ${options.map((option) => `<button type="button" class="readiness-answer-option" data-accreditation-answer data-check-mode="comprehensive" data-question-id="${escapeHtml(question.id)}" data-answer-label="${escapeHtml(option)}" ${submitting ? 'disabled' : ''}><span>${escapeHtml(option)}</span>${icon('chevron',16)}</button>`).join('')}

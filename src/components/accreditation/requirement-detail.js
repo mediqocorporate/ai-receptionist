@@ -12,15 +12,38 @@ function sourceLinks(sourceUrls = {}) {
   return `<div class="requirement-source-links">${entries.map(([name, url]) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${icon('external',14)} ${escapeHtml(name.toUpperCase())}</a>`).join('')}</div>`
 }
 
+function isTemplatePlainEnglish(value = '') {
+  return /plain-english readiness assessment for/i.test(String(value))
+}
+
+function readinessQuestion(requirement, question) {
+  if (!question) return ''
+  const currentAnswer = requirement.currentResponse?.questionId === question.id
+    ? requirement.currentResponse?.answerLabel
+    : ''
+  const options = Array.isArray(question.answerOptions) ? question.answerOptions : []
+  return `<section class="panel requirement-readiness-question">
+    <div><span class="eyebrow">READINESS QUESTION</span><h3>${escapeHtml(question.wording || '')}</h3>${currentAnswer ? `<p>Current answer: <strong>${escapeHtml(currentAnswer)}</strong></p>` : '<p>Choose the factual answer you know today. You can change this later.</p>'}</div>
+    <div class="readiness-answer-grid">
+      ${options.map((option) => `<button type="button" class="readiness-answer-option ${option === currentAnswer ? 'selected' : ''}" data-accreditation-answer data-question-id="${escapeHtml(question.id || '')}" data-answer-label="${escapeHtml(option)}" data-return-requirement-id="${escapeHtml(requirement.id || '')}" aria-pressed="${option === currentAnswer ? 'true' : 'false'}"><span>${escapeHtml(option)}</span>${icon('chevron',16)}</button>`).join('')}
+    </div>
+  </section>`
+}
+
 export function renderRequirementDetail(requirement = {}) {
   const questions = Array.isArray(requirement.questions) ? requirement.questions : []
   const evidence = Array.isArray(requirement.evidenceCriteria) ? requirement.evidenceCriteria : []
+  const plainEnglish = isTemplatePlainEnglish(requirement.plainEnglishRequirement) ? '' : requirement.plainEnglishRequirement
+  const primaryQuestion = questions[0] || null
+
   return `<section class="requirement-detail">
-    <button type="button" class="conversation-back requirement-back" data-accreditation-view="requirements">${icon('chevron',15)} Back to requirements</button>
+    <button type="button" class="conversation-back requirement-back" data-accreditation-view="requirements">${icon('chevron-left',15)} Back to requirements</button>
     <section class="panel requirement-detail-hero">
-      <div><span class="eyebrow">${escapeHtml(requirement.criterion || 'RACGP 5TH EDITION')}</span><h2>${escapeHtml(requirement.indicator || requirement.id || '')} · ${escapeHtml(requirement.criterionDescription || '')}</h2><p>${escapeHtml(requirement.plainEnglishRequirement || '')}</p></div>
+      <div><span class="eyebrow">${escapeHtml(requirement.criterion || 'RACGP 5TH EDITION')}</span><h2>${escapeHtml(requirement.indicator || requirement.id || '')} · ${escapeHtml(requirement.criterionDescription || '')}</h2>${plainEnglish ? `<p>${escapeHtml(plainEnglish)}</p>` : ''}</div>
       <div class="requirement-detail-status"><span class="readiness-pill ${readinessClass(requirement.readinessStatus)}">${escapeHtml(readinessLabel(requirement.readinessStatus))}</span><span>${escapeHtml(verificationLabel(requirement.verificationStatus))}</span></div>
     </section>
+
+    ${readinessQuestion(requirement, primaryQuestion)}
 
     <div class="requirement-detail-grid">
       <section class="panel requirement-detail-main">
@@ -40,14 +63,14 @@ export function renderRequirementDetail(requirement = {}) {
       </aside>
     </div>
 
-    <section class="panel requirement-config-section">
-      <div class="panel-heading"><div><h2>Readiness questions</h2><p>Questions come from the controlled client dataset.</p></div></div>
-      ${questions.length ? questions.map((question) => `<article class="requirement-question-config"><strong>${escapeHtml(question.wording || '')}</strong><p>${escapeHtml((question.answerOptions || []).join(' · '))}</p></article>`).join('') : '<div class="accreditation-empty-state"><p>No active question is configured for this requirement.</p></div>'}
-    </section>
+    ${questions.length > 1 ? `<section class="panel requirement-config-section">
+      <div class="panel-heading"><div><h2>Additional readiness questions</h2><p>Answer the facts you know today. Unknown answers stay visible as not checked.</p></div></div>
+      ${questions.slice(1).map((question) => `<article class="requirement-question-config"><strong>${escapeHtml(question.wording || '')}</strong><p>${escapeHtml((question.answerOptions || []).join(' · '))}</p></article>`).join('')}
+    </section>` : ''}
 
     <section class="panel requirement-config-section">
-      <div class="panel-heading"><div><h2>Possible evidence</h2><p>Evidence types and assessment dimensions supplied by the workbook.</p></div></div>
-      ${evidence.length ? evidence.map((item) => `<article class="requirement-evidence-config"><strong>${escapeHtml(item.evidenceType || '')}</strong><p>${escapeHtml(item.evidenceRule || '')}</p></article>`).join('') : '<div class="accreditation-empty-state"><p>No evidence criteria are configured for this requirement.</p></div>'}
+      <div class="panel-heading"><div><h2>Possible evidence</h2><p>Examples of evidence that may help. You can demonstrate this requirement in other ways where appropriate.</p></div></div>
+      ${evidence.length ? evidence.map((item) => `<article class="requirement-evidence-config"><strong>${escapeHtml(item.evidenceType || '')}</strong><p>${escapeHtml(item.evidenceRule || '')}</p></article>`).join('') : '<div class="accreditation-empty-state"><p>No evidence examples are configured for this requirement.</p></div>'}
     </section>
   </section>`
 }

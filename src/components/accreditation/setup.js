@@ -31,7 +31,7 @@ function triState(name, label, values) {
 function progress(step) {
   const safe = Math.max(1, Math.min(4, Number(step) || 1))
   const labels = ['Accreditation journey', 'Next assessment', 'Accrediting agency', 'Practice information']
-  return `<div class="setup-progress"><div><span>Step ${safe} of 4</span><strong>${labels[safe - 1]}</strong></div><div class="coverage-bar"><span style="width:${safe * 25}%"></span></div></div>`
+  return `<div class="setup-progress"><div><strong>${labels[safe - 1]}</strong></div><div class="coverage-bar"><span style="width:${safe * 25}%"></span></div></div>`
 }
 
 function actions(step, submitting) {
@@ -87,7 +87,7 @@ export function renderAccreditationSetup({
     fields = `<label class="field"><span>Have you selected your accrediting agency?</span><select name="accreditingAgencyId">
       <option value="" ${selected(value(values, 'accreditingAgencyId', ''), '')}>Not yet / I'm not sure</option>
       ${agencyList.map((agency) => `<option value="${escapeHtml(agency.id)}" ${selected(value(values, 'accreditingAgencyId'), agency.id)}>${escapeHtml(agency.name)}</option>`).join('')}
-    </select><small>The list is controlled by MediQo configuration rather than hard-coded into the app.</small></label>`
+    </select></label>`
   } else {
     fields = `<div class="setup-profile-grid">
       <label class="field"><span>State / territory</span><select name="stateOrTerritory"><option value="">Not provided</option>${STATES.map((state) => `<option value="${state}" ${selected(value(values, 'stateOrTerritory'), state)}>${state}</option>`).join('')}</select></label>

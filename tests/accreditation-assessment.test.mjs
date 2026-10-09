@@ -27,10 +27,11 @@ test("unknown answer remains NOT_CHECKED rather than becoming a gap", () => {
 
 test('positive user report does not automatically become APPEARS_READY', () => {
   const result = assessRequirement({ requirement: mandatory, question, response: { answerLabel: 'Yes' } })
-  assert.equal(result.readinessStatus, 'NEEDS_ATTENTION')
+  assert.equal(result.readinessStatus, 'NOT_CHECKED')
   assert.equal(result.verificationStatus, 'USER_REPORTED')
   assert.notEqual(result.readinessStatus, 'APPEARS_READY')
-  assert.match(result.statusReason, /evidence|verification/i)
+  assert.match(result.statusReason, /reported complete/i)
+  assert.match(result.unknownFacts.join(' '), /evidence/i)
 })
 
 test('explicit negative answer to verified applicable requirement becomes CONFIRMED_GAP', () => {
@@ -73,9 +74,9 @@ test('VALIDATE classification stays unverified and cannot be marked APPEARS_READ
     question,
     response: { answerLabel: 'Yes' },
   })
-  assert.equal(result.readinessStatus, 'NEEDS_ATTENTION')
+  assert.equal(result.readinessStatus, 'NOT_CHECKED')
   assert.equal(result.verificationStatus, 'USER_REPORTED')
-  assert.match(result.statusReason, /validation|unverified/i)
+  assert.match(result.statusReason, /reported complete/i)
 })
 
 test('not-applicable response keeps readiness separate from applicability', () => {

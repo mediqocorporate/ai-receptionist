@@ -3,20 +3,36 @@ import { escapeHtml } from '../../lib/html.js'
 import { readinessLabel, readinessClass, READINESS_STATUSES } from './status.js'
 
 function countCard(status, count) {
-  return `<article class="accreditation-status-card ${readinessClass(status)}"><span>${escapeHtml(readinessLabel(status))}</span><strong>${Number(count || 0)}</strong></article>`
+  return `<button type="button" class="accreditation-status-card ${readinessClass(status)}" data-accreditation-filter="${escapeHtml(status)}"><span>${escapeHtml(readinessLabel(status))}</span><strong>${Number(count || 0)}</strong></button>`
+}
+
+function percent(value) {
+  return Math.max(0, Math.min(100, Number(value || 0)))
 }
 
 export function renderAccreditationOverview(overview = {}, { practiceName = 'Your practice' } = {}) {
   const standard = overview.standardVersion || {}
-  const coverage = overview.coverage || { answered: 0, total: 0, percent: 0 }
+  const quickCoverage = overview.coverage || { answered: 0, total: 0, percent: 0 }
   const statusCounts = overview.statusCounts || {}
   const assessedCount = Number(overview.assessedCount || 0)
-  const noAssessment = assessedCount === 0
+  const totalRequirements = Number(overview.totalRequirements || 0)
+  const assessmentCoverage = overview.assessmentCoverage || {
+    assessed: assessedCount,
+    total: totalRequirements,
+    percent: totalRequirements ? Math.round((assessedCount / totalRequirements) * 100) : 0,
+  }
+  const readiness = overview.readiness || {
+    appearsReady: Number(statusCounts.APPEARS_READY || 0),
+    assessed: assessedCount,
+    percent: assessedCount ? Math.round((Number(statusCounts.APPEARS_READY || 0) / assessedCount) * 100) : 0,
+  }
+  const unresolvedApplicabilityCount = Number(overview.unresolvedApplicabilityCount || 0)
+  const noAssessment = Number(assessmentCoverage.assessed || 0) === 0
   const target = overview.cycle?.targetAssessmentDate
     ? new Date(overview.cycle.targetAssessmentDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
     : 'Not set'
-  const quickCheckComplete = Number(coverage.total || 0) > 0 && Number(coverage.answered || 0) >= Number(coverage.total || 0)
-  const quickCheckLabel = quickCheckComplete ? 'Review Quick Check' : coverage.answered ? 'Continue Quick Check' : 'Start Quick Readiness Check'
+  const quickCheckComplete = Number(quickCoverage.total || 0) > 0 && Number(quickCoverage.answered || 0) >= Number(quickCoverage.total || 0)
+  const quickCheckLabel = quickCheckComplete ? 'Review Quick Check' : quickCoverage.answered ? 'Continue Quick Check' : 'Start Quick Readiness Check'
 
   return `<div class="accreditation-overview">
     <section class="accreditation-standard-banner">
@@ -26,17 +42,20 @@ export function renderAccreditationOverview(overview = {}, { practiceName = 'You
 
     <section class="accreditation-overview-grid">
       <article class="panel accreditation-coverage-card">
-        <span class="label">Quick Check coverage</span>
-        <div class="coverage-number">${Number(coverage.percent || 0)}%</div>
-        <p><strong>${Number(coverage.answered || 0)}</strong> of <strong>${Number(coverage.total || 0)}</strong> priority requirements answered for ${escapeHtml(practiceName)}.</p>
-        <div class="coverage-bar" role="progressbar" aria-valuenow="${Number(coverage.percent || 0)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.max(0, Math.min(100, Number(coverage.percent || 0)))}%"></span></div>
+        <span class="label">Assessment coverage</span>
+        <div class="coverage-number">${percent(assessmentCoverage.percent)}%</div>
+        <p><strong>${Number(assessmentCoverage.assessed || 0)}</strong> of <strong>${Number(assessmentCoverage.total || 0)}</strong> currently applicable mandatory requirements have enough information to assess.</p>
+        <div class="coverage-bar" role="progressbar" aria-label="Assessment coverage" aria-valuenow="${percent(assessmentCoverage.percent)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${percent(assessmentCoverage.percent)}%"></span></div>
+        ${unresolvedApplicabilityCount ? `<p class="coverage-caveat"><strong>${unresolvedApplicabilityCount}</strong> requirement${unresolvedApplicabilityCount === 1 ? '' : 's'} still need applicability confirmation.</p>` : ''}
+        <div class="quick-check-summary"><span>Quick Check</span><strong>${Number(quickCoverage.answered || 0)} of ${Number(quickCoverage.total || 0)}</strong><small>${percent(quickCoverage.percent)}% of priority questions answered</small></div>
         <button type="button" class="primary-button" data-accreditation-view="check">${icon('clipboard',16)} ${quickCheckLabel}</button>
       </article>
 
       <article class="panel accreditation-assessment-card">
         <span class="label">Readiness of assessed requirements</span>
-        <h3>${noAssessment ? 'Not Checked yet' : `${assessedCount} requirement${assessedCount === 1 ? '' : 's'} assessed`}</h3>
-        <p>${noAssessment ? 'MediQo will only show readiness after there is enough information to assess a requirement.' : 'Coverage and readiness are shown separately so answering more questions does not automatically improve readiness.'}</p>
+        <div class="coverage-number readiness-percentage">${percent(readiness.percent)}%</div>
+        <h3>${noAssessment ? 'Not checked yet' : `${Number(readiness.appearsReady || 0)} of ${Number(readiness.assessed || 0)} assessed requirements currently appear ready`}</h3>
+        <p>${noAssessment ? 'MediQo will only show readiness after there is enough information to assess an applicable mandatory requirement.' : 'Assessment coverage and readiness are separate. Needs Attention does not receive partial readiness credit.'}</p>
         <div class="accreditation-status-grid">
           ${READINESS_STATUSES.map((status) => countCard(status, statusCounts[status])).join('')}
         </div>

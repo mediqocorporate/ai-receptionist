@@ -1,4 +1,5 @@
 import { buildAccreditationPracticeInformation } from './accreditation-setup.mjs'
+import { effectiveRequirementState, isInformativeReadinessAnswer } from './accreditation-applicability.mjs'
 
 function readConfig(env = process.env) {
   const url = String(env.SUPABASE_URL || '').replace(/\/$/, '')
@@ -312,7 +313,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
     },
 
     async getAccreditationOverview({ practiceId, cycleId }) {
-      const [cycleRows, standardRows, requirementRows, questionRows, optionRows, evidenceRows, assessmentRows, responseRows] = await Promise.all([
+      const [cycleRows, standardRows, requirementRows, questionRows, optionRows, evidenceLinkRows, assessmentRows, responseRows, profileRows] = await Promise.all([
         table(
           `accreditation_cycles?select=*&id=eq.${encodeURIComponent(cycleId)}&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`
         ),
@@ -320,12 +321,17 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         table('accreditation_requirements?select=*&standard_version_id=eq.RACGP5&is_active=eq.true&order=quick_check_priority.asc,national_not_met_rank.asc.nullslast,id.asc'),
         table('accreditation_questions?select=*&is_active=eq.true&order=quick_check_priority.asc,id.asc'),
         table('accreditation_answer_options?select=*&order=question_id.asc,option_order.asc'),
-        table('accreditation_evidence_criteria?select=requirement_id,evidence_type&order=requirement_id.asc,evidence_type.asc'),
+        table(
+          `accreditation_evidence_requirement_links?select=requirement_id,evidence_id&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&is_active=eq.true`
+        ),
         table(
           `practice_requirements?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`
         ),
         table(
           `readiness_responses?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&superseded_at=is.null&order=answered_at.desc`
+        ),
+        table(
+          `accreditation_practice_profiles?select=practice_context&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`
         ),
       ])
 
@@ -336,11 +342,30 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       const requirements = Array.isArray(requirementRows) ? requirementRows : []
       const questions = Array.isArray(questionRows) ? questionRows : []
       const options = Array.isArray(optionRows) ? optionRows : []
-      const evidenceCriteria = Array.isArray(evidenceRows) ? evidenceRows : []
+      const evidenceLinks = Array.isArray(evidenceLinkRows) ? evidenceLinkRows : []
       const assessments = Array.isArray(assessmentRows) ? assessmentRows : []
       const responses = Array.isArray(responseRows) ? responseRows : []
+      const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
+      const practiceContext = profile?.practice_context && typeof profile.practice_context === 'object'
+        ? profile.practice_context
+        : {}
 
       const assessmentByRequirement = new Map(assessments.map((row) => [row.requirement_id, row]))
+      const responseByRequirement = new Map()
+      for (const row of responses) {
+        if (!responseByRequirement.has(row.requirement_id)) responseByRequirement.set(row.requirement_id, row)
+      }
+      const effectiveByRequirement = new Map(
+        requirements.map((requirement) => [
+          requirement.id,
+          effectiveRequirementState({
+            requirement,
+            state: assessmentByRequirement.get(requirement.id) || {},
+            response: responseByRequirement.get(requirement.id) || {},
+            practiceContext,
+          }),
+        ])
+      )
       const responseByQuestion = new Map(responses.map((row) => [row.question_id, row]))
       const p1Requirements = requirements.filter((row) => row.quick_check_priority === 'P1')
       const p1Ids = new Set(p1Requirements.map((row) => row.id))
@@ -355,7 +380,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         NOT_CHECKED: 0,
       }
       for (const requirement of requirements) {
-        const status = assessmentByRequirement.get(requirement.id)?.readiness_status || 'NOT_CHECKED'
+        const status = effectiveByRequirement.get(requirement.id)?.readinessStatus || 'NOT_CHECKED'
         if (Object.hasOwn(statusCounts, status)) statusCounts[status] += 1
         else statusCounts.NOT_CHECKED += 1
       }
@@ -369,29 +394,67 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       }))
       const nextQuestion = questionsWithOptions.find(
         (question) => p1Ids.has(question.requirement_id)
+          && effectiveByRequirement.get(question.requirement_id)?.applicabilityStatus !== 'NOT_APPLICABLE'
           && !responseByQuestion.has(question.id)
       ) || null
 
-      const assessedCount = statusCounts.APPEARS_READY + statusCounts.NEEDS_ATTENTION + statusCounts.CONFIRMED_GAP
       const coverageTotal = p1Requirements.length
       const coverageAnswered = answeredRequirementIds.size
       const coveragePercent = coverageTotal ? Math.round((coverageAnswered / coverageTotal) * 100) : 0
 
+      const mandatoryApplicable = requirements.filter(
+        (requirement) => requirement.classification === 'MANDATORY'
+          && effectiveByRequirement.get(requirement.id)?.applicabilityStatus === 'APPLICABLE'
+      )
+      const applicableMandatoryIds = new Set(mandatoryApplicable.map((requirement) => requirement.id))
+      const informativeResponseIds = new Set(
+        responses
+          .filter((response) => applicableMandatoryIds.has(response.requirement_id) && isInformativeReadinessAnswer(response.answer_label))
+          .map((response) => response.requirement_id)
+      )
+      const assessmentCoverage = {
+        assessed: informativeResponseIds.size,
+        total: mandatoryApplicable.length,
+        percent: mandatoryApplicable.length ? Math.round((informativeResponseIds.size / mandatoryApplicable.length) * 100) : 0,
+      }
+      const appearsReady = mandatoryApplicable.filter(
+        (requirement) => informativeResponseIds.has(requirement.id)
+          && effectiveByRequirement.get(requirement.id)?.readinessStatus === 'APPEARS_READY'
+      ).length
+      const readiness = {
+        appearsReady,
+        assessed: assessmentCoverage.assessed,
+        percent: assessmentCoverage.assessed ? Math.round((appearsReady / assessmentCoverage.assessed) * 100) : 0,
+      }
+      const unresolvedApplicabilityCount = requirements.filter(
+        (requirement) => requirement.classification === 'MANDATORY'
+          && effectiveByRequirement.get(requirement.id)?.applicabilityStatus === 'UNKNOWN'
+      ).length
+
       const highestGap = requirements.find(
-        (requirement) => assessmentByRequirement.get(requirement.id)?.readiness_status === 'CONFIRMED_GAP'
+        (requirement) => effectiveByRequirement.get(requirement.id)?.readinessStatus === 'CONFIRMED_GAP'
       )
       const highestAttention = requirements.find(
-        (requirement) => assessmentByRequirement.get(requirement.id)?.readiness_status === 'NEEDS_ATTENTION'
+        (requirement) => effectiveByRequirement.get(requirement.id)?.readinessStatus === 'NEEDS_ATTENTION'
       )
+      const displayRequirement = (requirement) => {
+        const plain = String(requirement?.plain_english_requirement || '')
+        return /plain-english readiness assessment for/i.test(plain)
+          ? (requirement?.criterion_description || requirement?.indicator || '')
+          : (plain || requirement?.criterion_description || requirement?.indicator || '')
+      }
 
       let nextAction = 'Start the Quick Readiness Check.'
-      if (highestGap) nextAction = `Address confirmed gap: ${highestGap.indicator} — ${highestGap.plain_english_requirement}`
-      else if (highestAttention) nextAction = `Review: ${highestAttention.indicator} — ${highestAttention.plain_english_requirement}`
+      if (highestGap) nextAction = `Address confirmed gap: ${highestGap.indicator} — ${displayRequirement(highestGap)}`
+      else if (highestAttention) nextAction = `Review: ${highestAttention.indicator} — ${displayRequirement(highestAttention)}`
       else if (coverageAnswered > 0 && nextQuestion) nextAction = 'Continue the Quick Readiness Check.'
       else if (!nextQuestion && coverageTotal > 0) nextAction = 'Review evidence for assessed requirements.'
 
       const presentationRequirements = requirements.map((requirement) => {
-        const state = assessmentByRequirement.get(requirement.id)
+        const state = effectiveByRequirement.get(requirement.id) || {}
+        const evidenceCount = new Set(
+          evidenceLinks.filter((row) => row.requirement_id === requirement.id).map((row) => row.evidence_id)
+        ).size
         return {
           id: requirement.id,
           indicator: requirement.indicator,
@@ -404,13 +467,15 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
             : requirement.classification === 'MANDATORY'
               ? 'Mandatory'
               : 'Aspirational',
-          readinessStatus: state?.readiness_status || 'NOT_CHECKED',
-          verificationStatus: state?.verification_status || null,
-          evidenceCount: evidenceCriteria.filter((row) => row.requirement_id === requirement.id).length,
+          applicabilityStatus: state.applicabilityStatus || 'UNKNOWN',
+          applicabilityReason: state.applicabilityReason || 'Applicability has not yet been confirmed.',
+          readinessStatus: state.readinessStatus || 'NOT_CHECKED',
+          verificationStatus: state.verificationStatus || null,
+          evidenceCount,
           quickCheckPriority: requirement.quick_check_priority,
           criticalSafetyArea: Boolean(requirement.critical_safety_area),
-          lastAssessedAt: state?.last_assessed_at || null,
-          requiresReassessment: state?.requires_reassessment ?? true,
+          lastAssessedAt: state.lastAssessedAt || null,
+          requiresReassessment: state.requiresReassessment ?? true,
         }
       })
 
@@ -435,8 +500,11 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           total: coverageTotal,
           percent: coveragePercent,
         },
+        assessmentCoverage,
+        readiness,
+        unresolvedApplicabilityCount,
         statusCounts,
-        assessedCount,
+        assessedCount: assessmentCoverage.assessed,
         totalRequirements: requirements.length,
         requirements: presentationRequirements,
         nextQuestion: nextQuestion ? {
@@ -452,15 +520,18 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
     },
 
     async getAccreditationComprehensiveCheck({ practiceId, cycleId }) {
-      const [requirementRows, questionRows, optionRows, assessmentRows, responseRows] = await Promise.all([
-        table('accreditation_requirements?select=id,indicator,classification,plain_english_requirement,quick_check_priority,national_not_met_rank,is_active&standard_version_id=eq.RACGP5&is_active=eq.true&order=quick_check_priority.asc,national_not_met_rank.asc.nullslast,id.asc'),
+      const [requirementRows, questionRows, optionRows, assessmentRows, responseRows, profileRows] = await Promise.all([
+        table('accreditation_requirements?select=id,indicator,criterion_description,classification,applicability_rule,plain_english_requirement,quick_check_priority,national_not_met_rank,is_active&standard_version_id=eq.RACGP5&is_active=eq.true&order=quick_check_priority.asc,national_not_met_rank.asc.nullslast,id.asc'),
         table('accreditation_questions?select=id,requirement_id,wording,why_we_ask,is_active&is_active=eq.true&order=id.asc'),
         table('accreditation_answer_options?select=question_id,option_order,label&order=question_id.asc,option_order.asc'),
         table(
-          `practice_requirements?select=requirement_id,applicability_status&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`
+          `practice_requirements?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`
         ),
         table(
           `readiness_responses?select=requirement_id,question_id,answer_label,answered_at&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&superseded_at=is.null&order=answered_at.desc`
+        ),
+        table(
+          `accreditation_practice_profiles?select=practice_context&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`
         ),
       ])
 
@@ -469,8 +540,27 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       const options = Array.isArray(optionRows) ? optionRows : []
       const assessments = Array.isArray(assessmentRows) ? assessmentRows : []
       const responses = Array.isArray(responseRows) ? responseRows : []
+      const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
+      const practiceContext = profile?.practice_context && typeof profile.practice_context === 'object'
+        ? profile.practice_context
+        : {}
 
-      const applicability = new Map(assessments.map((row) => [row.requirement_id, row.applicability_status]))
+      const stateByRequirement = new Map(assessments.map((row) => [row.requirement_id, row]))
+      const responseByRequirement = new Map()
+      for (const row of responses) {
+        if (!responseByRequirement.has(row.requirement_id)) responseByRequirement.set(row.requirement_id, row)
+      }
+      const effectiveByRequirement = new Map(
+        requirements.map((requirement) => [
+          requirement.id,
+          effectiveRequirementState({
+            requirement,
+            state: stateByRequirement.get(requirement.id) || {},
+            response: responseByRequirement.get(requirement.id) || {},
+            practiceContext,
+          }),
+        ])
+      )
       const responseByQuestion = new Map(responses.map((row) => [row.question_id, row]))
       const questionByRequirement = new Map()
       for (const question of questions) {
@@ -479,7 +569,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
 
       const mandatory = requirements.filter(
         (requirement) => requirement.classification === 'MANDATORY'
-          && applicability.get(requirement.id) !== 'NOT_APPLICABLE'
+          && effectiveByRequirement.get(requirement.id)?.applicabilityStatus === 'APPLICABLE'
           && questionByRequirement.has(requirement.id)
       )
       const answeredIds = new Set(
@@ -512,17 +602,17 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         } : null,
         aspirationalCount: requirements.filter(
           (requirement) => requirement.classification === 'ASPIRATIONAL'
-            && applicability.get(requirement.id) !== 'NOT_APPLICABLE'
+            && effectiveByRequirement.get(requirement.id)?.applicabilityStatus === 'APPLICABLE'
         ).length,
         classificationPendingCount: requirements.filter(
           (requirement) => requirement.classification === 'UNVERIFIED'
-            && applicability.get(requirement.id) !== 'NOT_APPLICABLE'
+            && effectiveByRequirement.get(requirement.id)?.applicabilityStatus !== 'NOT_APPLICABLE'
         ).length,
       }
     },
 
     async getAccreditationRequirement({ practiceId, cycleId, requirementId }) {
-      const [requirementRows, questionRows, evidenceRows, branchRows, stateRows, responseRows] = await Promise.all([
+      const [requirementRows, questionRows, evidenceRows, branchRows, stateRows, responseRows, profileRows] = await Promise.all([
         table(
           `accreditation_requirements?select=*&id=eq.${encodeURIComponent(requirementId)}&standard_version_id=eq.RACGP5&is_active=eq.true&limit=1`
         ),
@@ -541,6 +631,9 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         table(
           `readiness_responses?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&superseded_at=is.null&order=answered_at.desc&limit=1`
         ),
+        table(
+          `accreditation_practice_profiles?select=practice_context&practice_id=eq.${encodeURIComponent(practiceId)}&limit=1`
+        ),
       ])
       const requirement = Array.isArray(requirementRows) ? requirementRows[0] : requirementRows
       if (!requirement) throw new Error('accreditation_requirement_not_found')
@@ -553,8 +646,13 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           )
         : []
       const options = Array.isArray(allOptions) ? allOptions : []
-      const state = Array.isArray(stateRows) ? stateRows[0] : stateRows
+      const state = Array.isArray(stateRows) ? (stateRows[0] || {}) : (stateRows || {})
       const response = Array.isArray(responseRows) ? responseRows[0] : responseRows
+      const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
+      const practiceContext = profile?.practice_context && typeof profile.practice_context === 'object'
+        ? profile.practice_context
+        : {}
+      const effectiveState = effectiveRequirementState({ requirement, state, response: response || {}, practiceContext })
       const sourceUrls = requirement.source_urls && typeof requirement.source_urls === 'object'
         ? requirement.source_urls
         : {}
@@ -568,20 +666,22 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         classificationLabel: requirement.classification === 'UNVERIFIED' ? 'Validation required' : requirement.classification,
         plainEnglishRequirement: requirement.plain_english_requirement,
         applicabilityRule: requirement.applicability_rule,
+        applicabilityStatus: effectiveState.applicabilityStatus,
+        applicabilityReason: effectiveState.applicabilityReason,
         quickCheckPriority: requirement.quick_check_priority,
         criticalSafetyArea: requirement.critical_safety_area,
         contentValidationStatus: requirement.content_validation_status,
         sourceUrls,
-        readinessStatus: state?.readiness_status || 'NOT_CHECKED',
-        verificationStatus: state?.verification_status || null,
-        statusReason: state?.status_reason || 'More information required.',
-        knownFacts: state?.known_facts || [],
-        unknownFacts: state?.unknown_facts || [requirement.plain_english_requirement],
-        potentialGaps: state?.potential_gaps || [],
-        confirmedGaps: state?.confirmed_gaps || [],
-        recommendedActions: state?.recommended_actions || [],
-        lastAssessedAt: state?.last_assessed_at || null,
-        requiresReassessment: state?.requires_reassessment ?? true,
+        readinessStatus: effectiveState.readinessStatus,
+        verificationStatus: effectiveState.verificationStatus,
+        statusReason: effectiveState.statusReason,
+        knownFacts: effectiveState.knownFacts,
+        unknownFacts: effectiveState.unknownFacts.length ? effectiveState.unknownFacts : (effectiveState.readinessStatus === 'NOT_CHECKED' ? ['More information or reviewed evidence is required.'] : []),
+        potentialGaps: effectiveState.potentialGaps,
+        confirmedGaps: effectiveState.confirmedGaps,
+        recommendedActions: effectiveState.recommendedActions,
+        lastAssessedAt: effectiveState.lastAssessedAt,
+        requiresReassessment: effectiveState.requiresReassessment,
         questions: questions.map((question) => ({
           id: question.id,
           wording: question.wording,

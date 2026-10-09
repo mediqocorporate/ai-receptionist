@@ -68,7 +68,7 @@ export function createAccountSyncHandler({
 
       let result
       try {
-        result = await syncContact({ token: env.HUBSPOT_ACCESS_TOKEN, contact })
+        result = await syncContact({ token: env.HUBSPOT_PRIVATE_APP_TOKEN || env.HUBSPOT_ACCESS_TOKEN, contact })
       } catch (error) {
         if (job?.id) {
           await server.updateCrmJob(job.id, {

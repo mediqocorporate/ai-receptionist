@@ -13,6 +13,7 @@ const paths = {
   bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>',
   help: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 5.83 1c0 2-3 2-3 4M12 18h.01"/>',
   chevron: '<path d="m9 18 6-6-6-6"/>',
+  'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
   sparkle: '<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3Z"/><path d="m19 16 .8 1.8L22 19l-2.2 1.2L19 22l-.8-1.8L16 19l2.2-1.2L19 16Z"/>',

@@ -195,20 +195,18 @@ export function assessRequirement({
       }
     }
 
-    const unverifiedClassification = requirement.classification === 'UNVERIFIED'
     return {
       ...result,
       applicabilityStatus: requirement.applicability === 'Universal' ? 'APPLICABLE' : (previousState.applicabilityStatus || 'UNKNOWN'),
-      readinessStatus: 'NEEDS_ATTENTION',
+      readinessStatus: 'NOT_CHECKED',
       verificationStatus,
-      confidence: 0.45,
-      statusReason: unverifiedClassification
-        ? 'Positive user report recorded, but the requirement classification is unverified and needs accreditation-content validation plus supporting evidence before it can appear ready.'
-        : 'Positive user report recorded; supporting evidence or verification is still required before this requirement can appear ready.',
+      confidence: 0.4,
+      statusReason: 'Reported complete — evidence not yet checked.',
       knownFacts: [...result.knownFacts, fact],
+      unknownFacts: [...result.unknownFacts, 'Supporting evidence has not yet been reviewed.'],
       potentialGaps: [],
       confirmedGaps: [],
-      recommendedActions: ['Provide or confirm supporting evidence, then re-assess this requirement.'],
+      recommendedActions: ['Upload or confirm supporting evidence, then re-check this requirement.'],
     }
   }
 

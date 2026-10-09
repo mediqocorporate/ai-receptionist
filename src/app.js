@@ -59,6 +59,9 @@ const ui = {
     setup: { step: 1, values: {}, submitting: false, error: '', complete: false },
     practiceInformation: null,
     practiceInformationLoading: false,
+    practiceInformationEditing: false,
+    practiceInformationSubmitting: false,
+    practiceInformationError: '',
     comprehensive: null,
     comprehensiveLoading: false,
   },
@@ -707,6 +710,53 @@ async function handleAccreditationSetupForm(form) {
   render()
 }
 
+function accreditationPracticeInformationPayload(form) {
+  const data = new FormData(form)
+  const assessment = String(data.get('assessmentScheduled') || 'UNKNOWN')
+  return {
+    journeyStatus: String(data.get('journeyStatus') || 'NOT_SURE'),
+    assessmentScheduled: assessment === 'YES' ? true : assessment === 'NO' ? false : null,
+    targetAssessmentDate: String(data.get('targetAssessmentDate') || '') || null,
+    accreditingAgencyId: String(data.get('accreditingAgencyId') || '') || null,
+    practiceContext: {
+      stateOrTerritory: String(data.get('stateOrTerritory') || ''),
+      practiceType: String(data.get('practiceType') || ''),
+      locationsCount: String(data.get('locationsCount') || ''),
+      gpCount: String(data.get('gpCount') || ''),
+      nursingWorkforce: String(data.get('nursingWorkforce') || ''),
+      alliedHealth: String(data.get('alliedHealth') || ''),
+      adminWorkforce: String(data.get('adminWorkforce') || ''),
+      vaccinations: String(data.get('vaccinations') || 'UNKNOWN'),
+      procedures: String(data.get('procedures') || 'UNKNOWN'),
+      telehealth: String(data.get('telehealth') || 'UNKNOWN'),
+      pathologyCollection: String(data.get('pathologyCollection') || 'UNKNOWN'),
+      pointOfCareTesting: String(data.get('pointOfCareTesting') || 'UNKNOWN'),
+      vaccineStorage: String(data.get('vaccineStorage') || 'UNKNOWN'),
+      services: String(data.get('services') || ''),
+      notes: String(data.get('notes') || ''),
+    },
+  }
+}
+
+async function handleAccreditationPracticeInformationForm(form) {
+  if (!appUser || ui.accreditation.practiceInformationSubmitting) return
+  ui.accreditation.practiceInformationSubmitting = true
+  ui.accreditation.practiceInformationError = ''
+  render()
+  try {
+    const result = await accreditationService.setup(accreditationPracticeInformationPayload(form))
+    ui.accreditation.overview = result.overview
+    ui.accreditation.practiceInformation = await accreditationService.practiceInformation({ cycleId: result.overview?.cycle?.id || null })
+    ui.accreditation.practiceInformationEditing = false
+    showToast('Practice information saved and readiness refreshed')
+  } catch (error) {
+    ui.accreditation.practiceInformationError = error?.message || 'Could not save practice information.'
+  } finally {
+    ui.accreditation.practiceInformationSubmitting = false
+    render()
+  }
+}
+
 async function answerAccreditationQuestion(button) {
   const overview = ui.accreditation.overview
   if (!overview?.cycle?.id || ui.accreditation.submitting) return
@@ -725,7 +775,16 @@ async function answerAccreditationQuestion(button) {
       answerDetail: {},
     })
     ui.accreditation.overview = result.overview
-    ui.accreditation.requirement = null
+    const returnRequirementId = String(button.dataset.returnRequirementId || '').trim()
+    if (returnRequirementId) {
+      ui.accreditation.requirement = await accreditationService.requirement({
+        cycleId: result.overview?.cycle?.id || overview.cycle.id,
+        requirementId: returnRequirementId,
+      })
+      ui.accreditation.view = 'requirement'
+    } else {
+      ui.accreditation.requirement = null
+    }
     if (button.dataset.checkMode === 'comprehensive') {
       ui.accreditation.comprehensive = await accreditationService.comprehensiveCheck({ cycleId: result.overview?.cycle?.id || overview.cycle.id })
     }
@@ -975,7 +1034,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, comprehensive: null, comprehensiveLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -1032,14 +1091,15 @@ root.addEventListener('click', async (event) => {
   }
   if (action === 'accreditation-edit-practice-information') {
     if (!ui.accreditation.practiceInformation) await loadAccreditationPracticeInformation()
-    ui.accreditation.view = 'setup'
-    ui.accreditation.setup = {
-      step: 1,
-      values: { ...(ui.accreditation.practiceInformation?.values || {}) },
-      submitting: false,
-      error: '',
-      complete: false,
-    }
+    ui.accreditation.view = 'practice-information'
+    ui.accreditation.practiceInformationEditing = true
+    ui.accreditation.practiceInformationError = ''
+    render()
+    return
+  }
+  if (action === 'accreditation-cancel-practice-information-edit') {
+    ui.accreditation.practiceInformationEditing = false
+    ui.accreditation.practiceInformationError = ''
     render()
     return
   }
@@ -1094,6 +1154,9 @@ root.addEventListener('submit', async (event) => {
   if (form.matches('[data-accreditation-setup-form]')) {
     event.preventDefault(); await handleAccreditationSetupForm(form); return
   }
+  if (form.matches('[data-accreditation-practice-information-form]')) {
+    event.preventDefault(); await handleAccreditationPracticeInformationForm(form); return
+  }
 })
 
 root.addEventListener('input', (event) => {
@@ -1104,7 +1167,13 @@ root.addEventListener('input', (event) => {
   }
 })
 
-root.addEventListener('keydown', (event) => {
+root.addEventListener('keydown', async (event) => {
+  const requirementRow = event.target.closest('tr[data-accreditation-requirement]')
+  if (requirementRow && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault()
+    await openAccreditationRequirement(requirementRow.dataset.accreditationRequirement)
+    return
+  }
   const textarea = event.target.closest('.chat-composer textarea')
   if (textarea && event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault(); textarea.closest('form')?.requestSubmit()

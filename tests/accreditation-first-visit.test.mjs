@@ -38,7 +38,8 @@ test('setup is a short guided wizard and allows unknown accreditation details', 
     setup: { step: 1, values: {} },
   }, { signedIn: true, practiceName: 'Harbour Medical Centre' })
   assert.match(step1, /Set up your accreditation workspace/i)
-  assert.match(step1, /Step 1 of 4/i)
+  assert.match(step1, /Accreditation journey/i)
+  assert.match(step1, /class="coverage-bar"/i)
   assert.match(step1, /journeyStatus/)
   assert.match(step1, /Not sure/i)
 
