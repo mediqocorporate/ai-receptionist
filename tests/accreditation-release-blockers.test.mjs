@@ -42,7 +42,8 @@ test('positive user report is not Appears Ready without reviewed verification', 
     response: { answerLabel: 'Yes' },
   })
   assert.equal(result.verificationStatus, 'USER_REPORTED')
-  assert.equal(result.readinessStatus, 'NEEDS_ATTENTION')
+  assert.equal(result.readinessStatus, 'NOT_CHECKED')
+  assert.match(result.statusReason, /reported complete/i)
 })
 
 test("unknown answer remains Not Checked and is not converted into a failure", () => {

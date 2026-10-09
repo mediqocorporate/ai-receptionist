@@ -15,10 +15,10 @@ function json(data, status = 200) {
 test('comprehensive check selects unanswered verified mandatory requirements and keeps aspirational/unverified separate', async () => {
   const fetchImpl = async (url) => {
     if (url.includes('accreditation_requirements?')) return json([
-      { id: 'R1', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P2', indicator: 'C1.1A', plain_english_requirement: 'Mandatory one' },
-      { id: 'R2', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P3', indicator: 'C1.1B', plain_english_requirement: 'Mandatory two' },
-      { id: 'R3', classification: 'ASPIRATIONAL', is_active: true, quick_check_priority: 'P1', indicator: 'C1.1C', plain_english_requirement: 'Aspirational' },
-      { id: 'R4', classification: 'UNVERIFIED', is_active: true, quick_check_priority: 'P1', indicator: 'C1.1D', plain_english_requirement: 'Unverified' },
+      { id: 'R1', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P2', indicator: 'C1.1A', applicability_rule: 'Universal', plain_english_requirement: 'Mandatory one' },
+      { id: 'R2', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P3', indicator: 'C1.1B', applicability_rule: 'Only if relevant', plain_english_requirement: 'Mandatory two' },
+      { id: 'R3', classification: 'ASPIRATIONAL', is_active: true, quick_check_priority: 'P1', indicator: 'C1.1C', applicability_rule: 'Universal', plain_english_requirement: 'Aspirational' },
+      { id: 'R4', classification: 'UNVERIFIED', is_active: true, quick_check_priority: 'P1', indicator: 'C1.1D', applicability_rule: 'Universal', plain_english_requirement: 'Unverified' },
     ])
     if (url.includes('accreditation_questions?')) return json([
       { id: 'Q1', requirement_id: 'R1', wording: 'Mandatory one?', why_we_ask: 'Why one' },
@@ -34,6 +34,7 @@ test('comprehensive check selects unanswered verified mandatory requirements and
       { requirement_id: 'R2', applicability_status: 'NOT_APPLICABLE' },
     ])
     if (url.includes('readiness_responses?')) return json([])
+    if (url.includes('accreditation_practice_profiles?')) return json([])
     throw new Error(`unexpected ${url}`)
   }
 
@@ -51,8 +52,8 @@ test('comprehensive check selects unanswered verified mandatory requirements and
 test('comprehensive check skips already answered mandatory questions', async () => {
   const fetchImpl = async (url) => {
     if (url.includes('accreditation_requirements?')) return json([
-      { id: 'R1', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P1', indicator: 'C1.1A', plain_english_requirement: 'One' },
-      { id: 'R2', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P2', indicator: 'C1.1B', plain_english_requirement: 'Two' },
+      { id: 'R1', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P1', indicator: 'C1.1A', applicability_rule: 'Universal', plain_english_requirement: 'One' },
+      { id: 'R2', classification: 'MANDATORY', is_active: true, quick_check_priority: 'P2', indicator: 'C1.1B', applicability_rule: 'Universal', plain_english_requirement: 'Two' },
     ])
     if (url.includes('accreditation_questions?')) return json([
       { id: 'Q1', requirement_id: 'R1', wording: 'One?', why_we_ask: '' },
@@ -64,6 +65,7 @@ test('comprehensive check skips already answered mandatory questions', async () 
     ])
     if (url.includes('practice_requirements?')) return json([])
     if (url.includes('readiness_responses?')) return json([{ question_id: 'Q1', requirement_id: 'R1' }])
+    if (url.includes('accreditation_practice_profiles?')) return json([])
     throw new Error(`unexpected ${url}`)
   }
   const server = createSupabaseServer({ env, fetchImpl })

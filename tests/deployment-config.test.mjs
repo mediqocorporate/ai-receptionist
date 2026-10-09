@@ -9,8 +9,9 @@ test('environment template uses OpenAI server secrets and keeps live API routes 
   assert.match(text, /OPENAI_EMBEDDING_MODEL=text-embedding-3-large/)
   assert.match(text, /MEDIQO_ASSISTANT_API_URL=\/api\/ask/)
   assert.match(text, /MEDIQO_ACCOUNT_SYNC_API_URL=\/api\/account-sync/)
+  assert.match(text, /HUBSPOT_PRIVATE_APP_TOKEN=/)
   assert.match(text, /HUBSPOT_ACCESS_TOKEN=/)
-  assert.doesNotMatch(text, /AZURE_OPENAI|HUBSPOT_PRIVATE_APP_TOKEN/)
+  assert.doesNotMatch(text, /AZURE_OPENAI/)
 })
 
 test('Netlify routes API endpoints to functions before the SPA fallback', () => {

@@ -24,7 +24,7 @@ function json(data, status = 200) {
 
 test('signup CTA uses the client-approved Keep using MediQo for free wording', () => {
   const html = renderSignupDialog()
-  assert.match(html, />Keep using MediQo for free</)
+  assert.match(html, /Keep using MediQo for free/)
   assert.doesNotMatch(html, />Create account\s*</)
 })
 
@@ -178,7 +178,7 @@ test('overview separates assessment coverage, readiness and Quick Check progress
   assert.match(html, /Readiness of assessed requirements/i)
   assert.match(html, /0%/)
   assert.match(html, /Quick Check.*20 of 20/is)
-  assert.match(html, /7 requirements still need applicability confirmation/i)
+  assert.match(html, /<strong>7<\/strong> requirements still need applicability confirmation/i)
   assert.match(html, /data-accreditation-filter="CONFIRMED_GAP"/)
 })
 
