@@ -99,3 +99,11 @@ test('app loads and mutates Evidence through the live service', () => {
     /accreditationEvidenceService\.supersede\(/,
   ]) assert.match(appSource, pattern)
 })
+
+
+test('selected evidence files survive accreditation rerenders until upload completes', () => {
+  assert.match(appSource, /evidence:\s*\{[^}]*selectedFiles:\s*\[\]/s)
+  assert.match(appSource, /ui\.accreditation\.evidence\.selectedFiles\s*=\s*files/)
+  assert.match(appSource, /const files = Array\.from\(ui\.accreditation\.evidence\.selectedFiles \|\| input\?\.files \|\| \[\]\)/)
+  assert.match(appSource, /ui\.accreditation\.evidence\.selectedFiles\s*=\s*\[\]/)
+})
