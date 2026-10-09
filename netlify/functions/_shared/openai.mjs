@@ -35,6 +35,52 @@ If a user mentions a competitor, answer their factual question accurately and ne
 
 Keep the answer useful for a practice manager and structure it into concise sections.`
 
+
+const MEDIQO_ANSWER_SCHEMA = {
+  type: 'object',
+  properties: {
+    intro: { type: 'string' },
+    sections: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 6,
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          body: { type: 'string' },
+          items: {
+            type: 'array',
+            maxItems: 8,
+            items: { type: 'string' },
+          },
+        },
+        required: ['title', 'body', 'items'],
+        additionalProperties: false,
+      },
+    },
+    risk: { type: 'boolean' },
+    relatedQuestions: {
+      type: 'array',
+      maxItems: 5,
+      items: { type: 'string' },
+    },
+    recommendation: {
+      type: ['object', 'null'],
+      properties: {
+        title: { type: 'string' },
+        body: { type: 'string' },
+        path: { type: 'string' },
+        linkLabel: { type: 'string' },
+      },
+      required: ['title', 'body', 'path', 'linkLabel'],
+      additionalProperties: false,
+    },
+  },
+  required: ['intro', 'sections', 'risk', 'relatedQuestions', 'recommendation'],
+  additionalProperties: false,
+}
+
 export function extractResponseText(payload = {}) {
   if (typeof payload.output_text === 'string' && payload.output_text.trim()) return payload.output_text
   for (const item of payload.output || []) {
@@ -146,7 +192,12 @@ export async function createMediQoAnswer({
         safety_identifier: safetyIdentifier || undefined,
         reasoning: { effort: resolvedReasoningEffort },
         text: {
-          format: { type: 'json_object' },
+          format: {
+            type: 'json_schema',
+            name: 'mediqo_answer',
+            strict: true,
+            schema: MEDIQO_ANSWER_SCHEMA,
+          },
         },
       }),
     })
