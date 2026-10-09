@@ -84,6 +84,7 @@ export function renderAccreditationEvidence(state = {}, { requirements = [] } = 
   const items = Array.isArray(state.items) ? state.items : []
   const eligibleRequirements = (Array.isArray(requirements) ? requirements : []).filter((item) => item.applicabilityStatus !== 'NOT_APPLICABLE')
   const prefillRequirementId = String(state.prefillRequirementId || '')
+  const selectedFileCount = Array.isArray(state.selectedFiles) ? state.selectedFiles.length : 0
   const prefill = eligibleRequirements.find((item) => item.id === prefillRequirementId)
 
   return `<section class="accreditation-evidence-library">
@@ -102,7 +103,7 @@ export function renderAccreditationEvidence(state = {}, { requirements = [] } = 
           </label>
         </div>
         <div class="evidence-upload-footer">
-          <span class="muted-copy" data-evidence-selected-summary>No files selected</span>
+          <span class="muted-copy" data-evidence-selected-summary>${selectedFileCount ? `${selectedFileCount} file${selectedFileCount === 1 ? '': 's'} selected` : 'No files selected'}</span>
           <button type="submit" class="primary-button" ${state.uploading ? 'disabled' : ''}>${state.uploading ? 'Uploading…' : 'Upload selected files'}</button>
         </div>
       </form>

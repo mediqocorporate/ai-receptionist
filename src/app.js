@@ -65,7 +65,7 @@ const ui = {
     practiceInformationError: '',
     comprehensive: null,
     comprehensiveLoading: false,
-    evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '' },
+    evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '', selectedFiles: [] },
   },
   lastFocused: null,
 }
@@ -657,7 +657,7 @@ async function handleAccreditationEvidenceUpload(form) {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!appUser || !cycleId || ui.accreditation.evidence.uploading) return
   const input = form.querySelector('input[name="evidenceFiles"]')
-  const files = Array.from(input?.files || [])
+  const files = Array.from(ui.accreditation.evidence.selectedFiles || input?.files || [])
   const category = String(new FormData(form).get('category') || 'OTHER')
   if (!files.length) {
     ui.accreditation.evidence.error = 'Choose at least one evidence file.'
@@ -677,6 +677,7 @@ async function handleAccreditationEvidenceUpload(form) {
     })
     ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
     ui.accreditation.overview = await accreditationService.overview()
+    ui.accreditation.evidence.selectedFiles = []
     showToast(files.length === 1 ? 'Evidence uploaded' : `${files.length} evidence files uploaded`)
   } catch (error) {
     ui.accreditation.evidence.error = error?.message || 'Could not upload evidence.'
@@ -1138,7 +1139,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '', selectedFiles: [] } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -1320,6 +1321,7 @@ root.addEventListener('change', (event) => {
   const evidenceInput = event.target.closest('input[name="evidenceFiles"]')
   if (evidenceInput) {
     const files = Array.from(evidenceInput.files || [])
+    ui.accreditation.evidence.selectedFiles = files
     const label = evidenceInput.closest('form')?.querySelector('[data-evidence-selected-summary]')
     if (label) label.textContent = files.length ? `${files.length} file${files.length === 1 ? '' : 's'} selected` : 'No files selected'
     return
