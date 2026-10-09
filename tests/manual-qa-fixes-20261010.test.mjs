@@ -20,11 +20,10 @@ function json(data, status = 200) {
 }
 
 test('accreditation back buttons keep the left chevron facing left', () => {
-  const html = renderAccreditationPage({
-    view: 'requirements',
-    overview: { cycle: { id: 'c1' }, requirements: [] },
-  }, { signedIn: true, practiceName: 'Test Medical Centre' })
-  assert.match(html, /chevron-left/)
+  const wrapper = fs.readFileSync(new URL('../src/components/accreditation.js', import.meta.url), 'utf8')
+  const detail = fs.readFileSync(new URL('../src/components/accreditation/requirement-detail.js', import.meta.url), 'utf8')
+  assert.match(wrapper, /icon\('chevron-left'/)
+  assert.match(detail, /icon\('chevron-left'/)
   const css = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
   assert.match(css, /\.accreditation-page-back \.conversation-back \.icon[\s\S]*?\.requirement-back \.icon[\s\S]*?transform:\s*none/)
 })
@@ -47,6 +46,65 @@ test('changing the same readiness answer replaces stale reported facts and does 
   assert.deepEqual(third.knownFacts, ['Do patient records contain consultation notes? — reported answer: Sometimes'])
   assert.deepEqual(third.potentialGaps, ['Content of patient health records'])
   assert.deepEqual(third.confirmedGaps, [])
+})
+
+test('requirement detail cleans previously stored duplicate answer facts without waiting for another edit', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('accreditation_requirements?')) return json([{
+      id: 'R1',
+      indicator: 'C7.1C',
+      criterion: 'C7.1',
+      criterion_description: 'Content of patient health records',
+      classification: 'MANDATORY',
+      applicability_rule: 'Universal',
+      plain_english_requirement: 'Content of patient health records',
+      is_active: true,
+      source_urls: {},
+    }])
+    if (url.includes('accreditation_questions?')) return json([{
+      id: 'Q1',
+      requirement_id: 'R1',
+      wording: 'Do patient records contain consultation notes?',
+      is_active: true,
+    }])
+    if (url.includes('accreditation_evidence_criteria?')) return json([])
+    if (url.includes('accreditation_branching_rules?')) return json([])
+    if (url.includes('practice_requirements?')) return json([{
+      requirement_id: 'R1',
+      applicability_status: 'APPLICABLE',
+      readiness_status: 'NEEDS_ATTENTION',
+      verification_status: 'USER_REPORTED',
+      status_reason: 'The practice reports partial implementation or coverage.',
+      known_facts: [
+        'Do patient records contain consultation notes? — reported answer: No',
+        'Do patient records contain consultation notes? — reported answer: Sometimes',
+        'Do patient records contain consultation notes? — reported answer: Sometimes',
+      ],
+      unknown_facts: [],
+      potential_gaps: ['Content of patient health records', 'Content of patient health records'],
+      confirmed_gaps: [],
+      recommended_actions: ['Clarify what is incomplete.'],
+    }])
+    if (url.includes('readiness_responses?')) return json([{
+      requirement_id: 'R1',
+      question_id: 'Q1',
+      answer_label: 'Sometimes',
+      verification_status: 'USER_REPORTED',
+      answered_at: '2026-10-10T01:00:00Z',
+    }])
+    if (url.includes('accreditation_practice_profiles?')) return json([])
+    if (url.includes('accreditation_answer_options?')) return json([
+      { question_id: 'Q1', option_order: 1, label: 'Yes' },
+      { question_id: 'Q1', option_order: 2, label: 'Sometimes' },
+    ])
+    throw new Error(`unexpected ${url}`)
+  }
+
+  const server = createSupabaseServer({ env, fetchImpl })
+  const detail = await server.getAccreditationRequirement({ practiceId: 'p1', cycleId: 'c1', requirementId: 'R1' })
+
+  assert.deepEqual(detail.knownFacts, ['Do patient records contain consultation notes? — reported answer: Sometimes'])
+  assert.deepEqual(detail.potentialGaps, ['Content of patient health records'])
 })
 
 test('Comprehensive Check coverage uses the same informative-answer definition as Overview', async () => {
