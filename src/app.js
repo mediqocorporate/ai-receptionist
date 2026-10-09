@@ -14,7 +14,7 @@ import { leadService } from './services/lead-service.js'
 import { questionService } from './services/question-service.js'
 import { pmsService } from './services/pms-service.js'
 import { accreditationService } from './services/accreditation-service.js'
-import { accreditationEvidenceService } from './services/accreditation-evidence-service.js'
+import { accreditationEvidenceService, validateEvidenceFiles } from './services/accreditation-evidence-service.js'
 import { policyDocumentService } from './services/policy-document-service.js'
 import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './lib/persistence.js'
 import { validateSignup } from './lib/validation.js'
@@ -65,7 +65,7 @@ const ui = {
     practiceInformationError: '',
     comprehensive: null,
     comprehensiveLoading: false,
-    evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '', selectedFiles: [] },
+    evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' },
   },
   lastFocused: null,
 }
@@ -649,8 +649,53 @@ async function loadAccreditationEvidence() {
     ui.accreditation.evidence.error = error?.message || 'Could not load accreditation evidence.'
   } finally {
     ui.accreditation.evidence.loading = false
+    ui.accreditation.evidence.loaded = true
     render()
   }
+}
+
+function updateEvidenceUploadProgress(progress = {}) {
+  ui.accreditation.evidence.uploadProgress = { ...progress }
+  const progressRoot = root.querySelector('[data-evidence-upload-progress]')
+  if (!progressRoot) return
+  const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)))
+  const label = progressRoot.querySelector('[data-evidence-progress-label]')
+  const percentLabel = progressRoot.querySelector('[data-evidence-progress-percent]')
+  const bar = progressRoot.querySelector('[data-evidence-progress-bar]')
+  const track = progressRoot.querySelector('[role="progressbar"]')
+  const batch = progressRoot.querySelector('[data-evidence-progress-batch]')
+  if (label) label.textContent = `Uploading ${progress.currentFilename || 'evidence'}`
+  if (percentLabel) percentLabel.textContent = `${percent}%`
+  if (bar) bar.style.width = `${percent}%`
+  if (track) track.setAttribute('aria-valuenow', String(percent))
+  if (batch) batch.textContent = Number(progress.totalFiles || 0) > 1
+    ? `${progress.currentFileIndex || 1} of ${progress.totalFiles} files`
+    : 'Uploading securely to your Evidence Library'
+}
+
+function setEvidenceUploadError(message = '') {
+  ui.accreditation.evidence.error = String(message || '')
+  const errorEl = root.querySelector('[data-evidence-upload-error]')
+  if (!errorEl) return
+  errorEl.textContent = ui.accreditation.evidence.error
+  errorEl.hidden = !ui.accreditation.evidence.error
+}
+
+function handleEvidenceFileSelection(input) {
+  if (!input) return
+  const files = Array.from(input.files || [])
+  try {
+    validateEvidenceFiles(files)
+    ui.accreditation.evidence.selectedFiles = files
+    setEvidenceUploadError('')
+  } catch (error) {
+    ui.accreditation.evidence.selectedFiles = []
+    input.value = ''
+    setEvidenceUploadError(error?.message || 'Choose a supported evidence file.')
+  }
+  const label = input.closest('form')?.querySelector('[data-evidence-selected-summary]')
+  const selected = ui.accreditation.evidence.selectedFiles
+  if (label) label.textContent = selected.length ? `${selected.length} file${selected.length === 1 ? '' : 's'} selected` : 'No files selected'
 }
 
 async function handleAccreditationEvidenceUpload(form) {
@@ -658,15 +703,28 @@ async function handleAccreditationEvidenceUpload(form) {
   if (!appUser || !cycleId || ui.accreditation.evidence.uploading) return
   const input = form.querySelector('input[name="evidenceFiles"]')
   const files = Array.from(ui.accreditation.evidence.selectedFiles || input?.files || [])
-  const category = String(new FormData(form).get('category') || 'OTHER')
+  const category = String(ui.accreditation.evidence.selectedCategory || new FormData(form).get('category') || 'OTHER')
   if (!files.length) {
-    ui.accreditation.evidence.error = 'Choose at least one evidence file.'
-    render()
+    setEvidenceUploadError('Choose at least one evidence file.')
+    return
+  }
+  try {
+    validateEvidenceFiles(files)
+  } catch (error) {
+    setEvidenceUploadError(error?.message || 'Choose a supported evidence file.')
     return
   }
 
   ui.accreditation.evidence.uploading = true
   ui.accreditation.evidence.error = ''
+  ui.accreditation.evidence.uploadProgress = {
+    percent: 0,
+    loadedBytes: 0,
+    totalBytes: files.reduce((sum, file) => sum + Number(file?.size || 0), 0),
+    currentFileIndex: 1,
+    totalFiles: files.length,
+    currentFilename: String(files[0]?.name || ''),
+  }
   render()
   try {
     await accreditationEvidenceService.uploadBatch({
@@ -674,15 +732,19 @@ async function handleAccreditationEvidenceUpload(form) {
       files,
       category,
       requirementId: ui.accreditation.evidence.prefillRequirementId || '',
+      onProgress: updateEvidenceUploadProgress,
     })
     ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
+    ui.accreditation.evidence.loaded = true
     ui.accreditation.overview = await accreditationService.overview()
     ui.accreditation.evidence.selectedFiles = []
+    ui.accreditation.evidence.error = ''
     showToast(files.length === 1 ? 'Evidence uploaded' : `${files.length} evidence files uploaded`)
   } catch (error) {
     ui.accreditation.evidence.error = error?.message || 'Could not upload evidence.'
   } finally {
     ui.accreditation.evidence.uploading = false
+    ui.accreditation.evidence.uploadProgress = null
     render()
   }
 }
@@ -910,6 +972,16 @@ async function openAccreditationRequirement(requirementId) {
   try {
     ui.accreditation.requirement = await accreditationService.requirement({ cycleId, requirementId })
     ui.accreditation.view = 'requirement'
+    ui.accreditation.evidence.loading = true
+    try {
+      ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
+      ui.accreditation.evidence.error = ''
+    } catch (evidenceError) {
+      ui.accreditation.evidence.error = evidenceError?.message || 'Could not load mapped evidence.'
+    } finally {
+      ui.accreditation.evidence.loading = false
+      ui.accreditation.evidence.loaded = true
+    }
   } catch (error) {
     ui.accreditation.error = error?.message || 'Could not load this accreditation requirement.'
   } finally {
@@ -1139,7 +1211,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, evidence: { items: [], loading: false, uploading: false, error: '', prefillRequirementId: '', selectedFiles: [] } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -1294,7 +1366,10 @@ root.addEventListener('input', (event) => {
   if (textarea) {
     const count = textarea.closest('.chat-composer')?.querySelector('.char-count')
     if (count) count.textContent = `${textarea.value.length}/500`
+    return
   }
+  const evidenceInput = event.target.closest('input[name="evidenceFiles"]')
+  if (evidenceInput) handleEvidenceFileSelection(evidenceInput)
 })
 
 root.addEventListener('keydown', async (event) => {
@@ -1320,10 +1395,12 @@ root.addEventListener('change', (event) => {
   }
   const evidenceInput = event.target.closest('input[name="evidenceFiles"]')
   if (evidenceInput) {
-    const files = Array.from(evidenceInput.files || [])
-    ui.accreditation.evidence.selectedFiles = files
-    const label = evidenceInput.closest('form')?.querySelector('[data-evidence-selected-summary]')
-    if (label) label.textContent = files.length ? `${files.length} file${files.length === 1 ? '' : 's'} selected` : 'No files selected'
+    handleEvidenceFileSelection(evidenceInput)
+    return
+  }
+  const evidenceCategory = event.target.closest('[data-accreditation-evidence-upload-form] select[name="category"]')
+  if (evidenceCategory) {
+    ui.accreditation.evidence.selectedCategory = String(evidenceCategory.value || 'POLICY_PROCEDURE')
     return
   }
 })
