@@ -53,7 +53,7 @@ function setupChoices() {
     <div class="setup-choice-grid">
       <button class="panel setup-choice-card" type="button" data-accreditation-view="check"><span class="future-icon">${icon('check',20)}</span><strong>Quick readiness check</strong><p>Get an initial picture by reviewing the current high-priority questions.</p><span>Start Quick Check →</span></button>
       <button class="panel setup-choice-card" type="button" data-accreditation-view="comprehensive"><span class="future-icon">${icon('shield-check',20)}</span><strong>Comprehensive readiness check</strong><p>Work systematically through verified mandatory RACGP requirements.</p><span>Start Comprehensive Check →</span></button>
-      <button class="panel setup-choice-card setup-choice-card-disabled" type="button" disabled aria-disabled="true"><span class="future-icon">${icon('file-text',20)}</span><strong>Upload my accreditation documents</strong><p>The Evidence Library will activate when the evidence-intelligence workflow is connected.</p><span>Evidence workflow next</span></button>
+      <button class="panel setup-choice-card" type="button" data-accreditation-view="evidence"><span class="future-icon">${icon('upload',20)}</span><strong>Upload my accreditation documents</strong><p>Add existing accreditation files to the secure Evidence Library and map them to RACGP requirements.</p><span>Open Evidence Library →</span></button>
     </div>
     <button class="secondary-button" type="button" data-accreditation-view="practice-information">Review Practice Information</button>
   </section>`
