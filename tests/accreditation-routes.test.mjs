@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { renderAccreditationPage } from '../src/components/accreditation.js'
 import { renderShell } from '../src/components/shell.js'
-import { routeTitle } from '../src/data/routes.js'
+import { ACCREDITATION_SUBROUTES, routeTitle } from '../src/data/routes.js'
 import {
   accreditationPathForView,
   accreditationRequirementPath,
@@ -83,4 +83,17 @@ test('app resolves direct accreditation routes and browser back through the rout
 test('routed accreditation navigation keeps the existing button-like styling without link underlines', () => {
   assert.match(stylesSource, /\.accreditation-tab\s*\{[^}]*text-decoration:\s*none/s)
   assert.match(stylesSource, /\.accreditation-sidebar-item\s*\{[^}]*text-decoration:\s*none/s)
+})
+
+
+test('Team workspace is not exposed in Accreditation Assistant navigation', () => {
+  assert.equal(ACCREDITATION_SUBROUTES.some((item) => item.view === 'team' || item.label === 'Team'), false)
+
+  const html = renderShell({
+    path: '/accreditation',
+    content: '<main>overview</main>',
+    user: { firstName: 'Sarah', lastName: 'Jones', jobTitle: 'Practice Manager' },
+    accreditationView: 'overview',
+  })
+  assert.doesNotMatch(html, />Team</)
 })
