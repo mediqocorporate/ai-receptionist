@@ -122,8 +122,9 @@ test('accreditation mode builds server-owned readiness context and controlled re
         requirements: [{
           id: 'R1',
           indicator: 'C7.1C',
-          criterionDescription: 'Emergency response',
-          plainEnglishRequirement: 'Maintain a documented emergency response process.',
+          criterion: 'C7.1',
+          criterionDescription: 'Content of patient health records',
+          plainEnglishRequirement: 'Maintain complete consultation and clinical communication records.',
           applicabilityStatus: 'APPLICABLE',
           applicabilityReason: 'Universal requirement.',
           readinessStatus: 'CONFIRMED_GAP',
@@ -203,10 +204,17 @@ test('accreditation mode builds server-owned readiness context and controlled re
   assert.equal(generatedPayload.context.practiceId, undefined)
   assert.equal(generatedPayload.context.cycleId, 'cycle_real')
   assert.equal(generatedPayload.context.requirements[0].indicator, 'C7.1C')
-  assert.equal(generatedPayload.context.requirements[0].plainEnglishRequirement, 'Maintain a documented emergency response process.')
+  assert.equal(generatedPayload.context.requirements[0].plainEnglishRequirement, 'Maintain complete consultation and clinical communication records.')
   assert.equal(generatedPayload.context.requirements[0].applicabilityStatus, 'APPLICABLE')
   assert.equal(generatedPayload.context.evidence[0].title, 'Emergency procedure')
   assert.equal(generatedPayload.context.evidence[0].storagePath, undefined)
   assert.equal(generatedPayload.context.evidence[0].originalFilename, undefined)
-  assert.equal(generatedPayload.resources[0].id, 'SRC-001')
+  const racgpCriterion = generatedPayload.resources.find((resource) => resource.id === 'RACGP-C7.1')
+  assert.ok(racgpCriterion)
+  assert.equal(racgpCriterion.title, 'Criterion C7.1 – Content of patient health records')
+  assert.equal(
+    racgpCriterion.url,
+    'https://www.racgp.org.au/running-a-practice/practice-standards/standards-5th-edition/standards-for-general-practices-5th-ed/core-standards/core-standard-7/criterion-c7-1-content-of-patient-health-records',
+  )
+  assert.equal(generatedPayload.resources.some((resource) => resource.id === 'SRC-001'), false)
 })
