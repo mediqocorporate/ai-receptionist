@@ -70,7 +70,7 @@ function itemCard(item) {
     ${evidenceExpectations(item)}
     <div class="missing-item-footer">
       ${assignmentMeta(item)}
-      <button type="button" class="secondary-button" data-accreditation-requirement="${escapeHtml(item.requirementId || '')}">Review requirement ${icon('chevron',14)}</button>
+      <button type="button" class="secondary-button" data-accreditation-requirement="${escapeHtml(item.requirementId || '')}" data-accreditation-return-view="missing">Review requirement ${icon('chevron',14)}</button>
     </div>
   </article>`
 }
@@ -86,7 +86,7 @@ function section(title, copy, items, { limit = null, empty = '' } = {}) {
 }
 
 export function renderAccreditationMissing(data = {}, { loading = false, error = '' } = {}) {
-  if (loading && !data?.summary) {
+  if (!data?.summary && !error) {
     return '<section class="panel accreditation-loading-state"><p>Loading what’s missing…</p></section>'
   }
   if (error && !data?.summary) {
