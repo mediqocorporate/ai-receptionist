@@ -78,6 +78,11 @@ export function createAccreditationService({
       return body.comprehensiveCheck
     },
 
+    async missing({ cycleId }) {
+      const body = await request({ action: 'missing', cycleId })
+      return body.missing
+    },
+
     async answer({ cycleId, questionId, answerLabel, answerDetail = {} }) {
       return request({ action: 'answer', cycleId, questionId, answerLabel, answerDetail })
     },
