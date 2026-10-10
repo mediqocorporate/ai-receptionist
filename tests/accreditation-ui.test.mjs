@@ -208,7 +208,7 @@ test("requirement detail can return to What's Missing without a competing overvi
     },
     evidence: { items: [] },
   }, { signedIn: true, practiceName: 'Test Medical Centre' })
-  assert.match(html, /Back to What(?:’|')s Missing/i)
+  assert.match(html, /Back to What&#039;s Missing/i)
   assert.match(html, /data-accreditation-view="missing"/)
   assert.doesNotMatch(html, /class="accreditation-page-back"/)
 })
