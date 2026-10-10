@@ -1,5 +1,6 @@
 import { icon } from './icons.js'
 import { escapeHtml } from '../lib/html.js'
+import { accreditationPathForView } from '../lib/accreditation-routes.js'
 import { renderAccreditationOverview } from './accreditation/overview.js'
 import { renderReadinessCheck } from './accreditation/readiness-check.js'
 import { renderRequirementsView } from './accreditation/requirements.js'
@@ -13,7 +14,8 @@ import { renderAccreditationMissing } from './accreditation/missing.js'
 import { renderAccreditationActions } from './accreditation/actions.js'
 
 function navButton(view, current, label) {
-  return `<button type="button" class="accreditation-tab ${view === current ? 'active' : ''}" data-accreditation-view="${view}">${escapeHtml(label)}</button>`
+  const path = accreditationPathForView(view)
+  return `<a class="accreditation-tab ${view === current ? 'active' : ''}" href="${escapeHtml(path)}" data-nav="${escapeHtml(path)}" aria-current="${view === current ? 'page' : 'false'}">${escapeHtml(label)}</a>`
 }
 
 function renderLoading() {

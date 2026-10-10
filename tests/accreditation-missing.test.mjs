@@ -227,7 +227,7 @@ test("workspace wrapper and app load What's Missing from the backend", () => {
     overview: { setupRequired: false, cycle: { id: 'c1' }, requirements: [] },
     missing: { data: { summary: { totalItems: 0, confirmedGaps: 0, needsAttention: 0, evidenceIssues: 0, applicabilityToConfirm: 0, notChecked: 0 }, items: [] }, loading: false, error: '' },
   }, { signedIn: true, practiceName: 'Test Medical Centre' })
-  assert.match(html, /data-accreditation-view="missing"/)
+  assert.ok(html.includes('href="/accreditation/missing"'))
   assert.match(html, /What(?:’|')s Missing/i)
   assert.match(appSource, /accreditationService\.missing\(/)
 })

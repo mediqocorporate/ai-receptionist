@@ -48,7 +48,7 @@ test('workspace exposes a functional Comprehensive Check tab once a cycle exists
       classificationPendingCount: 64,
     },
   }, { signedIn: true, practiceName: 'Harbour Medical Centre' })
-  assert.match(html, /data-accreditation-view="comprehensive"/)
+  assert.ok(html.includes('href="/accreditation/comprehensive"'))
   assert.match(html, /Comprehensive Check/i)
 })
 

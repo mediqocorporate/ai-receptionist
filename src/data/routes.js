@@ -30,6 +30,7 @@ export const PRODUCT_ROUTES = [
 
 export function routeTitle(pathname) {
   if (pathname === '/alerts') return 'Alerts Centre'
+  if (pathname === '/accreditation' || pathname.startsWith('/accreditation/')) return 'Accreditation Assistant'
   const all = [...APP_ROUTES, ...PRODUCT_ROUTES]
   return all.find((route) => route.path === pathname)?.label || 'Ask a Question'
 }

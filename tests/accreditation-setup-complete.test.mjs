@@ -17,12 +17,12 @@ test('Reports stays removed and Accreditation Assistant expands in the left navi
     assert.match(html, new RegExp(label, 'i'))
   }
   assert.match(html, /What(?:&#039;|')s Missing/i)
-  assert.match(html, /data-accreditation-view="overview"/)
-  assert.match(html, /data-accreditation-view="check"/)
-  assert.match(html, /data-accreditation-view="comprehensive"/)
-  assert.match(html, /data-accreditation-view="requirements"/)
-  assert.match(html, /data-accreditation-view="evidence"/)
-  assert.match(html, /data-accreditation-view="practice-information"/)
+  assert.ok(html.includes('href="/accreditation"'))
+  assert.ok(html.includes('href="/accreditation/check"'))
+  assert.ok(html.includes('href="/accreditation/comprehensive"'))
+  assert.ok(html.includes('href="/accreditation/requirements"'))
+  assert.ok(html.includes('href="/accreditation/evidence"'))
+  assert.ok(html.includes('href="/accreditation/practice-information"'))
   assert.doesNotMatch(html, /aria-disabled="true"[^>]*>Evidence</i)
 })
 
