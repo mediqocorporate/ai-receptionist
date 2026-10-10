@@ -71,7 +71,9 @@ function itemCard(item) {
     <div class="missing-item-footer">
       ${assignmentMeta(item)}
       <div class="missing-item-actions">
-        <button type="button" class="secondary-button" data-action="accreditation-create-action" data-requirement-id="${escapeHtml(item.requirementId || '')}" data-requirement-indicator="${escapeHtml(item.indicator || '')}" data-requirement-title="${escapeHtml(item.title || '')}" data-priority="${escapeHtml(item.priority || 'MEDIUM')}" data-source-reason="${escapeHtml(item.whyShown || '')}" data-description="${escapeHtml(item.nextAction || '')}">Create action</button>
+        ${item.actionId
+          ? `<button type="button" class="secondary-button" data-action="accreditation-open-action" data-action-id="${escapeHtml(item.actionId)}">Edit action</button>`
+          : `<button type="button" class="secondary-button" data-action="accreditation-create-action" data-requirement-id="${escapeHtml(item.requirementId || '')}" data-requirement-indicator="${escapeHtml(item.indicator || '')}" data-requirement-title="${escapeHtml(item.title || '')}" data-priority="${escapeHtml(item.priority || 'MEDIUM')}" data-source-reason="${escapeHtml(item.whyShown || '')}" data-description="${escapeHtml(item.nextAction || '')}">Create action</button>`}
         <button type="button" class="secondary-button" data-accreditation-requirement="${escapeHtml(item.requirementId || '')}" data-accreditation-return-view="missing">Review requirement ${icon('chevron',14)}</button>
       </div>
     </div>
