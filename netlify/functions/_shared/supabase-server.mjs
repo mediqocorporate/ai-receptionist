@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { buildAccreditationPracticeInformation } from './accreditation-setup.mjs'
 import { effectiveRequirementState, isInformativeReadinessAnswer } from './accreditation-applicability.mjs'
+import { buildAccreditationMissing } from './accreditation-missing.mjs'
 
 function uniqueText(items = []) {
   return [...new Set((Array.isArray(items) ? items : []).map((item) => String(item ?? '').trim()).filter(Boolean))]
@@ -513,6 +514,11 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           applicabilityReason: state.applicabilityReason || 'Applicability has not yet been confirmed.',
           readinessStatus: state.readinessStatus || 'NOT_CHECKED',
           verificationStatus: state.verificationStatus || null,
+          statusReason: state.statusReason || '',
+          unknownFacts: Array.isArray(state.unknownFacts) ? state.unknownFacts : [],
+          confirmedGaps: Array.isArray(state.confirmedGaps) ? state.confirmedGaps : [],
+          recommendedActions: Array.isArray(state.recommendedActions) ? state.recommendedActions : [],
+          assessmentInformative: informativeResponseIds.has(requirement.id),
           evidenceCount,
           quickCheckPriority: requirement.quick_check_priority,
           criticalSafetyArea: Boolean(requirement.critical_safety_area),
@@ -660,6 +666,47 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
             && effectiveByRequirement.get(requirement.id)?.applicabilityStatus !== 'NOT_APPLICABLE'
         ).length,
       }
+    },
+
+    async getAccreditationMissing({ practiceId, cycleId }) {
+      const [overview, evidence, criteriaRows, actionRows] = await Promise.all([
+        this.getAccreditationOverview({ practiceId, cycleId }),
+        this.listAccreditationEvidence({ practiceId, cycleId }),
+        table('accreditation_evidence_criteria?select=requirement_id,evidence_type,role,evidence_rule&order=requirement_id.asc,evidence_type.asc'),
+        table(
+          `accreditation_actions?select=id,requirement_id,title,description,priority,owner_user_id,due_date,status,source_reason&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&status=neq.DONE&order=due_date.asc.nullslast,created_at.asc`
+        ),
+      ])
+      const actions = Array.isArray(actionRows) ? actionRows : []
+      const ownerIds = [...new Set(actions.map((row) => row.owner_user_id).filter(Boolean))]
+      let ownerRows = []
+      if (ownerIds.length) {
+        ownerRows = await table(
+          `profiles?select=id,first_name,last_name&id=in.(${ownerIds.map((id) => encodeURIComponent(id)).join(',')})`
+        )
+      }
+      const owners = new Map((Array.isArray(ownerRows) ? ownerRows : []).map((row) => [row.id, `${row.first_name || ''} ${row.last_name || ''}`.trim()]))
+      return buildAccreditationMissing({
+        requirements: overview.requirements || [],
+        evidenceCriteria: (Array.isArray(criteriaRows) ? criteriaRows : []).map((row) => ({
+          requirementId: row.requirement_id,
+          evidenceType: row.evidence_type,
+          role: row.role,
+          evidenceRule: row.evidence_rule,
+        })),
+        evidence,
+        actions: actions.map((row) => ({
+          id: row.id,
+          requirementId: row.requirement_id,
+          title: row.title,
+          description: row.description,
+          priority: row.priority,
+          ownerName: owners.get(row.owner_user_id) || '',
+          dueDate: row.due_date,
+          status: row.status,
+          sourceReason: row.source_reason,
+        })),
+      })
     },
 
     async prepareAccreditationEvidenceUpload({

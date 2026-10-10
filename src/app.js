@@ -65,6 +65,7 @@ const ui = {
     practiceInformationError: '',
     comprehensive: null,
     comprehensiveLoading: false,
+    missing: { data: null, loading: false, error: '' },
     evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' },
   },
   lastFocused: null,
@@ -616,6 +617,22 @@ async function loadAccreditationComprehensiveCheck() {
     ui.accreditation.error = error?.message || 'Could not load the Comprehensive Check.'
   } finally {
     ui.accreditation.comprehensiveLoading = false
+    render()
+  }
+}
+
+async function loadAccreditationMissing() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId) return
+  ui.accreditation.missing.loading = true
+  ui.accreditation.missing.error = ''
+  render()
+  try {
+    ui.accreditation.missing.data = await accreditationService.missing({ cycleId })
+  } catch (error) {
+    ui.accreditation.missing.error = error?.message || "Could not load What's Missing."
+  } finally {
+    ui.accreditation.missing.loading = false
     render()
   }
 }
@@ -1173,6 +1190,7 @@ root.addEventListener('click', async (event) => {
     if (ui.accreditation.view === 'practice-information') await loadAccreditationPracticeInformation()
     if (ui.accreditation.view === 'comprehensive') await loadAccreditationComprehensiveCheck()
     if (ui.accreditation.view === 'evidence') await loadAccreditationEvidence()
+    if (ui.accreditation.view === 'missing') await loadAccreditationMissing()
     return
   }
 
@@ -1211,7 +1229,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
