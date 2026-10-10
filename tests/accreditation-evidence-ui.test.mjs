@@ -76,7 +76,7 @@ test('accreditation workspace renders Evidence and offers upload from an applica
     },
     evidence: { items: [], uploading: false, error: '', prefillRequirementId: '' },
   }, { signedIn: true, practiceName: 'Harbour Medical Centre' })
-  assert.match(html, /data-accreditation-view="evidence"/)
+  assert.match(html, /href="\\/accreditation\\/evidence"/)
   assert.match(html, /Evidence Library/i)
 
   const detail = renderRequirementDetail({
