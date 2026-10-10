@@ -123,6 +123,9 @@ test('accreditation mode builds server-owned readiness context and controlled re
           id: 'R1',
           indicator: 'C7.1C',
           criterionDescription: 'Emergency response',
+          plainEnglishRequirement: 'Maintain a documented emergency response process.',
+          applicabilityStatus: 'APPLICABLE',
+          applicabilityReason: 'Universal requirement.',
           readinessStatus: 'CONFIRMED_GAP',
           verificationStatus: 'USER_REPORTED',
           knownFacts: ['Current process is incomplete'],
@@ -200,6 +203,8 @@ test('accreditation mode builds server-owned readiness context and controlled re
   assert.equal(generatedPayload.context.practiceId, undefined)
   assert.equal(generatedPayload.context.cycleId, 'cycle_real')
   assert.equal(generatedPayload.context.requirements[0].indicator, 'C7.1C')
+  assert.equal(generatedPayload.context.requirements[0].plainEnglishRequirement, 'Maintain a documented emergency response process.')
+  assert.equal(generatedPayload.context.requirements[0].applicabilityStatus, 'APPLICABLE')
   assert.equal(generatedPayload.context.evidence[0].title, 'Emergency procedure')
   assert.equal(generatedPayload.context.evidence[0].storagePath, undefined)
   assert.equal(generatedPayload.context.evidence[0].originalFilename, undefined)
