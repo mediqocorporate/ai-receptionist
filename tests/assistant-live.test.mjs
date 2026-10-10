@@ -36,3 +36,28 @@ test('live assistant turns server quota response into signupRequired without thr
   })
   assert.deepEqual(await service.ask('Third question'), { signupRequired: true, message: 'Create account', remainingFreeAnswers: 0 })
 })
+
+
+test('live assistant sends accreditation mode and cycle without exposing practice identity', async () => {
+  let sent
+  const service = createAssistantService({
+    config: { assistantApiUrl: '/api/ask' },
+    clientProvider: async () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'jwt' } } }) } }),
+    fetchImpl: async (_url, init) => {
+      sent = JSON.parse(init.body)
+      return response(200, { answer: { id: 'aa1' }, conversationId: 'c1' })
+    },
+  })
+  await service.ask('What should we prioritise?', {
+    conversationId: 'c0',
+    mode: 'accreditation',
+    cycleId: 'cycle_1',
+    practiceId: 'must-not-be-sent',
+  })
+  assert.deepEqual(sent, {
+    question: 'What should we prioritise?',
+    conversationId: 'c0',
+    mode: 'accreditation',
+    cycleId: 'cycle_1',
+  })
+})

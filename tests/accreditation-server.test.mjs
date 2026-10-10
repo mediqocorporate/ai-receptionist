@@ -155,3 +155,35 @@ test('overview selects the next question from P1 requirement priority even if qu
   assert.equal(overview.nextQuestion?.id, 'Q1')
   assert.equal(overview.nextQuestion?.priority, 'P1')
 })
+
+
+test('accreditation sources expose only controlled source metadata for assistant citations', async () => {
+  let calledUrl = ''
+  const server = createSupabaseServer({
+    env,
+    fetchImpl: async (url) => {
+      calledUrl = url
+      return json([{
+        id: 'SRC-001',
+        publisher: 'RACGP',
+        title: 'Standards for general practices (5th edition)',
+        current_use: 'Controlled accreditation source',
+        url: 'https://www.racgp.org.au/standards',
+        used_for: 'Indicator content',
+        verification: 'Checked 7 Oct 2026',
+      }])
+    },
+  })
+  assert.equal(typeof server.listAccreditationSources, 'function')
+  const sources = await server.listAccreditationSources()
+  assert.match(calledUrl, /accreditation_sources\?select=/)
+  assert.deepEqual(sources, [{
+    id: 'SRC-001',
+    publisher: 'RACGP',
+    title: 'Standards for general practices (5th edition)',
+    currentUse: 'Controlled accreditation source',
+    url: 'https://www.racgp.org.au/standards',
+    usedFor: 'Indicator content',
+    verification: 'Checked 7 Oct 2026',
+  }])
+})

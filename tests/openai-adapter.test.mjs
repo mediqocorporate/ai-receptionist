@@ -157,3 +157,54 @@ test('JSON mode normalizes loose risk and recommendation shapes safely', async (
 test('interactive OpenAI timeout leaves headroom under the local Netlify 30-second limit', () => {
   assert.equal(INTERACTIVE_OPENAI_TIMEOUT_MS, 27000)
 })
+
+
+test('accreditation adapter uses only server-approved source ids and returns linked resources', async () => {
+  const mod = await import('../netlify/functions/_shared/openai.mjs')
+  assert.equal(typeof mod.createAccreditationAnswer, 'function')
+  let request
+  const fetchImpl = async (_url, options) => {
+    request = JSON.parse(options.body)
+    return new Response(JSON.stringify({
+      id: 'resp_accreditation',
+      model: 'gpt-6-luna',
+      status: 'completed',
+      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({
+        intro: 'Start with the confirmed gap.',
+        sections: [{ title: 'Priority', body: 'Review C7.1C and its evidence.', items: [] }],
+        risk: false,
+        relatedQuestions: ['What evidence is missing?'],
+        sourceIds: ['SRC-001', 'NOT-APPROVED'],
+      }) }] }]
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+  const resources = [{
+    id: 'SRC-001',
+    publisher: 'RACGP',
+    title: 'Standards for general practices (5th edition)',
+    url: 'https://www.racgp.org.au/standards',
+    usedFor: 'Indicator content',
+    verification: 'Checked 7 Oct 2026',
+  }]
+  const result = await mod.createAccreditationAnswer({
+    apiKey: 'sk-test-secret',
+    question: 'What should we prioritise?',
+    context: {
+      cycleId: 'c1',
+      statusCounts: { CONFIRMED_GAP: 1 },
+      requirements: [{ indicator: 'C7.1C', readinessStatus: 'CONFIRMED_GAP' }],
+      actions: [],
+      evidence: [],
+    },
+    resources,
+    fetchImpl,
+  })
+
+  assert.equal(request.text.format.name, 'mediqo_accreditation_answer')
+  assert.match(request.instructions, /only.*approved/i)
+  assert.match(request.input, /C7\.1C/)
+  assert.match(request.input, /SRC-001/)
+  assert.deepEqual(result.answer.sources, [resources[0]])
+  assert.deepEqual(result.answer.relatedResources, [resources[0]])
+  assert.equal(result.answer.recommendation, null)
+})

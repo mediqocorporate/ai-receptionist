@@ -21,6 +21,7 @@ test('accreditation workspace views have stable browser routes', () => {
   assert.equal(accreditationPathForView('evidence'), '/accreditation/evidence')
   assert.equal(accreditationPathForView('missing'), '/accreditation/missing')
   assert.equal(accreditationPathForView('actions'), '/accreditation/actions')
+  assert.equal(accreditationPathForView('assistant'), '/accreditation/assistant')
   assert.equal(accreditationPathForView('practice-information'), '/accreditation/practice-information')
   assert.equal(accreditationPathForView('explore'), '/accreditation/explore')
   assert.equal(accreditationPathForView('setup'), '/accreditation/setup')
@@ -29,6 +30,7 @@ test('accreditation workspace views have stable browser routes', () => {
 test('accreditation routes parse trailing slashes and reject unrelated paths', () => {
   assert.deepEqual(parseAccreditationPath('/accreditation/requirements/'), { view: 'requirements', requirementIndicator: '' })
   assert.deepEqual(parseAccreditationPath('/accreditation/evidence'), { view: 'evidence', requirementIndicator: '' })
+  assert.deepEqual(parseAccreditationPath('/accreditation/assistant'), { view: 'assistant', requirementIndicator: '' })
   assert.equal(parseAccreditationPath('/policies'), null)
   assert.equal(parseAccreditationPath('/accreditation/not-a-real-page'), null)
 })
@@ -96,4 +98,63 @@ test('Team workspace is not exposed in Accreditation Assistant navigation', () =
     accreditationView: 'overview',
   })
   assert.doesNotMatch(html, />Team</)
+})
+
+
+test('Ask Accreditation Assistant is a live routed workspace with source-backed resources', () => {
+  assert.equal(ACCREDITATION_SUBROUTES.find((item) => item.view === 'assistant')?.available, true)
+
+  const overview = {
+    cycle: { id: 'c1', targetAssessmentDate: null },
+    standardVersion: { name: 'RACGP Standards for general practices', edition: '5th edition' },
+    coverage: { answered: 3, total: 20, percent: 15 },
+    assessmentCoverage: { assessed: 4, total: 51, percent: 8 },
+    readiness: { appearsReady: 0, assessed: 4, percent: 0 },
+    statusCounts: { APPEARS_READY: 0, NEEDS_ATTENTION: 2, CONFIRMED_GAP: 1, NOT_CHECKED: 121 },
+    requirements: [],
+  }
+  const html = renderAccreditationPage({
+    view: 'assistant',
+    overview,
+    assistant: {
+      turns: [{
+        question: 'What should we prioritise?',
+        answer: {
+          id: 'aa1',
+          intro: 'Start with the confirmed gap.',
+          sections: [{ title: 'Priority', body: 'Review C7.1C first.', items: [] }],
+          sources: [{
+            id: 'SRC-001',
+            title: 'Standards for general practices (5th edition)',
+            publisher: 'RACGP',
+            url: 'https://www.racgp.org.au/example/standards',
+          }],
+          relatedResources: [{
+            id: 'SRC-001',
+            title: 'Standards for general practices (5th edition)',
+            publisher: 'RACGP',
+            url: 'https://www.racgp.org.au/example/standards',
+          }],
+          relatedQuestions: [],
+          risk: false,
+        },
+      }],
+      loading: false,
+      error: '',
+    },
+  }, { signedIn: true, practiceName: 'Test Medical Centre' })
+
+  assert.match(html, /data-accreditation-assistant-form/)
+  assert.match(html, /Start with the confirmed gap/)
+  assert.match(html, /Related resources/i)
+  assert.match(html, /https:\/\/www\.racgp\.org\.au\/example\/standards/)
+  assert.match(html, /href="\/accreditation\/assistant"[^>]+data-nav="\/accreditation\/assistant"/)
+  assert.doesNotMatch(html, /data-action="ask-accreditation"[^>]*>[^<]*Ask Accreditation Assistant/)
+})
+
+test('app keeps Accreditation Assistant questions inside the accreditation workspace', () => {
+  assert.match(appSource, /async function submitAccreditationAssistantQuestion/)
+  assert.match(appSource, /mode:\s*'accreditation'/)
+  assert.match(appSource, /data-accreditation-assistant-form/)
+  assert.doesNotMatch(appSource, /ask-accreditation'\) \{ navigate\('\/'\); await submitQuestion/)
 })
