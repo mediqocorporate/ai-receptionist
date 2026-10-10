@@ -130,7 +130,7 @@ function evidenceCard(item, requirements, prefillRequirementId) {
       </label>
       <button type="button" class="secondary-button" data-action="evidence-link" data-evidence-id="${escapeHtml(item.id)}">Map evidence</button>
     </div>` : ''}
-    ${reviewControls(item, requirements)}
+    ${active ? reviewControls(item, requirements) : ''}
     <div class="evidence-item-actions">
       <button type="button" class="secondary-button" data-action="evidence-download" data-evidence-id="${escapeHtml(item.id)}">${icon('download',16)} Download</button>
       ${active ? `<button type="button" class="text-button evidence-supersede" data-action="evidence-supersede" data-evidence-id="${escapeHtml(item.id)}">Mark superseded</button>` : ''}
