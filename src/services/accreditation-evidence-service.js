@@ -249,6 +249,26 @@ export function createAccreditationEvidenceService({
       return body.link
     },
 
+    async review({
+      cycleId,
+      evidenceId,
+      requirementId,
+      reviewStatus,
+      reason,
+      recommendedAction = '',
+    }) {
+      const body = await request({
+        action: 'review',
+        cycleId,
+        evidenceId,
+        requirementId,
+        reviewStatus,
+        reason,
+        recommendedAction,
+      })
+      return body.assessment
+    },
+
     async supersede({ cycleId, evidenceId }) {
       return request({ action: 'supersede', cycleId, evidenceId })
     },
