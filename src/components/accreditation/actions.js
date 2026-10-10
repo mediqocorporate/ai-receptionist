@@ -104,7 +104,7 @@ export function renderAccreditationActions(state = {}) {
   return `<section class="accreditation-actions-workspace">
     <section class="panel actions-intro">
       <div><span class="eyebrow">CLOSING GAPS</span><h2>Actions</h2><p>Turn accreditation gaps and follow-up into practical work with clear owners, due dates and status.</p></div>
-      <button type="button" class="primary-button" data-action="accreditation-new-action">${icon('plus',16)} Create action</button>
+      <button type="button" class="primary-button" data-action="accreditation-new-action">${icon('file-plus',16)} Create action</button>
     </section>
 
     <div class="actions-trust-note">${icon('shield-check',17)} <span><strong>Actions track work; they do not decide readiness.</strong> Completing an action does not change readiness until the linked requirement is re-checked using current facts and evidence.</span></div>
