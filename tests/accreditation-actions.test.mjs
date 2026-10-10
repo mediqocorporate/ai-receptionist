@@ -4,6 +4,7 @@ import fs from 'node:fs'
 
 import { ACCREDITATION_SUBROUTES } from '../src/data/routes.js'
 import { renderAccreditationMissing } from '../src/components/accreditation/missing.js'
+import { renderAccreditationPage } from '../src/components/accreditation.js'
 import { createSupabaseServer } from '../netlify/functions/_shared/supabase-server.mjs'
 
 const actionsUiUrl = new URL('../src/components/accreditation/actions.js', import.meta.url)
@@ -251,4 +252,32 @@ test('Supabase server creates and updates only cycle-scoped action rows and keep
   assert.equal(patch.body.status, 'DONE')
   assert.ok(patch.body.completed_at)
   assert.equal(requests.some((request) => /practice_requirements/.test(request.url) && request.method === 'PATCH'), false)
+})
+
+
+test('requirements opened from Actions return to Actions', () => {
+  const html = renderAccreditationPage({
+    view: 'requirement',
+    requirementReturnView: 'actions',
+    overview: { setupRequired: false, cycle: { id: 'c1' }, requirements: [] },
+    requirement: {
+      id: 'R1', indicator: 'C7.1C', criterion: 'C7.1', criterionDescription: 'Patient health records',
+      classificationLabel: 'Mandatory', applicabilityStatus: 'APPLICABLE', readinessStatus: 'CONFIRMED_GAP',
+      verificationStatus: 'USER_REPORTED', statusReason: 'Reported gap.', knownFacts: [], unknownFacts: [],
+      potentialGaps: [], confirmedGaps: [], recommendedActions: [], sourceUrls: {}, evidenceCriteria: [], questions: [],
+    },
+    evidence: { items: [] },
+  }, { signedIn: true, practiceName: 'Test Medical Centre' })
+  assert.match(html, /Back to Actions/i)
+  assert.match(html, /data-accreditation-view="actions"/)
+})
+
+test('Actions has a dedicated Netlify route and browser-safe runtime configuration', () => {
+  const netlify = fs.readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8')
+  const runtime = fs.readFileSync(new URL('../scripts/runtime-config.mjs', import.meta.url), 'utf8')
+  const integration = fs.readFileSync(new URL('../src/services/integration-config.js', import.meta.url), 'utf8')
+  assert.match(netlify, /from = "\/api\/accreditation-actions"/)
+  assert.match(netlify, /accreditation-actions/)
+  assert.match(runtime, /accreditationActionsApiUrl/)
+  assert.match(integration, /accreditationActionsApiUrl/)
 })
