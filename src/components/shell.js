@@ -1,6 +1,7 @@
 import { APP_ROUTES, PRODUCT_ROUTES, ACCREDITATION_SUBROUTES } from '../data/routes.js'
 import { icon } from './icons.js'
 import { escapeHtml } from '../lib/html.js'
+import { accreditationPathForView } from '../lib/accreditation-routes.js'
 
 const REMOTE_LOGO = 'https://partners.mediqo.health/wp-content/uploads/2025/11/Group-2.png'
 
@@ -14,7 +15,7 @@ function userInitials(user = {}) {
 }
 
 function navLink(route, path) {
-  const active = path === route.path
+  const active = path === route.path || (route.id === 'accreditation' && path.startsWith('/accreditation/'))
   return `<a class="sidebar-link ${active ? 'active' : ''}" href="${route.path}" data-nav="${route.path}" aria-current="${active ? 'page' : 'false'}" title="${escapeHtml(route.label)}">
     <span class="sidebar-icon">${icon(route.icon, 21)}</span><span>${escapeHtml(route.label)}</span>
   </a>`
@@ -26,7 +27,8 @@ function accreditationSubmenu(currentView = 'overview') {
     if (!item.available) {
       return `<span class="accreditation-sidebar-item is-disabled" aria-disabled="true" title="This section will activate as its production workflow is connected.">${escapeHtml(item.label)}</span>`
     }
-    return `<button type="button" class="accreditation-sidebar-item ${active ? 'active' : ''}" data-accreditation-view="${escapeHtml(item.view)}" aria-current="${active ? 'page' : 'false'}">${escapeHtml(item.label)}</button>`
+    const path = accreditationPathForView(item.view)
+    return `<a class="accreditation-sidebar-item ${active ? 'active' : ''}" href="${escapeHtml(path)}" data-nav="${escapeHtml(path)}" aria-current="${active ? 'page' : 'false'}">${escapeHtml(item.label)}</a>`
   }).join('')}</div>`
 }
 
@@ -50,7 +52,7 @@ export function renderShell({ path = '/', content = '', alertsOpen = false, user
         <span class="avatar avatar-sm">${initials(selectedPractice)}</span><span class="practice-name">${escapeHtml(selectedPractice)}</span><span class="practice-chevron">${icon('down', 16)}</span>
       </button>` : ''}
       <nav class="sidebar-nav">
-        <div class="nav-group">${APP_ROUTES.map((r) => `${navLink(r, path)}${r.id === 'accreditation' && path === '/accreditation' ? accreditationSubmenu(accreditationView) : ''}`).join('')}</div>
+        <div class="nav-group">${APP_ROUTES.map((r) => `${navLink(r, path)}${r.id === 'accreditation' && (path === '/accreditation' || path.startsWith('/accreditation/')) ? accreditationSubmenu(accreditationView) : ''}`).join('')}</div>
         <div class="nav-divider"></div>
         <div class="nav-group product-group">${PRODUCT_ROUTES.map((r) => navLink(r, path)).join('')}</div>
       </nav>

@@ -21,12 +21,14 @@ import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './l
 import { validateSignup } from './lib/validation.js'
 import { canAskWithoutSignup, recordAnsweredQuestion } from './lib/prototype-rules.js'
 import { shouldRecordLocalQuestion, shouldUseLocalQuestionGate } from './lib/qna-mode.js'
+import { accreditationPathForView, accreditationRequirementPath, parseAccreditationPath } from './lib/accreditation-routes.js'
 import { signupSuccessMessage } from './lib/ui-copy.js'
 import { icon } from './components/icons.js'
 
 const root = document.querySelector('#app')
 const toastRoot = document.querySelector('#toast-root')
 const devMode = ['localhost', '127.0.0.1'].includes(location.hostname)
+const initialAccreditationRoute = parseAccreditationPath(location.pathname)
 
 const ui = {
   path: location.pathname,
@@ -53,7 +55,7 @@ const ui = {
     loading: false,
     submitting: false,
     error: '',
-    view: 'overview',
+    view: initialAccreditationRoute?.view || 'overview',
     filter: 'ALL',
     overview: null,
     requirement: null,
@@ -98,7 +100,7 @@ function pageContent() {
     }
     return renderAskHome({ signedIn: Boolean(appUser), history: prototype.questionHistory })
   }
-  if (ui.path === '/accreditation') return renderAccreditationPage(ui.accreditation, {
+  if (parseAccreditationPath(ui.path)) return renderAccreditationPage(ui.accreditation, {
     practiceName: appUser?.clinicName || prototype.selectedPractice || 'Riverside Medical Centre',
     signedIn: Boolean(appUser),
   })
@@ -237,9 +239,11 @@ function navigate(target) {
   ui.userMenuOpen = false
   ui.mobileOpen = false
   ui.error = ''
+  const accreditationRoute = parseAccreditationPath(ui.path)
+  if (accreditationRoute) syncAccreditationRouteState(accreditationRoute)
   render()
   window.scrollTo({ top: 0, behavior: 'auto' })
-  if (ui.path === '/accreditation' && appUser) void loadAccreditationOverview()
+  if (accreditationRoute && appUser) void loadAccreditationRoute()
   if (ui.path === '/policies' && appUser) void loadPolicyDocuments()
 }
 
@@ -573,7 +577,7 @@ async function bootstrapAuth() {
       await syncAuthenticatedAccountState(restoredUser)
       savePrototypeState(prototype)
       render()
-      if (ui.path === '/accreditation') await loadAccreditationOverview()
+      if (parseAccreditationPath(ui.path)) await loadAccreditationRoute()
       if (ui.path === '/policies') await loadPolicyDocuments()
     }
 
@@ -582,7 +586,7 @@ async function bootstrapAuth() {
       if (user?.clinicName) prototype.selectedPractice = user.clinicName
       if (user) await syncAuthenticatedAccountState(user)
       render()
-      if (user && ui.path === '/accreditation') await loadAccreditationOverview()
+      if (user && parseAccreditationPath(ui.path)) await loadAccreditationRoute()
       if (user && ui.path === '/policies') await loadPolicyDocuments()
       if (!user) ui.policyDocuments = { loading: false, error: '', items: [] }
     })
@@ -599,13 +603,58 @@ async function loadAccreditationOverview({ preserveView = true } = {}) {
   render()
   try {
     ui.accreditation.overview = await accreditationService.overview()
-    if (ui.accreditation.view === 'requirement' && !ui.accreditation.requirement) ui.accreditation.view = 'requirements'
   } catch (error) {
     ui.accreditation.error = error?.message || 'Could not load accreditation readiness.'
   } finally {
     ui.accreditation.loading = false
     render()
   }
+}
+
+function syncAccreditationRouteState(route) {
+  if (!route) return
+  ui.accreditation.view = route.view
+  if (route.view !== 'requirement') ui.accreditation.requirement = null
+}
+
+function updateAccreditationBrowserPath(path, { replace = false } = {}) {
+  const route = parseAccreditationPath(path)
+  if (!route) return
+  const current = `${location.pathname}${location.search}`
+  if (current !== path) history[replace ? 'replaceState' : 'pushState']({}, '', path)
+  ui.path = path
+  ui.query = new URLSearchParams()
+  syncAccreditationRouteState(route)
+}
+
+async function loadAccreditationRoute() {
+  const route = parseAccreditationPath(ui.path)
+  if (!route || !appUser) return
+  syncAccreditationRouteState(route)
+
+  if (!ui.accreditation.overview) await loadAccreditationOverview()
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!cycleId) return
+
+  if (route.view === 'requirement') {
+    const target = String(route.requirementIndicator || '').toUpperCase()
+    const requirement = (ui.accreditation.overview?.requirements || []).find((item) =>
+      String(item?.indicator || '').toUpperCase() === target
+    )
+    if (!requirement?.id) {
+      ui.accreditation.error = `Could not find accreditation requirement ${route.requirementIndicator}.`
+      render()
+      return
+    }
+    await openAccreditationRequirement(requirement.id, 'requirements', { syncPath: false })
+    return
+  }
+
+  if (route.view === 'comprehensive') await loadAccreditationComprehensiveCheck()
+  if (route.view === 'evidence') await loadAccreditationEvidence()
+  if (route.view === 'missing') await loadAccreditationMissing()
+  if (route.view === 'actions') await loadAccreditationActions()
+  if (route.view === 'practice-information') await loadAccreditationPracticeInformation()
 }
 
 async function loadAccreditationComprehensiveCheck() {
@@ -661,7 +710,7 @@ async function loadAccreditationActions() {
 }
 
 function openAccreditationActionEditor(prefill = {}) {
-  ui.accreditation.view = 'actions'
+  updateAccreditationBrowserPath(accreditationPathForView('actions'))
   ui.accreditation.requirement = null
   ui.accreditation.actions.error = ''
   ui.accreditation.actions.editor = {
@@ -1071,7 +1120,7 @@ async function answerAccreditationQuestion(button) {
   }
 }
 
-async function openAccreditationRequirement(requirementId, returnView = ui.accreditation.view) {
+async function openAccreditationRequirement(requirementId, returnView = ui.accreditation.view, { syncPath = true } = {}) {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!cycleId || !requirementId) return
   ui.accreditation.requirementReturnView = ['missing', 'actions'].includes(returnView) ? returnView : 'requirements'
@@ -1081,6 +1130,7 @@ async function openAccreditationRequirement(requirementId, returnView = ui.accre
   try {
     ui.accreditation.requirement = await accreditationService.requirement({ cycleId, requirementId })
     ui.accreditation.view = 'requirement'
+    if (syncPath) updateAccreditationBrowserPath(accreditationRequirementPath(ui.accreditation.requirement?.indicator || requirementId))
     ui.accreditation.evidence.loading = true
     try {
       ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
@@ -1276,22 +1326,14 @@ root.addEventListener('click', async (event) => {
 
   const accreditationView = event.target.closest('[data-accreditation-view]')
   if (accreditationView) {
-    ui.accreditation.view = accreditationView.dataset.accreditationView || 'overview'
-    if (ui.accreditation.view !== 'requirement') ui.accreditation.requirement = null
-    render()
-    if (ui.accreditation.view === 'practice-information') await loadAccreditationPracticeInformation()
-    if (ui.accreditation.view === 'comprehensive') await loadAccreditationComprehensiveCheck()
-    if (ui.accreditation.view === 'evidence') await loadAccreditationEvidence()
-    if (ui.accreditation.view === 'missing') await loadAccreditationMissing()
-    if (ui.accreditation.view === 'actions') await loadAccreditationActions()
+    navigate(accreditationPathForView(accreditationView.dataset.accreditationView || 'overview'))
     return
   }
 
   const accreditationFilter = event.target.closest('[data-accreditation-filter]')
   if (accreditationFilter) {
     ui.accreditation.filter = accreditationFilter.dataset.accreditationFilter || 'ALL'
-    ui.accreditation.view = 'requirements'
-    render()
+    navigate(accreditationPathForView('requirements'))
     return
   }
 
@@ -1330,9 +1372,9 @@ root.addEventListener('click', async (event) => {
   if (action === 'help') { openDialog('help'); return }
   if (action === 'evidence-info') { openDialog('evidence'); return }
   if (action === 'retry-accreditation') { await loadAccreditationOverview(); return }
-  if (action === 'accreditation-home') { ui.accreditation.view = 'overview'; ui.accreditation.requirement = null; ui.accreditation.setup.error = ''; render(); return }
-  if (action === 'accreditation-explore') { ui.accreditation.view = 'explore'; ui.accreditation.exploreStep = 0; render(); return }
-  if (action === 'accreditation-exit-explore') { ui.accreditation.view = 'overview'; ui.accreditation.exploreStep = 0; render(); return }
+  if (action === 'accreditation-home') { ui.accreditation.setup.error = ''; navigate(accreditationPathForView('overview')); return }
+  if (action === 'accreditation-explore') { ui.accreditation.exploreStep = 0; navigate(accreditationPathForView('explore')); return }
+  if (action === 'accreditation-exit-explore') { ui.accreditation.exploreStep = 0; navigate(accreditationPathForView('overview')); return }
   if (action === 'accreditation-explore-next') { ui.accreditation.exploreStep = Math.min(4, Number(ui.accreditation.exploreStep || 0) + 1); render(); return }
   if (action === 'accreditation-explore-prev') { ui.accreditation.exploreStep = Math.max(0, Number(ui.accreditation.exploreStep || 0) - 1); render(); return }
   if (action === 'accreditation-start-setup') {
@@ -1364,7 +1406,7 @@ root.addEventListener('click', async (event) => {
       error: '',
       complete: false,
     }
-    render()
+    navigate(accreditationPathForView('setup'))
     return
   }
   if (action === 'accreditation-setup-back') {
@@ -1379,7 +1421,7 @@ root.addEventListener('click', async (event) => {
   }
   if (action === 'accreditation-edit-practice-information') {
     if (!ui.accreditation.practiceInformation) await loadAccreditationPracticeInformation()
-    ui.accreditation.view = 'practice-information'
+    updateAccreditationBrowserPath(accreditationPathForView('practice-information'))
     ui.accreditation.practiceInformationEditing = true
     ui.accreditation.practiceInformationError = ''
     render()
@@ -1439,7 +1481,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'evidence-upload-for-requirement') {
     const requirementId = String(actionEl.dataset.requirementId || '')
     ui.accreditation.evidence.prefillRequirementId = requirementId
-    ui.accreditation.view = 'evidence'
+    updateAccreditationBrowserPath(accreditationPathForView('evidence'))
     ui.accreditation.requirement = null
     render()
     await loadAccreditationEvidence()
@@ -1583,8 +1625,10 @@ window.addEventListener('popstate', () => {
   ui.dialog = null
   ui.alertsOpen = false
   ui.userMenuOpen = false
+  const accreditationRoute = parseAccreditationPath(ui.path)
+  if (accreditationRoute) syncAccreditationRouteState(accreditationRoute)
   render()
-  if (ui.path === '/accreditation' && appUser) void loadAccreditationOverview()
+  if (accreditationRoute && appUser) void loadAccreditationRoute()
   if (ui.path === '/policies' && appUser) void loadPolicyDocuments()
 })
 

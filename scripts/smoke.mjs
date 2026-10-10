@@ -7,7 +7,7 @@ child.stderr.on('data', (data) => { stderr += data })
 
 try {
   await wait(500)
-  const routes = ['/', '/accreditation', '/policies', '/alerts', '/products/ai-receptionist']
+  const routes = ['/', '/accreditation', '/accreditation/requirements', '/accreditation/requirements/GP3.1A', '/accreditation/evidence', '/policies', '/alerts', '/products/ai-receptionist']
   for (const route of routes) {
     const response = await fetch(`http://127.0.0.1:4173${route}`)
     const text = await response.text()
