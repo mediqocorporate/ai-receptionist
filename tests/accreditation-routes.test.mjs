@@ -148,8 +148,10 @@ test('Ask Accreditation Assistant is a live routed workspace with source-backed 
   assert.match(html, /Start with the confirmed gap/)
   assert.match(html, /Related resources/i)
   assert.match(html, /https:\/\/www\.racgp\.org\.au\/example\/standards/)
-  assert.match(html, /href="\/accreditation\/assistant"[^>]+data-nav="\/accreditation\/assistant"/)
   assert.doesNotMatch(html, /data-action="ask-accreditation"[^>]*>[^<]*Ask Accreditation Assistant/)
+
+  const overviewHtml = renderAccreditationPage({ view: 'overview', overview }, { signedIn: true, practiceName: 'Test Medical Centre' })
+  assert.match(overviewHtml, /href="\/accreditation\/assistant"[^>]+data-nav="\/accreditation\/assistant"/)
 })
 
 test('app keeps Accreditation Assistant questions inside the accreditation workspace', () => {
