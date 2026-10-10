@@ -9,6 +9,7 @@ import { renderAccreditationSetup } from './accreditation/setup.js'
 import { renderPracticeInformation } from './accreditation/practice-information.js'
 import { renderComprehensiveCheck } from './accreditation/comprehensive-check.js'
 import { renderAccreditationEvidence } from './accreditation/evidence.js'
+import { renderAccreditationMissing } from './accreditation/missing.js'
 
 function navButton(view, current, label) {
   return `<button type="button" class="accreditation-tab ${view === current ? 'active' : ''}" data-accreditation-view="${view}">${escapeHtml(label)}</button>`
@@ -65,11 +66,12 @@ export function renderAccreditationPage(state = {}, options = {}) {
   else if (currentView === 'comprehensive') body = renderComprehensiveCheck(state.comprehensive, { submitting: state.submitting })
   else if (currentView === 'requirements') body = renderRequirementsView(overview.requirements || [], { filter: state.filter || 'ALL' })
   else if (currentView === 'evidence') body = renderAccreditationEvidence(state.evidence || {}, { requirements: overview.requirements || [] })
+  else if (currentView === 'missing') body = renderAccreditationMissing(state.missing?.data || {}, { loading: Boolean(state.missing?.loading), error: state.missing?.error || '' })
   else if (currentView === 'requirement' && state.requirement) body = renderRequirementDetail(state.requirement, { evidenceItems: state.evidence?.items || [] })
   else if (currentView === 'practice-information') body = renderPracticeInformation(state.practiceInformation || {}, { loading: state.practiceInformationLoading, editing: state.practiceInformationEditing, submitting: state.practiceInformationSubmitting, error: state.practiceInformationError || '' })
   else body = renderAccreditationOverview(overview, { practiceName })
 
-  const showBack = signedIn && ['check','comprehensive','requirements','requirement','evidence','practice-information','setup'].includes(currentView)
+  const showBack = signedIn && ['check','comprehensive','requirements','requirement','evidence','missing','practice-information','setup'].includes(currentView)
   return `<section class="feature-page accreditation-page accreditation-live-workspace">
     ${showBack ? `<div class="accreditation-page-back"><button type="button" class="conversation-back" data-action="accreditation-home">${icon('chevron-left',16)}<span>Back to Accreditation Overview</span></button></div>` : ''}
     <div class="page-heading-row">
@@ -82,6 +84,7 @@ export function renderAccreditationPage(state = {}, options = {}) {
       ${navButton('comprehensive', currentView, 'Comprehensive Check')}
       ${navButton('requirements', currentView, 'Requirements')}
       ${navButton('evidence', currentView, 'Evidence')}
+      ${navButton('missing', currentView, "What's Missing")}
       ${navButton('practice-information', currentView, 'Practice Information')}
     </nav>` : ''}
     ${state.error && overview ? `<div class="accreditation-inline-error">${icon('alert',15)} ${escapeHtml(state.error)}</div>` : ''}
