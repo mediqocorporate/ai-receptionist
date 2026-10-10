@@ -240,3 +240,144 @@ export async function createMediQoAnswer({
     answer: normalizeAnswer(parsed),
   }
 }
+
+
+const ACCREDITATION_INSTRUCTIONS = `You are MediQo's Accreditation Assistant for Australian general practice.
+Only use the approved accreditation sources supplied in the request for claims about RACGP standards, accreditation framework or assessment guidance.
+Use the supplied practice accreditation context only for practice-specific facts. Never infer a practice fact that is missing.
+Do not claim that a practice is accredited, compliant, guaranteed to pass, or formally ready. A human evidence review status must not override the stored requirement readiness status.
+Uploaded evidence file contents are not supplied to you in this workflow. Do not claim you opened, read or analysed an uploaded file.
+If the available practice context or approved sources do not support an answer, say what needs to be checked instead of guessing.
+Use sourceIds only from the approved source list. Never invent a source ID, source title, publisher or URL.
+For material standards claims, include the relevant approved source ID when one is available.
+Keep the answer practical for a practice manager and separate known facts, unresolved checks and next actions.
+Return JSON only.`
+
+const ACCREDITATION_ANSWER_SCHEMA = {
+  type: 'object',
+  properties: {
+    intro: { type: 'string' },
+    sections: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 6,
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          body: { type: 'string' },
+          items: { type: 'array', maxItems: 8, items: { type: 'string' } },
+        },
+        required: ['title', 'body', 'items'],
+        additionalProperties: false,
+      },
+    },
+    risk: { type: 'boolean' },
+    relatedQuestions: { type: 'array', maxItems: 5, items: { type: 'string' } },
+    sourceIds: { type: 'array', maxItems: 5, items: { type: 'string' } },
+  },
+  required: ['intro', 'sections', 'risk', 'relatedQuestions', 'sourceIds'],
+  additionalProperties: false,
+}
+
+function safeAccreditationResource(resource = {}) {
+  return {
+    id: String(resource.id || '').trim(),
+    publisher: String(resource.publisher || '').trim(),
+    title: String(resource.title || '').trim(),
+    url: String(resource.url || '').trim(),
+    usedFor: String(resource.usedFor || '').trim(),
+    verification: String(resource.verification || '').trim(),
+  }
+}
+
+function normalizeAccreditationAnswer(value, resources = []) {
+  const base = normalizeAnswer({ ...value, recommendation: null })
+  const resourceMap = new Map(resources.map((resource) => {
+    const safe = safeAccreditationResource(resource)
+    return [safe.id, safe]
+  }).filter(([id]) => id))
+  const ids = [...new Set((Array.isArray(value?.sourceIds) ? value.sourceIds : []).map((id) => String(id || '').trim()).filter(Boolean))]
+  const selected = ids.map((id) => resourceMap.get(id)).filter(Boolean)
+  return {
+    ...base,
+    sources: selected,
+    relatedResources: selected,
+    recommendation: null,
+  }
+}
+
+export async function createAccreditationAnswer({
+  apiKey,
+  model = 'gpt-6-luna',
+  question,
+  context = {},
+  resources = [],
+  safetyIdentifier,
+  reasoningEffort,
+  timeoutMs = INTERACTIVE_OPENAI_TIMEOUT_MS,
+  fetchImpl = fetch,
+}) {
+  if (!apiKey) throw new Error('OPENAI_API_KEY is not configured.')
+  const cleanQuestion = String(question || '').trim()
+  if (!cleanQuestion) throw new Error('Question is required.')
+
+  const approvedResources = resources.map(safeAccreditationResource).filter((resource) => resource.id && resource.title && resource.url)
+  const resolvedReasoningEffort = String(reasoningEffort || defaultReasoningEffort(model)).trim()
+  const signal = timeoutMs > 0 && typeof AbortSignal?.timeout === 'function'
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined
+
+  let response
+  try {
+    response = await fetchImpl('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        instructions: ACCREDITATION_INSTRUCTIONS,
+        input: `Return the accreditation answer as JSON.\n\nQuestion:\n${cleanQuestion}\n\nPractice accreditation context:\n${JSON.stringify(context)}\n\nApproved sources:\n${JSON.stringify(approvedResources)}`,
+        store: false,
+        max_output_tokens: outputTokenBudget(resolvedReasoningEffort),
+        safety_identifier: safetyIdentifier || undefined,
+        reasoning: { effort: resolvedReasoningEffort },
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'mediqo_accreditation_answer',
+            strict: true,
+            schema: ACCREDITATION_ANSWER_SCHEMA,
+          },
+        },
+      }),
+    })
+  } catch (error) {
+    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') throw new Error('OpenAI request timed out before MediQo received an answer.')
+    throw error
+  }
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload?.error?.message || `OpenAI request failed with status ${response.status}.`)
+  if (payload?.status === 'incomplete') throw new Error(`OpenAI response incomplete: ${payload?.incomplete_details?.reason || 'unknown_reason'}.`)
+  const firstContent = firstMessageContent(payload)
+  if (firstContent?.type === 'refusal') throw new Error(firstContent.refusal || 'OpenAI refused this request.')
+
+  const outputText = extractResponseText(payload)
+  if (!outputText) throw new Error('OpenAI returned no answer text.')
+  let parsed
+  try {
+    parsed = JSON.parse(outputText)
+  } catch {
+    throw new Error('OpenAI returned invalid structured output.')
+  }
+
+  return {
+    responseId: payload.id || '',
+    model: payload.model || model,
+    answer: normalizeAccreditationAnswer(parsed, approvedResources),
+  }
+}

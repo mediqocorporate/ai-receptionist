@@ -12,7 +12,7 @@ export const ACCREDITATION_SUBROUTES = [
   { view: 'evidence', label: 'Evidence', available: true },
   { view: 'missing', label: "What's Missing", available: true },
   { view: 'actions', label: 'Actions', available: true },
-  { view: 'assistant', label: 'Ask Accreditation Assistant', available: false },
+  { view: 'assistant', label: 'Ask Accreditation Assistant', available: true },
   { view: 'report', label: 'Readiness Report', available: false },
   { view: 'practice-information', label: 'Practice Information', available: true },
 ]
