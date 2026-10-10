@@ -36,6 +36,7 @@ export async function createAccreditationReadinessReview({
     context,
     resources,
     safetyIdentifier,
+    maxOutputTokens: 4000,
   })
   const answer = generated?.answer || {}
   const sources = Array.isArray(answer.sources) ? answer.sources : []
