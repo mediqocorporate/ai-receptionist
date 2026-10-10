@@ -15,6 +15,7 @@ import { questionService } from './services/question-service.js'
 import { pmsService } from './services/pms-service.js'
 import { accreditationService } from './services/accreditation-service.js'
 import { accreditationEvidenceService, validateEvidenceFiles } from './services/accreditation-evidence-service.js'
+import { accreditationActionsService } from './services/accreditation-actions-service.js'
 import { policyDocumentService } from './services/policy-document-service.js'
 import { loadPrototypeState, savePrototypeState, resetPrototypeState } from './lib/persistence.js'
 import { validateSignup } from './lib/validation.js'
@@ -67,6 +68,7 @@ const ui = {
     comprehensive: null,
     comprehensiveLoading: false,
     missing: { data: null, loading: false, error: '' },
+    actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null },
     evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' },
   },
   lastFocused: null,
@@ -638,6 +640,94 @@ async function loadAccreditationMissing() {
   }
 }
 
+async function loadAccreditationActions() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId) return
+  ui.accreditation.actions.loading = true
+  ui.accreditation.actions.error = ''
+  render()
+  try {
+    const result = await accreditationActionsService.list({ cycleId })
+    ui.accreditation.actions.items = Array.isArray(result.items) ? result.items : []
+    ui.accreditation.actions.owners = Array.isArray(result.owners) ? result.owners : []
+    ui.accreditation.actions.summary = result.summary || {}
+    ui.accreditation.actions.loaded = true
+  } catch (error) {
+    ui.accreditation.actions.error = error?.message || 'Could not load accreditation actions.'
+  } finally {
+    ui.accreditation.actions.loading = false
+    render()
+  }
+}
+
+function openAccreditationActionEditor(prefill = {}) {
+  ui.accreditation.view = 'actions'
+  ui.accreditation.requirement = null
+  ui.accreditation.actions.error = ''
+  ui.accreditation.actions.editor = {
+    id: prefill.id || '',
+    title: prefill.title || '',
+    description: prefill.description || '',
+    priority: prefill.priority || 'MEDIUM',
+    ownerUserId: prefill.ownerUserId || '',
+    dueDate: prefill.dueDate || '',
+    status: prefill.status || 'OPEN',
+    requirementId: prefill.requirementId || '',
+    requirementIndicator: prefill.requirementIndicator || '',
+    requirementTitle: prefill.requirementTitle || '',
+    sourceReason: prefill.sourceReason || '',
+    completionNote: prefill.completionNote || '',
+    submitting: false,
+  }
+  render()
+}
+
+async function handleAccreditationActionForm(form) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId || !form || ui.accreditation.actions.editor?.submitting) return
+  const values = Object.fromEntries(new FormData(form).entries())
+  const actionId = String(values.actionId || '').trim()
+  const item = {
+    title: String(values.title || '').trim(),
+    description: String(values.description || '').trim(),
+    priority: String(values.priority || 'MEDIUM'),
+    ownerUserId: String(values.ownerUserId || ''),
+    dueDate: String(values.dueDate || ''),
+    status: String(values.status || 'OPEN'),
+    requirementId: String(values.requirementId || ''),
+    sourceReason: String(values.sourceReason || ''),
+    completionNote: String(values.completionNote || '').trim(),
+  }
+  ui.accreditation.actions.editor = { ...ui.accreditation.actions.editor, ...item, submitting: true }
+  ui.accreditation.actions.error = ''
+  render()
+  try {
+    if (actionId) {
+      await accreditationActionsService.update({ cycleId, actionId, patch: item })
+      showToast('Accreditation action updated')
+    } else {
+      await accreditationActionsService.create({ cycleId, action: item })
+      showToast('Accreditation action created')
+    }
+    ui.accreditation.actions.editor = null
+    const [actionsResult, missingResult] = await Promise.all([
+      accreditationActionsService.list({ cycleId }),
+      accreditationService.missing({ cycleId }),
+    ])
+    ui.accreditation.actions.items = Array.isArray(actionsResult.items) ? actionsResult.items : []
+    ui.accreditation.actions.owners = Array.isArray(actionsResult.owners) ? actionsResult.owners : []
+    ui.accreditation.actions.summary = actionsResult.summary || {}
+    ui.accreditation.actions.loaded = true
+    ui.accreditation.missing.data = missingResult
+    ui.accreditation.missing.error = ''
+  } catch (error) {
+    ui.accreditation.actions.error = error?.message || 'Could not save this accreditation action.'
+    ui.accreditation.actions.editor = { ...ui.accreditation.actions.editor, submitting: false }
+  } finally {
+    render()
+  }
+}
+
 async function loadAccreditationPracticeInformation() {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!appUser || !cycleId) return
@@ -984,7 +1074,7 @@ async function answerAccreditationQuestion(button) {
 async function openAccreditationRequirement(requirementId, returnView = ui.accreditation.view) {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!cycleId || !requirementId) return
-  ui.accreditation.requirementReturnView = returnView === 'missing' ? 'missing' : 'requirements'
+  ui.accreditation.requirementReturnView = ['missing', 'actions'].includes(returnView) ? returnView : 'requirements'
   ui.accreditation.loading = true
   ui.accreditation.error = ''
   render()
@@ -1193,6 +1283,7 @@ root.addEventListener('click', async (event) => {
     if (ui.accreditation.view === 'comprehensive') await loadAccreditationComprehensiveCheck()
     if (ui.accreditation.view === 'evidence') await loadAccreditationEvidence()
     if (ui.accreditation.view === 'missing') await loadAccreditationMissing()
+    if (ui.accreditation.view === 'actions') await loadAccreditationActions()
     return
   }
 
@@ -1231,7 +1322,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -1297,6 +1388,50 @@ root.addEventListener('click', async (event) => {
   if (action === 'accreditation-cancel-practice-information-edit') {
     ui.accreditation.practiceInformationEditing = false
     ui.accreditation.practiceInformationError = ''
+    render()
+    return
+  }
+
+  if (action === 'accreditation-new-action') {
+    openAccreditationActionEditor()
+    if (!ui.accreditation.actions.loaded) await loadAccreditationActions()
+    return
+  }
+  if (action === 'accreditation-create-action') {
+    openAccreditationActionEditor({
+      title: actionEl.dataset.requirementIndicator ? `Address ${actionEl.dataset.requirementIndicator} — ${actionEl.dataset.requirementTitle || 'accreditation follow-up'}` : 'Accreditation follow-up',
+      description: actionEl.dataset.description || '',
+      priority: actionEl.dataset.priority || 'MEDIUM',
+      requirementId: actionEl.dataset.requirementId || '',
+      requirementIndicator: actionEl.dataset.requirementIndicator || '',
+      requirementTitle: actionEl.dataset.requirementTitle || '',
+      sourceReason: actionEl.dataset.sourceReason || '',
+    })
+    if (!ui.accreditation.actions.loaded) await loadAccreditationActions()
+    return
+  }
+  if (action === 'accreditation-open-action') {
+    const actionId = String(actionEl.dataset.actionId || '')
+    ui.accreditation.view = 'actions'
+    ui.accreditation.requirement = null
+    if (!ui.accreditation.actions.loaded) await loadAccreditationActions()
+    const item = ui.accreditation.actions.items.find((entry) => entry.id === actionId)
+    if (item) openAccreditationActionEditor(item)
+    else {
+      ui.accreditation.actions.error = 'This accreditation action could not be found.'
+      render()
+    }
+    return
+  }
+  if (action === 'accreditation-edit-action') {
+    const actionId = String(actionEl.dataset.actionId || '')
+    const item = ui.accreditation.actions.items.find((entry) => entry.id === actionId)
+    if (item) openAccreditationActionEditor(item)
+    return
+  }
+  if (action === 'accreditation-cancel-action') {
+    ui.accreditation.actions.editor = null
+    ui.accreditation.actions.error = ''
     render()
     return
   }
@@ -1379,6 +1514,9 @@ root.addEventListener('submit', async (event) => {
   if (form.matches('[data-accreditation-evidence-upload-form]')) {
     event.preventDefault(); await handleAccreditationEvidenceUpload(form); return
   }
+  if (form.matches('[data-accreditation-action-form]')) {
+    event.preventDefault(); await handleAccreditationActionForm(form); return
+  }
 })
 
 root.addEventListener('input', (event) => {
@@ -1416,6 +1554,13 @@ root.addEventListener('change', (event) => {
   const evidenceInput = event.target.closest('input[name="evidenceFiles"]')
   if (evidenceInput) {
     handleEvidenceFileSelection(evidenceInput)
+    return
+  }
+  const actionFilter = event.target.closest('[data-accreditation-action-filter]')
+  if (actionFilter) {
+    const key = String(actionFilter.dataset.accreditationActionFilter || '')
+    if (['status','priority','owner'].includes(key)) ui.accreditation.actions.filters[key] = String(actionFilter.value || 'ALL')
+    render()
     return
   }
   const evidenceCategory = event.target.closest('[data-accreditation-evidence-upload-form] select[name="category"]')

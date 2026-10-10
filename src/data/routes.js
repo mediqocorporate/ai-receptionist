@@ -11,7 +11,7 @@ export const ACCREDITATION_SUBROUTES = [
   { view: 'requirements', label: 'Requirements', available: true },
   { view: 'evidence', label: 'Evidence', available: true },
   { view: 'missing', label: "What's Missing", available: true },
-  { view: 'actions', label: 'Actions', available: false },
+  { view: 'actions', label: 'Actions', available: true },
   { view: 'team', label: 'Team', available: false },
   { view: 'assistant', label: 'Ask Accreditation Assistant', available: false },
   { view: 'report', label: 'Readiness Report', available: false },
