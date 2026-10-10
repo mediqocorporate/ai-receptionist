@@ -14,7 +14,7 @@ function renderComposer({ loading = false } = {}) {
       <textarea name="question" maxlength="500" rows="1" aria-label="Ask Accreditation Assistant" placeholder="Ask about your accreditation readiness, gaps, evidence or next actions..." ${loading ? 'disabled' : ''}></textarea>
       <button class="send-button" type="submit" aria-label="Send accreditation question" ${loading ? 'disabled' : ''}>${loading ? '<span class="spinner"></span>' : icon('send', 20)}</button>
     </div>
-    <div class="composer-foot"><span class="accreditation-assistant-context-note">Uses saved readiness data and controlled accreditation sources. Uploaded file contents are not sent in this version.</span><span class="char-count">0/500</span></div>
+    <div class="composer-foot"><span class="accreditation-assistant-context-note">Uses your saved accreditation data and approved sources.</span><span class="char-count">0/500</span></div>
   </form>`
 }
 
@@ -74,12 +74,7 @@ function renderError(question = '', message = '') {
 }
 
 function renderRelatedRail(answer) {
-  if (!answer) {
-    return `<aside class="related-rail" aria-label="Accreditation assistant guidance">
-      <section class="rail-card"><div class="rail-heading">${icon('shield-check',20)}<strong>Practice context</strong></div><p class="rail-copy">Questions use the readiness facts, gaps, mapped evidence review status and outstanding actions saved for this practice.</p></section>
-      <section class="rail-card"><div class="rail-heading">${icon('notebook',20)}<strong>Resources</strong></div><p class="rail-copy">When an answer relies on accreditation guidance, MediQo links the controlled official sources used for that answer.</p></section>
-    </aside>`
-  }
+  if (!answer) return ''
   const questions = Array.isArray(answer.relatedQuestions) ? answer.relatedQuestions : []
   const resources = Array.isArray(answer.relatedResources) ? answer.relatedResources : []
   return `<aside class="related-rail" aria-label="Related accreditation information">
@@ -93,12 +88,23 @@ export function renderAccreditationAssistant(state = {}, { practiceName = 'Your 
   const latestAnswer = [...turns].reverse().find((turn) => turn?.answer)?.answer || null
   const hasConversation = turns.length || state.loading || (state.error && state.failedQuestion)
 
+  if (!hasConversation) {
+    return `<section class="accreditation-assistant-workspace accreditation-assistant-empty">
+      <section class="panel accreditation-assistant-intro">
+        <div class="accreditation-assistant-intro-copy">
+          <h2>What would you like to check?</h2>
+          <p>Ask about ${escapeHtml(practiceName)}’s requirements, gaps, evidence or outstanding actions.</p>
+        </div>
+        <div class="accreditation-assistant-empty-composer">${renderComposer()}</div>
+        <div class="accreditation-assistant-suggestions" aria-label="Suggested accreditation questions">
+          <span>Try asking</span>
+          <div>${SUGGESTIONS.map((question) => `<button type="button" class="secondary-button" data-accreditation-assistant-suggestion="${escapeHtml(question)}">${escapeHtml(question)}</button>`).join('')}</div>
+        </div>
+      </section>
+    </section>`
+  }
+
   return `<section class="accreditation-assistant-workspace">
-    ${!hasConversation ? `<section class="panel accreditation-assistant-intro">
-      <span class="future-icon">${icon('message-circle',22)}</span>
-      <div><span class="eyebrow">PRACTICE-SPECIFIC ACCREDITATION Q&A</span><h2>Ask about ${escapeHtml(practiceName)}’s accreditation readiness</h2><p>MediQo can explain what is known, what still needs checking, and practical next steps using the accreditation information already saved for this practice.</p></div>
-      <div class="accreditation-assistant-suggestions">${SUGGESTIONS.map((question) => `<button type="button" class="secondary-button" data-accreditation-assistant-suggestion="${escapeHtml(question)}">${escapeHtml(question)}</button>`).join('')}</div>
-    </section>` : ''}
     <div class="accreditation-assistant-grid">
       <div class="accreditation-assistant-main">${turns.map(renderTurn).join('')}${state.loading ? renderPending(state.pendingQuestion || '') : ''}${!state.loading ? renderError(state.failedQuestion || '', state.error || '') : ''}</div>
       ${renderRelatedRail(latestAnswer)}
