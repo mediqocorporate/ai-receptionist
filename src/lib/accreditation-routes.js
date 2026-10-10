@@ -7,6 +7,7 @@ const VIEW_PATHS = Object.freeze({
   missing: '/accreditation/missing',
   actions: '/accreditation/actions',
   assistant: '/accreditation/assistant',
+  report: '/accreditation/report',
   'practice-information': '/accreditation/practice-information',
   explore: '/accreditation/explore',
   setup: '/accreditation/setup',
