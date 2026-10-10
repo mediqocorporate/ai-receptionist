@@ -208,3 +208,34 @@ test('accreditation adapter uses only server-approved source ids and returns lin
   assert.deepEqual(result.answer.relatedResources, [resources[0]])
   assert.equal(result.answer.recommendation, null)
 })
+
+
+test('accreditation adapter supports a larger output budget for long review responses', async () => {
+  const mod = await import('../netlify/functions/_shared/openai.mjs')
+  let request
+  const fetchImpl = async (_url, options) => {
+    request = JSON.parse(options.body)
+    return new Response(JSON.stringify({
+      id: 'resp_long_review',
+      status: 'completed',
+      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({
+        intro: 'Review summary.',
+        sections: [{ title: 'Priority next actions', body: 'Address the confirmed gap.', items: [] }],
+        risk: false,
+        relatedQuestions: [],
+        sourceIds: [],
+      }) }] }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+
+  await mod.createAccreditationAnswer({
+    apiKey: 'example-key',
+    question: 'Run the readiness review',
+    context: {},
+    resources: [],
+    maxOutputTokens: 4000,
+    fetchImpl,
+  })
+
+  assert.equal(request.max_output_tokens, 4000)
+})
