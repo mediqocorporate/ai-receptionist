@@ -15,6 +15,14 @@ const CATEGORY_VALUES = new Set([
   'OTHER',
 ])
 
+const REVIEW_STATUS_VALUES = new Set([
+  'SUFFICIENT_FOR_REVIEW',
+  'INCOMPLETE',
+  'OUTDATED',
+  'CONFLICTING',
+  'MORE_INFORMATION_REQUIRED',
+])
+
 const TYPE_BY_EXTENSION = Object.freeze({
   pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -133,6 +141,34 @@ export function createAccreditationEvidenceHandler({
           requirementId,
         })
         return jsonResponse(200, { link })
+      }
+
+      if (body.action === 'review') {
+        const evidenceId = String(body.evidenceId || '').trim()
+        const requirementId = String(body.requirementId || '').trim()
+        const reviewStatus = String(body.reviewStatus || '').trim()
+        const reason = String(body.reason || '').trim()
+        const recommendedAction = String(body.recommendedAction || '').trim()
+        if (!evidenceId || !requirementId) {
+          return jsonResponse(400, { code: 'review_mapping_required', message: 'Choose mapped evidence and a requirement to review.' })
+        }
+        if (!REVIEW_STATUS_VALUES.has(reviewStatus)) {
+          return jsonResponse(400, { code: 'invalid_review_status', message: 'Choose a valid evidence review status.' })
+        }
+        if (!reason) {
+          return jsonResponse(400, { code: 'review_reason_required', message: 'Explain why you chose this review status.' })
+        }
+        const assessment = await server.reviewAccreditationEvidence({
+          practiceId: actor.practiceId,
+          cycleId: cycle.id,
+          evidenceId,
+          requirementId,
+          userId: actor.userId,
+          reviewStatus,
+          reason,
+          recommendedAction,
+        })
+        return jsonResponse(200, { assessment })
       }
 
       if (body.action === 'supersede') {
