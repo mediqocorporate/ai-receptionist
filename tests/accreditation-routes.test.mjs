@@ -160,3 +160,32 @@ test('app keeps Accreditation Assistant questions inside the accreditation works
   assert.match(appSource, /data-accreditation-assistant-form/)
   assert.doesNotMatch(appSource, /ask-accreditation'\) \{ navigate\('\/'\); await submitQuestion/)
 })
+
+
+test('Accreditation Assistant empty state is compact and hides explanatory resource rails until an answer exists', () => {
+  const overview = {
+    cycle: { id: 'c1', targetAssessmentDate: null },
+    standardVersion: { name: 'RACGP Standards for general practices', edition: '5th edition' },
+    coverage: { answered: 3, total: 20, percent: 15 },
+    assessmentCoverage: { assessed: 4, total: 51, percent: 8 },
+    readiness: { appearsReady: 0, assessed: 4, percent: 0 },
+    statusCounts: { APPEARS_READY: 0, NEEDS_ATTENTION: 2, CONFIRMED_GAP: 1, NOT_CHECKED: 121 },
+    requirements: [],
+  }
+
+  const html = renderAccreditationPage({
+    view: 'assistant',
+    overview,
+    assistant: { turns: [], loading: false, error: '', pendingQuestion: '', failedQuestion: '' },
+  }, { signedIn: true, practiceName: 'Test Medical Centre' })
+
+  assert.match(html, /data-accreditation-assistant-form/)
+  assert.match(html, /Uses your saved accreditation data and approved sources\./)
+  assert.doesNotMatch(html, /Uploaded file contents are not sent in this version\./)
+  assert.doesNotMatch(html, />Practice context</)
+  assert.doesNotMatch(html, />Resources</)
+
+  const composerIndex = html.indexOf('data-accreditation-assistant-form')
+  const suggestionsIndex = html.indexOf('data-accreditation-assistant-suggestion')
+  assert.ok(composerIndex >= 0 && suggestionsIndex > composerIndex)
+})
