@@ -56,6 +56,7 @@ const ui = {
     filter: 'ALL',
     overview: null,
     requirement: null,
+    requirementReturnView: 'requirements',
     exploreStep: 0,
     setup: { step: 1, values: {}, submitting: false, error: '', complete: false },
     practiceInformation: null,
@@ -980,9 +981,10 @@ async function answerAccreditationQuestion(button) {
   }
 }
 
-async function openAccreditationRequirement(requirementId) {
+async function openAccreditationRequirement(requirementId, returnView = ui.accreditation.view) {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!cycleId || !requirementId) return
+  ui.accreditation.requirementReturnView = returnView === 'missing' ? 'missing' : 'requirements'
   ui.accreditation.loading = true
   ui.accreditation.error = ''
   render()
@@ -1210,7 +1212,7 @@ root.addEventListener('click', async (event) => {
 
   const accreditationRequirement = event.target.closest('[data-accreditation-requirement]')
   if (accreditationRequirement) {
-    await openAccreditationRequirement(accreditationRequirement.dataset.accreditationRequirement)
+    await openAccreditationRequirement(accreditationRequirement.dataset.accreditationRequirement, accreditationRequirement.dataset.accreditationReturnView || ui.accreditation.view)
     return
   }
 
@@ -1229,7 +1231,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
