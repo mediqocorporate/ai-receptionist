@@ -709,7 +709,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       })
     },
 
-    async listAccreditationActions({ practiceId, cycleId }) {
+    async listAccreditationActions({ practiceId, cycleId, today = new Date().toISOString().slice(0, 10) }) {
       const [actionRows, membershipRows] = await Promise.all([
         table(
           `accreditation_actions?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&order=due_date.asc.nullslast,created_at.asc`
@@ -750,7 +750,6 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           jobTitle: profile.job_title || '',
         }
       })
-      const today = new Date().toISOString().slice(0, 10)
       const items = actions.map((row) => {
         const profile = profiles.get(row.owner_user_id) || {}
         const requirement = requirements.get(row.requirement_id) || {}
