@@ -10,10 +10,18 @@ async function bearerToken(clientProvider) {
   return token
 }
 
+function localDateString(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function createAccreditationActionsService({
   config = integrationConfig,
   clientProvider = getSupabaseClient,
   fetchImpl = fetch,
+  now = () => new Date(),
 } = {}) {
   const endpoint = String(config.accreditationActionsApiUrl || '/api/accreditation-actions').trim()
 
@@ -45,7 +53,7 @@ export function createAccreditationActionsService({
     },
 
     async list({ cycleId }) {
-      const body = await request({ action: 'list', cycleId })
+      const body = await request({ action: 'list', cycleId, localDate: localDateString(now()) })
       return body.actions || { items: [], owners: [], summary: {} }
     },
 

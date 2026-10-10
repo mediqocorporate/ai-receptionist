@@ -119,6 +119,7 @@ export function createAccreditationActionsHandler({
         const actions = await server.listAccreditationActions({
           practiceId: actor.practiceId,
           cycleId: cycle.id,
+          today: cleanDate(body.localDate) || undefined,
         })
         return jsonResponse(200, { actions, cycleId: cycle.id })
       }
