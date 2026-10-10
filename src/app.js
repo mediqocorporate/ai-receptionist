@@ -1410,6 +1410,19 @@ root.addEventListener('click', async (event) => {
     if (!ui.accreditation.actions.loaded) await loadAccreditationActions()
     return
   }
+  if (action === 'accreditation-open-action') {
+    const actionId = String(actionEl.dataset.actionId || '')
+    ui.accreditation.view = 'actions'
+    ui.accreditation.requirement = null
+    if (!ui.accreditation.actions.loaded) await loadAccreditationActions()
+    const item = ui.accreditation.actions.items.find((entry) => entry.id === actionId)
+    if (item) openAccreditationActionEditor(item)
+    else {
+      ui.accreditation.actions.error = 'This accreditation action could not be found.'
+      render()
+    }
+    return
+  }
   if (action === 'accreditation-edit-action') {
     const actionId = String(actionEl.dataset.actionId || '')
     const item = ui.accreditation.actions.items.find((entry) => entry.id === actionId)
