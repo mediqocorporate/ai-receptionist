@@ -187,3 +187,41 @@ test('app validates file selection immediately, clears stale errors and hardens 
 test('hidden evidence upload errors do not render as an empty red bar', () => {
   assert.match(stylesSource, /\.accreditation-inline-error\[hidden\]\s*\{[^}]*display:\s*none/i)
 })
+
+
+test('mapped evidence exposes explicit human review controls and per-requirement review results without changing readiness', () => {
+  const html = renderAccreditationEvidence({
+    loaded: true,
+    items: [{
+      id: 'e1',
+      title: 'Patient record audit',
+      originalFilename: 'audit.pdf',
+      category: 'AUDIT_REPORT',
+      status: 'ACTIVE',
+      mappings: [{ requirementId: 'R1' }],
+      assessments: [{
+        id: 'a1',
+        requirementId: 'R1',
+        reviewStatus: 'INCOMPLETE',
+        reason: 'Two records are missing.',
+        recommendedAction: 'Complete the sample and review again.',
+      }],
+    }],
+  }, { requirements })
+  assert.match(html, /Review against a requirement/i)
+  assert.match(html, /data-accreditation-evidence-review-form/)
+  assert.match(html, /name="reviewStatus"/)
+  assert.match(html, /Sufficient for review/i)
+  assert.match(html, /Incomplete/i)
+  assert.match(html, /Outdated/i)
+  assert.match(html, /More information required/i)
+  assert.match(html, /Two records are missing/i)
+  assert.match(html, /Complete the sample and review again/i)
+  assert.doesNotMatch(html, /Appears Ready/i)
+})
+
+test('app saves evidence reviews through the live service and refreshes evidence afterwards', () => {
+  assert.match(appSource, /accreditationEvidenceService.review(/)
+  assert.match(appSource, /data-accreditation-evidence-review-form/)
+  assert.match(appSource, /Evidence review saved/i)
+})
