@@ -366,6 +366,115 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       }))
     },
 
+    async listAccreditationReadinessReports({ practiceId, cycleId }) {
+      const rows = await table(
+        `accreditation_readiness_reports?select=id,snapshot_id,title,generated_by_user_id,generated_at&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&order=generated_at.desc`
+      )
+      const reports = Array.isArray(rows) ? rows : []
+      const snapshotIds = [...new Set(reports.map((row) => row.snapshot_id).filter(Boolean))]
+      const userIds = [...new Set(reports.map((row) => row.generated_by_user_id).filter(Boolean))]
+      let snapshots = []
+      let profiles = []
+      if (snapshotIds.length) {
+        snapshots = await table(
+          `accreditation_review_snapshots?select=id,coverage_percent,status_counts&id=in.(${snapshotIds.map((id) => encodeURIComponent(id)).join(',')})&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`
+        )
+      }
+      if (userIds.length) {
+        profiles = await table(`profiles?select=id,first_name,last_name&id=in.(${userIds.map((id) => encodeURIComponent(id)).join(',')})`)
+      }
+      const snapshotMap = new Map((Array.isArray(snapshots) ? snapshots : []).map((row) => [row.id, row]))
+      const profileMap = new Map((Array.isArray(profiles) ? profiles : []).map((row) => [row.id, row]))
+      return reports.map((row) => {
+        const snapshot = snapshotMap.get(row.snapshot_id) || {}
+        const profile = profileMap.get(row.generated_by_user_id) || {}
+        return {
+          id: row.id,
+          title: row.title || 'Accreditation Readiness Report',
+          generatedAt: row.generated_at,
+          coveragePercent: Number(snapshot.coverage_percent || 0),
+          statusCounts: snapshot.status_counts || {},
+          generatedBy: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+        }
+      })
+    },
+
+    async getAccreditationReadinessReport({ practiceId, cycleId, reportId }) {
+      const rows = await table(
+        `accreditation_readiness_reports?select=*&id=eq.${encodeURIComponent(reportId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&limit=1`
+      )
+      const report = Array.isArray(rows) ? rows[0] : rows
+      if (!report) throw new Error('accreditation_readiness_report_not_found')
+      const snapshotRows = await table(
+        `accreditation_review_snapshots?select=*&id=eq.${encodeURIComponent(report.snapshot_id)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&limit=1`
+      )
+      const snapshot = Array.isArray(snapshotRows) ? snapshotRows[0] : snapshotRows
+      if (!snapshot) throw new Error('accreditation_readiness_report_not_found')
+      return {
+        id: report.id,
+        title: report.title || 'Accreditation Readiness Report',
+        generatedAt: report.generated_at,
+        reportPayload: report.report_payload || {},
+        limitations: report.limitations || [],
+        sources: report.report_payload?.sources || [],
+        snapshotPayload: snapshot.snapshot_payload || {},
+        coveragePercent: Number(snapshot.coverage_percent || 0),
+        statusCounts: snapshot.status_counts || {},
+      }
+    },
+
+    async saveAccreditationReadinessReport({ practiceId, cycleId, userId, snapshot = {}, report = {}, limitations = [], sources = [] }) {
+      const createdSnapshots = await table('accreditation_review_snapshots', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: [{
+          practice_id: practiceId,
+          cycle_id: cycleId,
+          created_by_user_id: userId,
+          snapshot_payload: snapshot,
+          coverage_percent: Number(snapshot.assessmentCoverage?.percent || 0),
+          status_counts: snapshot.statusCounts || {},
+        }],
+      })
+      const snapshotRow = Array.isArray(createdSnapshots) ? createdSnapshots[0] : createdSnapshots
+      if (!snapshotRow?.id) throw new Error('accreditation_readiness_snapshot_save_failed')
+
+      try {
+        const payload = { ...report, sources }
+        const createdReports = await table('accreditation_readiness_reports', {
+          method: 'POST',
+          headers: { Prefer: 'return=representation' },
+          body: [{
+            practice_id: practiceId,
+            cycle_id: cycleId,
+            snapshot_id: snapshotRow.id,
+            title: 'Accreditation Readiness Report',
+            report_payload: payload,
+            limitations,
+            generated_by_user_id: userId,
+          }],
+        })
+        const reportRow = Array.isArray(createdReports) ? createdReports[0] : createdReports
+        return {
+          id: reportRow?.id,
+          title: reportRow?.title || 'Accreditation Readiness Report',
+          generatedAt: reportRow?.generated_at || new Date().toISOString(),
+          reportPayload: payload,
+          limitations,
+          sources,
+          snapshotPayload: snapshot,
+          coveragePercent: Number(snapshot.assessmentCoverage?.percent || 0),
+          statusCounts: snapshot.statusCounts || {},
+        }
+      } catch (error) {
+        await table(
+          `accreditation_review_snapshots?id=eq.${encodeURIComponent(snapshotRow.id)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`,
+          { method: 'DELETE', headers: { Prefer: 'return=minimal' } },
+        ).catch(() => null)
+        throw error
+      }
+    },
+
     async getAccreditationOverview({ practiceId, cycleId }) {
       const [cycleRows, standardRows, requirementRows, questionRows, optionRows, evidenceLinkRows, assessmentRows, responseRows, profileRows] = await Promise.all([
         table(
