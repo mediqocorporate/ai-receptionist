@@ -946,3 +946,33 @@ button.accreditation-status-card:focus-visible { outline: 2px solid #8a55ea; out
 .action-form-actions{display:flex;justify-content:flex-end;margin-top:12px}
 @media(max-width:900px){.actions-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.actions-toolbar,.actions-intro{align-items:stretch;flex-direction:column}.actions-filters{justify-content:flex-start}.action-card-top{align-items:stretch;flex-direction:column}.action-badges{justify-content:flex-start}}
 @media(max-width:620px){.actions-summary-grid{grid-template-columns:1fr}.accreditation-action-form{grid-template-columns:1fr}.accreditation-action-form .span-2{grid-column:auto}.action-card-actions,.missing-item-actions{align-items:stretch;flex-direction:column;margin-left:0}.action-card-actions button,.missing-item-actions button{width:100%;justify-content:center}.actions-filters{display:grid;grid-template-columns:1fr;width:100%}.actions-filters label{min-width:0}.action-form-actions .primary-button{width:100%;justify-content:center}}
+
+
+/* Accreditation Assistant Q&A */
+.accreditation-assistant-workspace{display:flex;flex-direction:column;gap:18px}
+.accreditation-assistant-empty{max-width:980px}
+.accreditation-assistant-intro{padding:22px 24px;display:flex;flex-direction:column;gap:15px}
+.accreditation-assistant-intro-copy h2{margin:0 0 5px;color:var(--heading);font-size:19px}
+.accreditation-assistant-intro-copy p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.accreditation-assistant-empty-composer{max-width:900px}
+.accreditation-assistant-suggestions{display:flex;flex-direction:column;gap:8px}
+.accreditation-assistant-suggestions>span{color:#8490a4;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.accreditation-assistant-suggestions>div{display:flex;flex-wrap:wrap;gap:7px}
+.accreditation-assistant-suggestions .secondary-button{min-height:34px;padding:7px 10px;font-size:10.5px;font-weight:500}
+.accreditation-assistant-grid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:24px;align-items:start}
+.accreditation-assistant-main{min-width:0;min-height:120px}
+.accreditation-assistant-main .conversation-turn{padding-bottom:18px;margin-bottom:18px}
+.accreditation-assistant-composer-wrap{max-width:980px}
+.accreditation-assistant-context-note{color:#7c89a0;font-size:10px;line-height:1.35;padding-right:14px}
+.accreditation-assistant-composer-wrap .composer-foot,.accreditation-assistant-empty-composer .composer-foot{justify-content:space-between}
+.accreditation-assistant-composer-wrap .char-count,.accreditation-assistant-empty-composer .char-count{margin-left:auto}
+@media (max-width: 900px){
+  .accreditation-assistant-grid{grid-template-columns:1fr}
+  .accreditation-assistant-grid .related-rail{position:static}
+}
+@media (max-width: 640px){
+  .accreditation-assistant-intro{padding:18px}
+  .accreditation-assistant-suggestions>div{display:grid;grid-template-columns:1fr}
+  .accreditation-assistant-suggestions .secondary-button{width:100%;justify-content:flex-start;text-align:left}
+  .accreditation-assistant-context-note{display:none}
+}

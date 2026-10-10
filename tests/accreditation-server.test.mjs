@@ -155,3 +155,56 @@ test('overview selects the next question from P1 requirement priority even if qu
   assert.equal(overview.nextQuestion?.id, 'Q1')
   assert.equal(overview.nextQuestion?.priority, 'P1')
 })
+
+
+test('accreditation sources expose only controlled source metadata for assistant citations', async () => {
+  let calledUrl = ''
+  const server = createSupabaseServer({
+    env,
+    fetchImpl: async (url) => {
+      calledUrl = url
+      return json([{
+        id: 'SRC-001',
+        publisher: 'RACGP',
+        title: 'Standards for general practices (5th edition)',
+        current_use: 'Controlled accreditation source',
+        url: 'https://www.racgp.org.au/standards',
+        used_for: 'Indicator content',
+        verification: 'Checked 7 Oct 2026',
+      }])
+    },
+  })
+  assert.equal(typeof server.listAccreditationSources, 'function')
+  const sources = await server.listAccreditationSources()
+  assert.match(calledUrl, /accreditation_sources\?select=/)
+  assert.deepEqual(sources, [{
+    id: 'SRC-001',
+    publisher: 'RACGP',
+    title: 'Standards for general practices (5th edition)',
+    currentUse: 'Controlled accreditation source',
+    url: 'https://www.racgp.org.au/standards',
+    usedFor: 'Indicator content',
+    verification: 'Checked 7 Oct 2026',
+  }])
+})
+
+
+test('overview exposes known facts and potential gaps for contextual accreditation guidance', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('accreditation_cycles?')) return json([{ id: 'c1', practice_id: 'p1', standard_version_id: 'RACGP5', status: 'ACTIVE', started_at: '2026-10-09T00:00:00Z' }])
+    if (url.includes('accreditation_standard_versions?')) return json([{ id: 'RACGP5', code: 'RACGP5', name: 'RACGP Standards for general practices', edition: '5th edition', workspace_type: 'CURRENT' }])
+    if (url.includes('accreditation_requirements?')) return json([{ id: 'R1', indicator: 'C7.1C', criterion_description: 'Emergency response', plain_english_requirement: 'Maintain an emergency response process.', classification: 'MANDATORY', quick_check_priority: 'P1', critical_safety_area: true }])
+    if (url.includes('accreditation_questions?')) return json([])
+    if (url.includes('accreditation_answer_options?')) return json([])
+    if (url.includes('accreditation_evidence_requirement_links?')) return json([])
+    if (url.includes('accreditation_practice_profiles?')) return json([])
+    if (url.includes('practice_requirements?')) return json([{ requirement_id: 'R1', applicability_status: 'APPLICABLE', readiness_status: 'NEEDS_ATTENTION', verification_status: 'USER_REPORTED', known_facts: ['Emergency kit exists'], unknown_facts: ['Review date not confirmed'], potential_gaps: ['Approval evidence may be missing'], confirmed_gaps: [], recommended_actions: ['Confirm approval evidence'], last_assessed_at: '2026-10-09T00:00:00Z' }])
+    if (url.includes('readiness_responses?')) return json([])
+    throw new Error(`unexpected ${url}`)
+  }
+
+  const server = createSupabaseServer({ env, fetchImpl })
+  const overview = await server.getAccreditationOverview({ practiceId: 'p1', cycleId: 'c1' })
+  assert.deepEqual(overview.requirements[0].knownFacts, ['Emergency kit exists'])
+  assert.deepEqual(overview.requirements[0].potentialGaps, ['Approval evidence may be missing'])
+})

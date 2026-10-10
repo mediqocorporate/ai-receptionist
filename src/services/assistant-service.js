@@ -33,11 +33,14 @@ export function createAssistantService({
 
       const headers = { 'Content-Type': 'application/json' }
       if (token) headers.Authorization = `Bearer ${token}`
+      const requestBody = { question: cleanQuestion, conversationId: context.conversationId || null }
+      if (String(context.mode || '').trim()) requestBody.mode = String(context.mode).trim()
+      if (requestBody.mode === 'accreditation' && String(context.cycleId || '').trim()) requestBody.cycleId = String(context.cycleId).trim()
       const response = await fetchImpl(config.assistantApiUrl, {
         method: 'POST',
         credentials: 'include',
         headers,
-        body: JSON.stringify({ question: cleanQuestion, conversationId: context.conversationId || null }),
+        body: JSON.stringify(requestBody),
       })
       const body = await response.json().catch(() => ({}))
 

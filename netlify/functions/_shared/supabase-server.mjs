@@ -353,6 +353,19 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       return Array.isArray(rows) ? rows[0] : rows
     },
 
+    async listAccreditationSources() {
+      const rows = await table('accreditation_sources?select=id,publisher,title,current_use,url,used_for,verification&order=id.asc')
+      return (Array.isArray(rows) ? rows : []).map((row) => ({
+        id: row.id,
+        publisher: row.publisher,
+        title: row.title,
+        currentUse: row.current_use,
+        url: row.url,
+        usedFor: row.used_for,
+        verification: row.verification,
+      }))
+    },
+
     async getAccreditationOverview({ practiceId, cycleId }) {
       const [cycleRows, standardRows, requirementRows, questionRows, optionRows, evidenceLinkRows, assessmentRows, responseRows, profileRows] = await Promise.all([
         table(
@@ -515,7 +528,9 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
           readinessStatus: state.readinessStatus || 'NOT_CHECKED',
           verificationStatus: state.verificationStatus || null,
           statusReason: state.statusReason || '',
+          knownFacts: Array.isArray(state.knownFacts) ? state.knownFacts : [],
           unknownFacts: Array.isArray(state.unknownFacts) ? state.unknownFacts : [],
+          potentialGaps: Array.isArray(state.potentialGaps) ? state.potentialGaps : [],
           confirmedGaps: Array.isArray(state.confirmedGaps) ? state.confirmedGaps : [],
           recommendedActions: Array.isArray(state.recommendedActions) ? state.recommendedActions : [],
           assessmentInformative: informativeResponseIds.has(requirement.id),

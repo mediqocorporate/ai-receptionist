@@ -71,6 +71,7 @@ const ui = {
     comprehensiveLoading: false,
     missing: { data: null, loading: false, error: '' },
     actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null },
+    assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null },
     evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' },
   },
   lastFocused: null,
@@ -245,6 +246,40 @@ function navigate(target) {
   window.scrollTo({ top: 0, behavior: 'auto' })
   if (accreditationRoute && appUser) void loadAccreditationRoute()
   if (ui.path === '/policies' && appUser) void loadPolicyDocuments()
+}
+
+async function submitAccreditationAssistantQuestion(rawQuestion) {
+  const question = String(rawQuestion || '').trim()
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  const state = ui.accreditation.assistant
+  if (!question || !appUser || !cycleId || state.loading) return
+
+  const askedAt = new Date().toISOString()
+  state.loading = true
+  state.error = ''
+  state.failedQuestion = ''
+  state.pendingQuestion = question
+  state.pendingAskedAt = askedAt
+  render()
+
+  try {
+    const result = await assistantService.ask(question, {
+      conversationId: state.conversationId,
+      mode: 'accreditation',
+      cycleId,
+    })
+    if (!result?.answer) throw new Error('MediQo could not prepare an accreditation answer. Please try again.')
+    if (result.conversationId) state.conversationId = result.conversationId
+    state.turns.push({ question, answer: result.answer, askedAt })
+    state.turns = state.turns.slice(-20)
+  } catch (error) {
+    state.error = error?.message || 'MediQo could not prepare an accreditation answer. Please try again.'
+    state.failedQuestion = question
+  } finally {
+    state.loading = false
+    state.pendingQuestion = ''
+    render()
+  }
 }
 
 async function submitQuestion(rawQuestion) {
@@ -1303,6 +1338,18 @@ root.addEventListener('click', async (event) => {
     return
   }
 
+  const accreditationSuggestion = event.target.closest('[data-accreditation-assistant-suggestion]')
+  if (accreditationSuggestion) {
+    await submitAccreditationAssistantQuestion(accreditationSuggestion.dataset.accreditationAssistantSuggestion)
+    return
+  }
+
+  const accreditationRelated = event.target.closest('[data-accreditation-related-question]')
+  if (accreditationRelated) {
+    await submitAccreditationAssistantQuestion(accreditationRelated.dataset.accreditationRelatedQuestion)
+    return
+  }
+
   const suggestion = event.target.closest('[data-suggestion]')
   if (suggestion) {
     await submitQuestion(suggestion.dataset.suggestion)
@@ -1539,7 +1586,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-dialog') { closeDialog(); return }
   if (action === 'save-answer') { saveCurrentAnswer(actionEl.dataset.answerId); return }
   if (action === 'retry-question') { if (ui.failedQuestion) { const question = ui.failedQuestion; ui.failedQuestion = ''; ui.error = ''; await submitQuestion(question) } return }
-  if (action === 'ask-accreditation') { navigate('/'); await submitQuestion('For accreditation, what certificates do I need from our doctors?'); return }
+  if (action === 'ask-accreditation') { navigate(accreditationPathForView('assistant')); return }
   if (action === 'create-document') { if (!appUser) { openDialog('login', { values: {}, submitting: false, serverError: 'Sign in to create and save practice documents.' }); return } openDialog('document', { templateId: null, values: defaultDocumentValues(), generated: false, draft: null, submitting: false, serverError: '' }); return }
   if (action === 'back-wizard') { ui.dialogData.generated = false; ui.dialogData.submitting = false; ui.dialogData.serverError = ''; render({focusDialog:true}); return }
   if (action === 'save-draft') { await savePolicyDraft(); return }
@@ -1563,6 +1610,12 @@ root.addEventListener('click', async (event) => {
 
 root.addEventListener('submit', async (event) => {
   const form = event.target
+  if (form.matches('[data-accreditation-assistant-form]')) {
+    event.preventDefault()
+    const textarea = form.querySelector('textarea[name="question"]')
+    await submitAccreditationAssistantQuestion(textarea?.value || '')
+    return
+  }
   if (form.matches('[data-chat-form]')) {
     event.preventDefault()
     const textarea = form.querySelector('textarea[name="question"]')
