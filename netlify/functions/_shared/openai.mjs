@@ -163,7 +163,6 @@ export async function createMediQoAnswer({
   question,
   safetyIdentifier,
   reasoningEffort,
-  maxOutputTokens,
   timeoutMs = INTERACTIVE_OPENAI_TIMEOUT_MS,
   fetchImpl = fetch,
 }) {
