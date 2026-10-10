@@ -219,6 +219,9 @@ test('Supabase server creates and updates only cycle-scoped action rows and keep
     if (request.url.includes('/rest/v1/accreditation_requirements?')) {
       return response(200, [{ id: 'R1', indicator: 'C7.1C', criterion_description: 'Content of patient health records' }])
     }
+    if (request.url.includes('/rest/v1/accreditation_actions?select=id,status') && request.method === 'GET') {
+      return response(200, [])
+    }
     if (request.url.includes('/rest/v1/accreditation_actions?') && request.method === 'GET') {
       return response(200, [{ id: 'a1', practice_id: 'p1', cycle_id: 'c1', status: 'OPEN', title: 'Fix gap' }])
     }
