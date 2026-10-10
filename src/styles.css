@@ -845,6 +845,22 @@ button.accreditation-status-card:focus-visible { outline: 2px solid #8a55ea; out
 .evidence-map-chip{display:inline-flex;border-radius:999px;padding:5px 8px;background:#f1ebff;color:#6d2ddd;font-size:10px;font-weight:700}
 .evidence-map-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;padding:14px 0;border-top:1px solid var(--line)}
 .evidence-map-controls label{display:grid;gap:6px}
+.evidence-review-controls{border-top:1px solid var(--line);padding:16px 0;display:grid;gap:12px}
+.evidence-review-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.evidence-review-heading .label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#75829a;margin-bottom:4px}
+.evidence-review-heading h4{margin:0;color:var(--heading);font-size:14px}
+.evidence-review-heading p{max-width:520px;margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+.evidence-review-list{display:grid;gap:10px}
+.evidence-review-form{display:grid;grid-template-columns:minmax(160px,.55fr) minmax(220px,1fr) minmax(220px,1fr) auto;gap:10px;align-items:end;padding:12px;border:1px solid #e5e9f0;border-radius:10px;background:#fbfcfe}
+.evidence-review-form-heading{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:2px}
+.evidence-review-form-heading strong{color:var(--heading);font-size:12px}
+.evidence-review-form label{display:grid;gap:6px;color:var(--heading);font-size:11px;font-weight:700}
+.evidence-review-form label small{color:var(--muted);font-weight:500}
+.evidence-review-form select,.evidence-review-form textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--heading);font:inherit;padding:9px 10px}
+.evidence-review-form select{min-height:42px}
+.evidence-review-form textarea{min-height:64px;resize:vertical;line-height:1.4}
+.evidence-review-submit{display:flex;align-items:flex-end}
+.evidence-review-submit .secondary-button{white-space:nowrap}
 .evidence-item-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding-top:4px}
 .evidence-supersede{color:#6c7890}
 .accreditation-empty-state{padding:26px;text-align:center}
@@ -852,10 +868,10 @@ button.accreditation-status-card:focus-visible { outline: 2px solid #8a55ea; out
 .accreditation-empty-state p{margin:0;color:var(--muted)}
 
 @media (max-width: 860px){
-  .evidence-upload-row,.evidence-item-grid{grid-template-columns:1fr}
+  .evidence-upload-row,.evidence-item-grid,.evidence-review-form{grid-template-columns:1fr}
   .evidence-map-controls{grid-template-columns:1fr}
-  .evidence-upload-footer,.evidence-item-heading,.evidence-list-heading{align-items:stretch;flex-direction:column}
-  .evidence-upload-footer .primary-button,.evidence-map-controls .secondary-button{width:100%;justify-content:center}
+  .evidence-upload-footer,.evidence-item-heading,.evidence-list-heading,.evidence-review-heading{align-items:stretch;flex-direction:column}
+  .evidence-upload-footer .primary-button,.evidence-map-controls .secondary-button,.evidence-review-submit .secondary-button{width:100%;justify-content:center}
   .evidence-item-statuses{justify-content:flex-start}
 }
 

@@ -183,3 +183,34 @@ test('uploadBatch reports real aggregate progress while signed uploads are in fl
   assert.equal(progress.some((entry) => entry.percent === 25 && entry.currentFileIndex === 1), true)
   assert.equal(progress.some((entry) => entry.percent === 75 && entry.currentFileIndex === 2), true)
 })
+
+
+test('evidence service records a human review through the authenticated evidence endpoint', async () => {
+  let sent
+  const service = createAccreditationEvidenceService({
+    clientProvider: async () => client(),
+    fetchImpl: async (_url, init) => {
+      sent = { body: JSON.parse(init.body), auth: init.headers.Authorization }
+      return response(200, { assessment: { id: 'a1', reviewStatus: 'MORE_INFORMATION_REQUIRED' } })
+    },
+  })
+  const assessment = await service.review({
+    cycleId: 'c1',
+    evidenceId: 'e1',
+    requirementId: 'R1',
+    reviewStatus: 'MORE_INFORMATION_REQUIRED',
+    reason: 'The document does not show the review approval.',
+    recommendedAction: 'Confirm approval and upload the signed version.',
+  })
+  assert.equal(assessment.id, 'a1')
+  assert.equal(sent.auth, 'Bearer jwt')
+  assert.deepEqual(sent.body, {
+    action: 'review',
+    cycleId: 'c1',
+    evidenceId: 'e1',
+    requirementId: 'R1',
+    reviewStatus: 'MORE_INFORMATION_REQUIRED',
+    reason: 'The document does not show the review approval.',
+    recommendedAction: 'Confirm approval and upload the signed version.',
+  })
+})

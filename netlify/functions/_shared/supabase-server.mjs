@@ -1056,6 +1056,76 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       return Array.isArray(rows) ? rows[0] : rows
     },
 
+    async reviewAccreditationEvidence({
+      practiceId,
+      cycleId,
+      evidenceId,
+      requirementId,
+      userId,
+      reviewStatus,
+      reason,
+      recommendedAction = '',
+    }) {
+      const evidence = await requireEvidenceRow({ practiceId, cycleId, evidenceId })
+      if (evidence.status !== 'ACTIVE') {
+        const error = new Error('Only active evidence can be reviewed.')
+        error.code = 'accreditation_evidence_inactive'
+        error.status = 400
+        throw error
+      }
+
+      const linkRows = await table(
+        `accreditation_evidence_requirement_links?select=id,evidence_id,requirement_id,is_active&evidence_id=eq.${encodeURIComponent(evidenceId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&is_active=eq.true&limit=1`
+      )
+      const mapping = Array.isArray(linkRows) ? linkRows[0] : linkRows
+      if (!mapping) {
+        const error = new Error('Evidence is not mapped to that accreditation requirement.')
+        error.code = 'evidence_mapping_required'
+        error.status = 400
+        throw error
+      }
+
+      await table(
+        `accreditation_evidence_assessments?evidence_id=eq.${encodeURIComponent(evidenceId)}&requirement_id=eq.${encodeURIComponent(requirementId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&is_active=eq.true`,
+        { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { is_active: false } },
+      )
+
+      const rows = await table('accreditation_evidence_assessments', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: [{
+          practice_id: practiceId,
+          cycle_id: cycleId,
+          evidence_id: evidenceId,
+          requirement_id: requirementId,
+          review_status: reviewStatus,
+          confidence: null,
+          reason,
+          extracted_facts: [],
+          missing_elements: [],
+          detected_dates: [],
+          recommended_action: recommendedAction,
+          model: null,
+          openai_response_id: null,
+          human_review_required: false,
+          is_active: true,
+          reviewed_at: new Date().toISOString(),
+        }],
+      })
+      const row = Array.isArray(rows) ? rows[0] : rows
+      return {
+        id: row?.id || null,
+        evidenceId: row?.evidence_id || evidenceId,
+        requirementId: row?.requirement_id || requirementId,
+        reviewStatus: row?.review_status || reviewStatus,
+        reason: row?.reason || reason,
+        recommendedAction: row?.recommended_action || recommendedAction,
+        reviewedAt: row?.reviewed_at || null,
+        humanReviewRequired: row?.human_review_required ?? false,
+        reviewedByUserId: userId || null,
+      }
+    },
+
     async supersedeAccreditationEvidence({ practiceId, cycleId, evidenceId }) {
       await requireEvidenceRow({ practiceId, cycleId, evidenceId })
       const links = await table(

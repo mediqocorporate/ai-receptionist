@@ -13,22 +13,32 @@ const CATEGORIES = [
   ['OTHER', 'Other'],
 ]
 
+const REVIEW_OPTIONS = [
+  ['SUFFICIENT_FOR_REVIEW', 'Sufficient for review'],
+  ['INCOMPLETE', 'Incomplete'],
+  ['OUTDATED', 'Outdated'],
+  ['CONFLICTING', 'Conflicting'],
+  ['MORE_INFORMATION_REQUIRED', 'More information required'],
+]
+
+function reviewStatusLabel(value) {
+  const labels = {
+    ...Object.fromEntries(REVIEW_OPTIONS),
+    NOT_REVIEWED: 'Not Reviewed',
+  }
+  return labels[value] || 'Not Reviewed'
+}
+
 export function evidenceCategoryLabel(value) {
   return CATEGORIES.find(([id]) => id === value)?.[1] || 'Other'
 }
 
 export function evidenceReviewLabel(item) {
-  const active = Array.isArray(item.assessments) ? item.assessments[0] : null
-  if (!active) return 'Not Reviewed'
-  const labels = {
-    SUFFICIENT_FOR_REVIEW: 'Sufficient for review',
-    INCOMPLETE: 'Incomplete',
-    OUTDATED: 'Outdated',
-    CONFLICTING: 'Conflicting',
-    MORE_INFORMATION_REQUIRED: 'More information required',
-    NOT_REVIEWED: 'Not Reviewed',
-  }
-  return labels[active.reviewStatus] || 'Not Reviewed'
+  const assessments = Array.isArray(item.assessments) ? item.assessments : []
+  if (!assessments.length) return 'Not Reviewed'
+  const statuses = [...new Set(assessments.map((assessment) => assessment.reviewStatus).filter(Boolean))]
+  if (statuses.length !== 1) return 'Mixed review states'
+  return reviewStatusLabel(statuses[0])
 }
 
 function mappingChips(item, requirements) {
@@ -44,6 +54,53 @@ function mappingChips(item, requirements) {
 
 function requirementOptions(requirements, selected = '') {
   return requirements.map((requirement) => `<option value="${escapeHtml(requirement.id)}" ${requirement.id === selected ? 'selected' : ''}>${escapeHtml(requirement.indicator || requirement.id)} — ${escapeHtml(requirement.criterionDescription || '')}</option>`).join('')
+}
+
+function activeAssessment(item, requirementId) {
+  const assessments = Array.isArray(item.assessments) ? item.assessments : []
+  return assessments.find((assessment) => assessment.requirementId === requirementId) || null
+}
+
+function reviewControls(item, requirements) {
+  const mappings = Array.isArray(item.mappings) ? item.mappings : []
+  if (!mappings.length) return ''
+  const byId = new Map(requirements.map((requirement) => [requirement.id, requirement]))
+
+  return `<section class="evidence-review-controls">
+    <div class="evidence-review-heading">
+      <div><span class="label">Practice review</span><h4>Review against a requirement</h4></div>
+      <p>Record what your practice has checked. A review record does not automatically mark the RACGP requirement ready.</p>
+    </div>
+    <div class="evidence-review-list">
+      ${mappings.map((mapping) => {
+        const requirement = byId.get(mapping.requirementId)
+        const assessment = activeAssessment(item, mapping.requirementId)
+        const label = requirement?.indicator || mapping.requirementId
+        return `<form class="evidence-review-form" data-accreditation-evidence-review-form data-evidence-id="${escapeHtml(item.id)}">
+          <input type="hidden" name="requirementId" value="${escapeHtml(mapping.requirementId)}" />
+          <div class="evidence-review-form-heading">
+            <strong>${escapeHtml(label)}</strong>
+            <span class="evidence-review-pill">${escapeHtml(reviewStatusLabel(assessment?.reviewStatus))}</span>
+          </div>
+          <label><span>Review status</span>
+            <select name="reviewStatus" required>
+              <option value="">Choose a review status</option>
+              ${REVIEW_OPTIONS.map(([value, text]) => `<option value="${value}" ${assessment?.reviewStatus === value ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="evidence-review-reason"><span>Why?</span>
+            <textarea name="reason" rows="2" maxlength="1500" required placeholder="Explain what you checked and why this status applies.">${escapeHtml(assessment?.reason || '')}</textarea>
+          </label>
+          <label class="evidence-review-action"><span>Recommended next action <small>(optional)</small></span>
+            <textarea name="recommendedAction" rows="2" maxlength="1500" placeholder="What should the practice do next?">${escapeHtml(assessment?.recommendedAction || '')}</textarea>
+          </label>
+          <div class="evidence-review-submit">
+            <button type="submit" class="secondary-button">Save review</button>
+          </div>
+        </form>`
+      }).join('')}
+    </div>
+  </section>`
 }
 
 function evidenceCard(item, requirements, prefillRequirementId) {
@@ -62,7 +119,7 @@ function evidenceCard(item, requirements, prefillRequirementId) {
     </div>
     <div class="evidence-item-grid">
       <div><span class="label">Mapped requirements</span>${mappingChips(item, requirements)}</div>
-      <div><span class="label">Review state</span><p>Evidence is stored, but MediQo does not infer readiness until it has been reviewed against a requirement.</p></div>
+      <div><span class="label">Review state</span><p>${escapeHtml(evidenceReviewLabel(item))}. Evidence review is recorded separately from requirement readiness.</p></div>
     </div>
     ${active ? `<div class="evidence-map-controls">
       <label><span>Map to requirement</span>
@@ -73,6 +130,7 @@ function evidenceCard(item, requirements, prefillRequirementId) {
       </label>
       <button type="button" class="secondary-button" data-action="evidence-link" data-evidence-id="${escapeHtml(item.id)}">Map evidence</button>
     </div>` : ''}
+    ${active ? reviewControls(item, requirements) : ''}
     <div class="evidence-item-actions">
       <button type="button" class="secondary-button" data-action="evidence-download" data-evidence-id="${escapeHtml(item.id)}">${icon('download',16)} Download</button>
       ${active ? `<button type="button" class="text-button evidence-supersede" data-action="evidence-supersede" data-evidence-id="${escapeHtml(item.id)}">Mark superseded</button>` : ''}

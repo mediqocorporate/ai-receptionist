@@ -92,3 +92,50 @@ test('finalizeUpload keeps new evidence honestly Not Reviewed until evidence int
   assert.equal(payload.practiceId, 'p1')
   assert.match(response.body, /NOT_REVIEWED/)
 })
+
+
+test('evidence review API records an explicit human review without trusting caller practice ids', async () => {
+  let reviewed
+  const handler = createAccreditationEvidenceHandler({
+    authenticate: async () => ({ userId: 'u1', practiceId: 'p1' }),
+    createServer: () => ({
+      getOrCreateAccreditationCycle: async () => ({ id: 'c1' }),
+      reviewAccreditationEvidence: async (value) => {
+        reviewed = value
+        return { id: 'a1', reviewStatus: value.reviewStatus }
+      },
+    }),
+  })
+
+  const response = await handler(event({
+    action: 'review',
+    cycleId: 'c1',
+    evidenceId: 'e1',
+    requirementId: 'R1',
+    reviewStatus: 'INCOMPLETE',
+    reason: 'The register is missing two staff records.',
+    recommendedAction: 'Add the missing records and review again.',
+    practiceId: 'evil',
+  }))
+  assert.equal(response.statusCode, 200)
+  assert.equal(reviewed.practiceId, 'p1')
+  assert.equal(reviewed.userId, 'u1')
+  assert.equal(reviewed.reviewStatus, 'INCOMPLETE')
+  assert.match(response.body, /INCOMPLETE/)
+})
+
+test('evidence review API rejects invalid review states and empty reasons', async () => {
+  let calls = 0
+  const handler = createAccreditationEvidenceHandler({
+    authenticate: async () => ({ userId: 'u1', practiceId: 'p1' }),
+    createServer: () => ({
+      getOrCreateAccreditationCycle: async () => ({ id: 'c1' }),
+      reviewAccreditationEvidence: async () => { calls += 1; return {} },
+    }),
+  })
+  const invalid = await handler(event({ action: 'review', cycleId: 'c1', evidenceId: 'e1', requirementId: 'R1', reviewStatus: 'READY', reason: 'No.' }))
+  const emptyReason = await handler(event({ action: 'review', cycleId: 'c1', evidenceId: 'e1', requirementId: 'R1', reviewStatus: 'OUTDATED', reason: '' }))
+  assert.equal(invalid.statusCode, 400)
+  assert.equal(emptyReason.statusCode, 400)
+  assert.equal(calls, 0)
+})

@@ -109,3 +109,74 @@ test('download signing only occurs after tenant-scoped evidence lookup', async (
   assert.match(calls[0].url, /cycle_id=eq\.c1/)
   assert.match(result.signedUrl, /token=download/)
 })
+
+
+test('human evidence review requires an active mapping and replaces the prior active assessment for that requirement', async () => {
+  const calls = []
+  const fetchImpl = async (url, options = {}) => {
+    const method = options.method || 'GET'
+    const body = options.body && typeof options.body === 'string' ? JSON.parse(options.body) : options.body
+    calls.push({ url, method, body })
+    if (method === 'GET' && url.includes('accreditation_evidence?')) {
+      return json([{ id: 'e1', practice_id: 'p1', cycle_id: 'c1', status: 'ACTIVE' }])
+    }
+    if (method === 'GET' && url.includes('accreditation_evidence_requirement_links?')) {
+      return json([{ id: 'l1', evidence_id: 'e1', requirement_id: 'R1', is_active: true }])
+    }
+    if (method === 'PATCH' && url.includes('accreditation_evidence_assessments?')) return json([])
+    if (method === 'POST' && url.includes('/rest/v1/accreditation_evidence_assessments')) {
+      return json([{ id: 'a2', ...body[0] }])
+    }
+    throw new Error(`unexpected ${method} ${url}`)
+  }
+  const server = createSupabaseServer({ env, fetchImpl })
+  const result = await server.reviewAccreditationEvidence({
+    practiceId: 'p1',
+    cycleId: 'c1',
+    evidenceId: 'e1',
+    requirementId: 'R1',
+    userId: 'u1',
+    reviewStatus: 'INCOMPLETE',
+    reason: 'Two required entries are missing.',
+    recommendedAction: 'Complete the register.',
+  })
+  assert.equal(result.reviewStatus, 'INCOMPLETE')
+  const deactivation = calls.find((call) => call.method === 'PATCH' && call.url.includes('accreditation_evidence_assessments?'))
+  assert.match(deactivation.url, /evidence_id=eq.e1/)
+  assert.match(deactivation.url, /requirement_id=eq.R1/)
+  assert.equal(deactivation.body.is_active, false)
+  const inserted = calls.find((call) => call.method === 'POST' && call.url.includes('/rest/v1/accreditation_evidence_assessments'))
+  assert.equal(inserted.body[0].practice_id, 'p1')
+  assert.equal(inserted.body[0].cycle_id, 'c1')
+  assert.equal(inserted.body[0].evidence_id, 'e1')
+  assert.equal(inserted.body[0].requirement_id, 'R1')
+  assert.equal(inserted.body[0].review_status, 'INCOMPLETE')
+  assert.equal(inserted.body[0].human_review_required, false)
+  assert.equal(inserted.body[0].model, null)
+  assert.equal(inserted.body[0].openai_response_id, null)
+})
+
+test('human evidence review refuses a requirement that is not actively mapped to the evidence', async () => {
+  const fetchImpl = async (url, options = {}) => {
+    const method = options.method || 'GET'
+    if (method === 'GET' && url.includes('accreditation_evidence?')) {
+      return json([{ id: 'e1', practice_id: 'p1', cycle_id: 'c1', status: 'ACTIVE' }])
+    }
+    if (method === 'GET' && url.includes('accreditation_evidence_requirement_links?')) return json([])
+    throw new Error(`unexpected ${method} ${url}`)
+  }
+  const server = createSupabaseServer({ env, fetchImpl })
+  await assert.rejects(
+    () => server.reviewAccreditationEvidence({
+      practiceId: 'p1',
+      cycleId: 'c1',
+      evidenceId: 'e1',
+      requirementId: 'R1',
+      userId: 'u1',
+      reviewStatus: 'OUTDATED',
+      reason: 'Review date has passed.',
+      recommendedAction: 'Upload the current version.',
+    }),
+    /not mapped/i,
+  )
+})
