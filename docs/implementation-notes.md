@@ -1,17 +1,31 @@
-# MediQo prototype implementation notes
+# MediQo implementation notes
 
-## What is local in this presentation build
+## Current state
 
-The interface, navigation, seven product pages, demo calendar, Accreditation Assistant, Policy Library, Reports, Alerts Centre, question matching, seeded answers, saved-answer state, anonymous two-question allowance and account form are all local and deterministic. No patient data or production credentials are required.
+MediQo began as a presentation-ready prototype and is now being moved onto production services while keeping the validated product experience intact.
 
-## Production seams
+Current foundations include Supabase authentication, practice-scoped persistence, database policies, server-side question handling, OpenAI Q&A, version-controlled migrations, the RACGP 5th Edition accreditation workspace, evidence handling, gap analysis, accreditation actions, policy-document persistence and automated repository checks.
 
-The production phase can replace the local service modules under `src/services/` with authenticated services for MediQo accounts, Supabase or the selected database, HubSpot forms/meeting embeds, practice-management-system connections, source ingestion/RAG, alerts monitoring and the AI assistant. The UI calls these concepts through service boundaries rather than embedding provider logic in page renderers.
+## Work still evolving
 
-## Security note
+The main areas still being developed are broader source retrieval and governance, accreditation content validation, policy workflow expansion, PMS integrations, notifications and internal administration.
 
-The browser-only two-question counter is intentionally a presentation mechanism. Production enforcement must be server-side. Do not place privileged Supabase, HubSpot, PMS, model or Azure secrets in browser JavaScript.
+## Engineering principles
 
-## Architecture note
+- Preserve validated product behaviour while replacing prototype-only services.
+- Keep privileged operations on the server.
+- Keep practice data scoped to the correct tenant.
+- Keep accreditation readiness, evidence verification and remediation actions separate.
+- Keep controlled accreditation source material traceable and reproducible.
+- Version database changes in the repository.
+- Run the real test, build and smoke commands before reporting a batch as verified.
 
-The execution environment used to assemble this ZIP had no npm registry DNS access. To guarantee that the delivered project could be built and tested here rather than shipping unverified dependency code, the presentation build uses browser-standard ES modules and a zero-dependency Node toolchain. `npm install` therefore completes without downloading packages. The source is modular so a later React migration is optional rather than required for adding backend services.
+## Prototype compatibility
+
+Some browser-local state remains for presentation and UI convenience. Authoritative account, quota and persisted practice data belongs to the production backend.
+
+## Further reading
+
+See [ARCHITECTURE.md](../ARCHITECTURE.md), [SECURITY.md](../SECURITY.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+Historical design and implementation notes are retained under `docs/architecture/history/` and `docs/implementation/history/`.

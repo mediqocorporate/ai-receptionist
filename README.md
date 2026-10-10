@@ -2,6 +2,34 @@
 
 MediQo's Practice Manager workspace combines authenticated practice accounts, live OpenAI Q&A, server-side anonymous-question limits, persisted conversations and the RACGP 5th Edition Accreditation Assistant foundation.
 
+## Current status
+
+MediQo is in active production-backend development. The validated presentation experience is being preserved while prototype-only services are replaced with production infrastructure.
+
+Implemented foundations include:
+
+- Supabase authentication and practice tenancy
+- Row Level Security for practice-owned data
+- server-side anonymous-question limits
+- persisted conversations and question activity
+- OpenAI Q&A through Netlify Functions
+- RACGP 5th Edition accreditation workspace
+- controlled accreditation dataset provenance
+- evidence handling and requirement mapping
+- accreditation gap analysis and actions
+- policy-document persistence
+- GitHub Actions test/build/smoke checks
+
+Still evolving:
+
+- knowledge retrieval and source governance
+- accreditation content validation and workflow completion
+- policy workflow productionisation
+- PMS integrations
+- monitoring, notifications and internal admin workflows
+
+For the current design boundaries, see [ARCHITECTURE.md](ARCHITECTURE.md). Repository security expectations are documented in [SECURITY.md](SECURITY.md), and the development workflow is in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Local development
 
 Requirements: Node.js 20+ and npm.
@@ -43,7 +71,7 @@ npm run build
 npm run smoke
 ```
 
-`npm run build` creates `dist/`. The smoke test verifies the main SPA routes through the production-style fallback.
+`npm run build` creates `dist/`. The smoke test verifies the main SPA routes through the production-style fallback. CI runs the same test/build/smoke sequence on pushes and pull requests.
 
 ## Supabase migrations
 
@@ -56,7 +84,7 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
 ```
 
-For the accreditation MVP, the new migrations are:
+For the accreditation MVP, the foundation migrations are:
 
 - `202610090002_accreditation_foundation.sql`
 - `202610090003_accreditation_racgp5_dataset.sql`
@@ -103,6 +131,8 @@ Verification is stored separately from readiness. A user's positive answer is in
 
 The browser does not calculate accreditation readiness. It renders assessment output produced by the server-side deterministic assessment engine.
 
+Completing an accreditation action also does not automatically change readiness. Action completion, evidence verification and requirement readiness remain separate so administrative progress is not treated as proof of compliance.
+
 Future standards/readiness versions use a separate `FUTURE_READINESS` workspace type and must not be mixed into current RACGP 5th Edition readiness.
 
 ## Key flows
@@ -110,8 +140,8 @@ Future standards/readiness versions use a separate `FUTURE_READINESS` workspace 
 - **Ask MediQo:** live OpenAI answers through `/api/ask`, with previous turns retained in the active conversation.
 - **Anonymous Q&A:** exactly two successful answers; the third attempted question requires account creation.
 - **Accounts:** Supabase Auth email/password with tenant practice membership.
-- **Accreditation Assistant:** authenticated RACGP 5th Edition workspace with Quick Readiness Check, requirement filters, controlled sources/evidence criteria and persisted responses.
-- **Policy Library:** current template/draft workflow; AI document generation is a later production slice.
+- **Accreditation Assistant:** authenticated RACGP 5th Edition workspace with readiness checks, requirement filters, controlled sources/evidence criteria, gap analysis and actions.
+- **Policy Library:** current persisted template/draft workflow; broader AI document generation remains an ongoing production slice.
 - **Connect your PMS:** UI/setup lead flow until PMS credentials and integration briefs are available.
 
 ## Accreditation browser acceptance check
@@ -128,6 +158,12 @@ After migrations are applied and Netlify Dev is running:
 8. Open a requirement and confirm source/evidence configuration is shown.
 9. Refresh the browser and confirm saved progress remains.
 10. Confirm the UI never claims pass/fail/compliant/certified status.
+
+## Engineering notes
+
+The application evolved quickly from a presentation prototype into a working backend foundation. Some larger coordinator and data-access modules remain intentionally intact while backend contracts and accreditation workflows stabilise. They can be decomposed by domain later without introducing unnecessary regression risk during the current production transition.
+
+Historical design and implementation notes are retained under `docs/architecture/history/` and `docs/implementation/history/`.
 
 ## Netlify
 

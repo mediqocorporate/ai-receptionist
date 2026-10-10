@@ -10,4 +10,4 @@ This directory records the provenance of the controlled accreditation build asse
 
 The workbook is a client-supplied controlled source. The importer at `scripts/import-accreditation-dataset.mjs` validates its structure and emits the checked-in normalized JSON. Rows marked VALIDATE or HOLD are preserved without inventing accreditation classification or readiness logic.
 
-The binary workbook is not duplicated into this repository by the ChatGPT/GitHub connector. Keep the client-supplied workbook unchanged and use the SHA-256 above to verify the exact source before regenerating the normalized asset.
+The binary source workbook is intentionally not committed to this repository. Keep the client-supplied workbook unchanged and use the SHA-256 above to verify the exact source before regenerating the normalized asset.
