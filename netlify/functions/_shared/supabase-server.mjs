@@ -674,7 +674,7 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         this.listAccreditationEvidence({ practiceId, cycleId }),
         table('accreditation_evidence_criteria?select=requirement_id,evidence_type,role,evidence_rule&order=requirement_id.asc,evidence_type.asc'),
         table(
-          `accreditation_actions?select=id,requirement_id,title,description,priority,owner_user_id,due_date,status,source_reason&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&status=neq.DONE&order=due_date.asc.nullslast,created_at.asc`
+          `accreditation_actions?select=id,requirement_id,title,description,priority,owner_user_id,due_date,status,source_reason&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&order=created_at.desc`
         ),
       ])
       const actions = Array.isArray(actionRows) ? actionRows : []
@@ -804,6 +804,12 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
         )
         const requirement = Array.isArray(requirements) ? requirements[0] : requirements
         if (!requirement) throw new Error('accreditation_requirement_not_found')
+
+        const existingRows = await table(
+          `accreditation_actions?select=id,status&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&requirement_id=eq.${encodeURIComponent(item.requirementId)}&limit=1`
+        )
+        const existing = Array.isArray(existingRows) ? existingRows[0] : existingRows
+        if (existing) throw new Error('accreditation_action_already_exists')
       }
 
       const created = await table('accreditation_actions', {

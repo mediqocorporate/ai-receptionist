@@ -97,6 +97,53 @@ test("server gap builder keeps unknown separate from confirmed gaps and does not
   assert.equal(result.summary.notChecked, 1)
 })
 
+test("What's Missing keeps a completed linked action attached so it cannot be duplicated", async () => {
+  const mod = await loadMissingLogic()
+  assert.ok(mod)
+  const result = mod.buildAccreditationMissing({
+    requirements: [{
+      id: 'gap',
+      indicator: 'C7.1C',
+      criterionDescription: 'Content of patient health records',
+      classificationLabel: 'Mandatory',
+      applicabilityStatus: 'APPLICABLE',
+      readinessStatus: 'CONFIRMED_GAP',
+      verificationStatus: 'USER_REPORTED',
+      criticalSafetyArea: false,
+      quickCheckPriority: 'P1',
+      assessmentInformative: true,
+      statusReason: 'The practice explicitly reported that the requirement is not in place.',
+      recommendedActions: ['Re-check the requirement using current facts and evidence.'],
+    }],
+    evidenceCriteria: [],
+    evidence: [],
+    actions: [{
+      id: 'done-action',
+      requirementId: 'gap',
+      title: 'Address C7.1C — Content of patient health records',
+      priority: 'HIGH',
+      ownerName: 'Practice Manager',
+      dueDate: '2026-10-15',
+      status: 'DONE',
+    }],
+  })
+
+  const gap = result.items.find((item) => item.requirementId === 'gap')
+  assert.equal(gap.actionId, 'done-action')
+  assert.equal(gap.actionStatus, 'DONE')
+  assert.equal(gap.ownerName, 'Practice Manager')
+  assert.equal(gap.dueDate, null)
+  assert.equal(gap.nextAction, 'Re-check the requirement using current facts and evidence.')
+})
+
+test("What's Missing server query does not discard completed linked actions", () => {
+  const serverSource = fs.readFileSync(new URL('../netlify/functions/_shared/supabase-server.mjs', import.meta.url), 'utf8')
+  const actionQuery = serverSource.match(/accreditation_actions\?select=id,requirement_id,title,description,priority,owner_user_id,due_date,status,source_reason[^\n]+/)?.[0] || ''
+  assert.ok(actionQuery)
+  assert.doesNotMatch(actionQuery, /status=neq\.DONE/)
+  assert.match(actionQuery, /order=created_at\.desc/)
+})
+
 test("evidence review outcomes are surfaced honestly as incomplete, outdated or pending review", async () => {
   const mod = await loadMissingLogic()
   assert.ok(mod)

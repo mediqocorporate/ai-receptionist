@@ -77,8 +77,9 @@ function fallbackAction(issueCodes) {
   return 'Complete the readiness question for this requirement.'
 }
 
-function openActionForRequirement(actions, requirementId) {
-  return (Array.isArray(actions) ? actions : []).find((action) => action.requirementId === requirementId && action.status !== 'DONE') || null
+function linkedActionForRequirement(actions, requirementId) {
+  const linked = (Array.isArray(actions) ? actions : []).filter((action) => action.requirementId === requirementId)
+  return linked.find((action) => action.status !== 'DONE') || linked[0] || null
 }
 
 function maxIssueWeight(issueCodes) {
@@ -141,7 +142,8 @@ export function buildAccreditationMissing({ requirements = [], evidenceCriteria 
     const uniqueIssues = unique(issueCodes).sort((a, b) => (ISSUE_WEIGHT[b] || 0) - (ISSUE_WEIGHT[a] || 0))
     if (!uniqueIssues.length) continue
 
-    const action = openActionForRequirement(actions, requirement.id)
+    const linkedAction = linkedActionForRequirement(actions, requirement.id)
+    const activeAction = linkedAction?.status === 'DONE' ? null : linkedAction
     const evidenceAction = evidenceAssessments.find((assessment) => assessment.recommendedAction)?.recommendedAction || ''
     const recommendedAction = Array.isArray(requirement.recommendedActions) ? requirement.recommendedActions.find(Boolean) : ''
     const expectedEvidence = criteria
@@ -155,16 +157,16 @@ export function buildAccreditationMissing({ requirements = [], evidenceCriteria 
       quickCheckPriority: requirement.quickCheckPriority || '',
       readinessStatus: requirement.readinessStatus || 'NOT_CHECKED',
       verificationStatus: requirement.verificationStatus || null,
-      priority: action?.priority || issuePriority(requirement, uniqueIssues),
+      priority: activeAction?.priority || issuePriority(requirement, uniqueIssues),
       issueCodes: uniqueIssues,
       whyShown: whyShown(requirement, uniqueIssues),
-      nextAction: action?.title || recommendedAction || evidenceAction || fallbackAction(uniqueIssues),
+      nextAction: activeAction?.title || recommendedAction || evidenceAction || fallbackAction(uniqueIssues),
       expectedEvidence,
       evidenceCount: mappedEvidence.length,
-      ownerName: action?.ownerName || '',
-      dueDate: action?.dueDate || null,
-      actionStatus: action?.status || null,
-      actionId: action?.id || null,
+      ownerName: linkedAction?.ownerName || '',
+      dueDate: activeAction?.dueDate || null,
+      actionStatus: linkedAction?.status || null,
+      actionId: linkedAction?.id || null,
       sortWeight: maxIssueWeight(uniqueIssues),
     })
   }

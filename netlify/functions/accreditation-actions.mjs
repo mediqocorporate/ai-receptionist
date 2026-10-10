@@ -164,6 +164,9 @@ export function createAccreditationActionsHandler({
       if (message === 'accreditation_requirement_not_found') {
         return jsonResponse(400, { code: 'requirement_not_found', message: 'The linked accreditation requirement could not be found.' })
       }
+      if (message === 'accreditation_action_already_exists') {
+        return jsonResponse(409, { code: 'action_already_exists', message: 'An action is already linked to this requirement. Open the existing action instead.' })
+      }
       if (message === 'action_title_required') {
         return jsonResponse(400, { code: 'title_required', message: 'Add an action title.' })
       }
