@@ -7,6 +7,7 @@ export function readIntegrationConfig(source = globalThis.__MEDIQO_CONFIG__ || {
     accountSyncApiUrl: String(source.accountSyncApiUrl || '').trim(),
     accreditationApiUrl: String(source.accreditationApiUrl || '').trim(),
     accreditationEvidenceApiUrl: String(source.accreditationEvidenceApiUrl || '').trim(),
+    accreditationActionsApiUrl: String(source.accreditationActionsApiUrl || '').trim(),
   })
 }
 
