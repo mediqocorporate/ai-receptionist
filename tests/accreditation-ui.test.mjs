@@ -170,3 +170,45 @@ test('completed Quick Check does not invite the user to continue an already fini
   assert.match(html, /Review Quick Check/i)
   assert.doesNotMatch(html, /Continue Quick Check/i)
 })
+
+
+test('requirement detail shows applicability not confirmed instead of Not Checked when applicability is unknown', async () => {
+  const mod = await load(detailUrl)
+  assert.ok(mod)
+  const html = mod.renderRequirementDetail({
+    id: 'R-UNKNOWN',
+    indicator: 'QI1.2B',
+    criterion: 'QI1.2',
+    criterionDescription: 'Patient feedback',
+    classificationLabel: 'Mandatory',
+    applicabilityStatus: 'UNKNOWN',
+    applicabilityReason: 'Applicability has not yet been confirmed.',
+    readinessStatus: 'NOT_CHECKED',
+    verificationStatus: 'USER_REPORTED',
+    statusReason: 'Reported complete — evidence not yet checked.',
+    knownFacts: [], unknownFacts: [], potentialGaps: [], confirmedGaps: [], recommendedActions: [],
+    sourceUrls: {}, evidenceCriteria: [], questions: [],
+  })
+  assert.match(html, /Applicability not confirmed/i)
+  assert.doesNotMatch(html, />Not Checked</i)
+})
+
+test("requirement detail can return to What's Missing without a competing overview back button", async () => {
+  const wrapper = await load(wrapperUrl)
+  assert.ok(wrapper)
+  const html = wrapper.renderAccreditationPage({
+    view: 'requirement',
+    requirementReturnView: 'missing',
+    overview: { setupRequired: false, cycle: { id: 'c1' }, requirements: [] },
+    requirement: {
+      id: 'R1', indicator: 'C7.1C', criterion: 'C7.1', criterionDescription: 'Patient health records',
+      classificationLabel: 'Mandatory', applicabilityStatus: 'APPLICABLE', readinessStatus: 'CONFIRMED_GAP', verificationStatus: 'USER_REPORTED',
+      statusReason: 'Reported gap.', knownFacts: [], unknownFacts: [], potentialGaps: [], confirmedGaps: [], recommendedActions: [],
+      sourceUrls: {}, evidenceCriteria: [], questions: [],
+    },
+    evidence: { items: [] },
+  }, { signedIn: true, practiceName: 'Test Medical Centre' })
+  assert.match(html, /Back to What&#039;s Missing/i)
+  assert.match(html, /data-accreditation-view="missing"/)
+  assert.doesNotMatch(html, /class="accreditation-page-back"/)
+})

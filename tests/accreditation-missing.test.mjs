@@ -184,3 +184,22 @@ test("workspace wrapper and app load What's Missing from the backend", () => {
   assert.match(html, /What(?:’|')s Missing/i)
   assert.match(appSource, /accreditationService\.missing\(/)
 })
+
+
+test("What's Missing shows a loading state before the first backend result instead of a false zero state", async () => {
+  const mod = await loadMissingUi()
+  assert.ok(mod)
+  const html = mod.renderAccreditationMissing({}, { loading: false, error: '' })
+  assert.match(html, /Loading what(?:’|')s missing/i)
+  assert.doesNotMatch(html, /No outstanding items are currently identified/i)
+})
+
+test("What's Missing review buttons preserve the originating view", async () => {
+  const mod = await loadMissingUi()
+  assert.ok(mod)
+  const html = mod.renderAccreditationMissing({
+    summary: { totalItems: 1, confirmedGaps: 1, needsAttention: 0, evidenceIssues: 0, applicabilityToConfirm: 0, notChecked: 0 },
+    items: [{ requirementId: 'R1', indicator: 'C7.1C', title: 'Patient health records', priority: 'HIGH', issueCodes: ['CONFIRMED_GAP'], whyShown: 'Reported gap.', nextAction: 'Review.', expectedEvidence: [] }],
+  })
+  assert.match(html, /data-accreditation-return-view="missing"/)
+})
