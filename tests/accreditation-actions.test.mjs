@@ -281,3 +281,26 @@ test('Actions has a dedicated Netlify route and browser-safe runtime configurati
   assert.match(runtime, /accreditationActionsApiUrl/)
   assert.match(integration, /accreditationActionsApiUrl/)
 })
+
+
+test("What's Missing opens an existing linked action instead of offering a duplicate", () => {
+  const html = renderAccreditationMissing({
+    summary: { totalItems: 1, confirmedGaps: 1, needsAttention: 0, evidenceIssues: 0, applicabilityToConfirm: 0, notChecked: 0 },
+    items: [{
+      requirementId: 'R1',
+      indicator: 'C7.1C',
+      title: 'Content of patient health records',
+      priority: 'HIGH',
+      issueCodes: ['CONFIRMED_GAP'],
+      whyShown: 'The practice reported this is not in place.',
+      nextAction: 'Update the patient record process',
+      expectedEvidence: [],
+      actionId: 'a1',
+      actionStatus: 'OPEN',
+    }],
+  })
+  assert.match(html, /data-action="accreditation-open-action"/)
+  assert.match(html, /data-action-id="a1"/)
+  assert.match(html, /Edit action/i)
+  assert.doesNotMatch(html, /data-action="accreditation-create-action"/)
+})
