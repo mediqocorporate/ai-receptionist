@@ -78,8 +78,8 @@ export function renderRequirementDetail(requirement = {}, { evidenceItems = [], 
   const applicabilityStatus = String(requirement.applicabilityStatus || '').toUpperCase()
   const notApplicable = applicabilityStatus === 'NOT_APPLICABLE'
   const applicabilityUnknown = applicabilityStatus === 'UNKNOWN'
-  const returnView = backView === 'missing' ? 'missing' : 'requirements'
-  const returnLabel = returnView === 'missing' ? "What's Missing" : 'requirements'
+  const returnView = ['missing', 'actions'].includes(backView) ? backView : 'requirements'
+  const returnLabel = returnView === 'missing' ? "What's Missing" : returnView === 'actions' ? 'Actions' : 'requirements'
   const statusMarkup = notApplicable
     ? '<span class="applicability-pill not-applicable">Not Applicable</span>'
     : applicabilityUnknown
