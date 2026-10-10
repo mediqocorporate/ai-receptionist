@@ -22,6 +22,7 @@ test('accreditation workspace views have stable browser routes', () => {
   assert.equal(accreditationPathForView('missing'), '/accreditation/missing')
   assert.equal(accreditationPathForView('actions'), '/accreditation/actions')
   assert.equal(accreditationPathForView('assistant'), '/accreditation/assistant')
+  assert.equal(accreditationPathForView('report'), '/accreditation/report')
   assert.equal(accreditationPathForView('practice-information'), '/accreditation/practice-information')
   assert.equal(accreditationPathForView('explore'), '/accreditation/explore')
   assert.equal(accreditationPathForView('setup'), '/accreditation/setup')
@@ -31,6 +32,7 @@ test('accreditation routes parse trailing slashes and reject unrelated paths', (
   assert.deepEqual(parseAccreditationPath('/accreditation/requirements/'), { view: 'requirements', requirementIndicator: '' })
   assert.deepEqual(parseAccreditationPath('/accreditation/evidence'), { view: 'evidence', requirementIndicator: '' })
   assert.deepEqual(parseAccreditationPath('/accreditation/assistant'), { view: 'assistant', requirementIndicator: '' })
+  assert.deepEqual(parseAccreditationPath('/accreditation/report'), { view: 'report', requirementIndicator: '' })
   assert.equal(parseAccreditationPath('/policies'), null)
   assert.equal(parseAccreditationPath('/accreditation/not-a-real-page'), null)
 })
@@ -188,4 +190,43 @@ test('Accreditation Assistant empty state is compact and hides explanatory resou
   const composerIndex = html.indexOf('data-accreditation-assistant-form')
   const suggestionsIndex = html.indexOf('data-accreditation-assistant-suggestion')
   assert.ok(composerIndex >= 0 && suggestionsIndex > composerIndex)
+})
+
+
+test('Readiness Report route is enabled and rendered', () => {
+  assert.equal(ACCREDITATION_SUBROUTES.find((item) => item.view === 'report')?.available, true)
+  const overview = {
+    cycle: { id: 'c1', targetAssessmentDate: '2026-12-15' },
+    standardVersion: { name: 'RACGP Standards for general practices', edition: '5th edition' },
+    coverage: { answered: 8, total: 20, percent: 40 },
+    assessmentCoverage: { assessed: 12, total: 51, percent: 24 },
+    readiness: { appearsReady: 5, assessed: 12, percent: 42 },
+    statusCounts: { APPEARS_READY: 5, NEEDS_ATTENTION: 4, CONFIRMED_GAP: 3, NOT_CHECKED: 39 },
+    requirements: [],
+  }
+  const html = renderAccreditationPage({
+    view: 'report',
+    overview,
+    report: {
+      loading: false,
+      generating: false,
+      error: '',
+      live: { assessmentCoverage: overview.assessmentCoverage, readiness: overview.readiness, statusCounts: overview.statusCounts, actions: { open: 3, inProgress: 2, blocked: 1, overdue: 2 }, evidenceFollowUpCount: 4, targetAssessmentDate: '2026-12-15' },
+      history: [{ id: 'report_1', generatedAt: '2026-10-11T08:00:00.000Z', coveragePercent: 24, statusCounts: overview.statusCounts, generatedBy: 'Sarah Jones' }],
+      selected: null,
+    },
+  }, { signedIn: true, practiceName: 'Test Medical Centre' })
+  assert.match(html, /Run pre-accreditation review/)
+  assert.match(html, /Assessment coverage/)
+  assert.match(html, /Confirmed gaps/)
+  assert.match(html, /Evidence follow-ups/)
+  assert.match(html, /Previous reviews/)
+  assert.match(html, /data-accreditation-generate-report/)
+  assert.match(html, /data-accreditation-report-id="report_1"/)
+})
+
+test('app loads and generates Readiness Report inside accreditation', () => {
+  assert.match(appSource, /async function loadAccreditationReadinessReport/)
+  assert.match(appSource, /async function generateAccreditationReadinessReport/)
+  assert.match(appSource, /data-accreditation-generate-report/)
 })
