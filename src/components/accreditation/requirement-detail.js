@@ -70,18 +70,24 @@ function notApplicableView(requirement, plainEnglish) {
     </div>`
 }
 
-export function renderRequirementDetail(requirement = {}, { evidenceItems = [] } = {}) {
+export function renderRequirementDetail(requirement = {}, { evidenceItems = [], backView = 'requirements' } = {}) {
   const questions = Array.isArray(requirement.questions) ? requirement.questions : []
   const evidence = Array.isArray(requirement.evidenceCriteria) ? requirement.evidenceCriteria : []
   const plainEnglish = isTemplatePlainEnglish(requirement.plainEnglishRequirement) ? '' : requirement.plainEnglishRequirement
   const primaryQuestion = questions[0] || null
-  const notApplicable = String(requirement.applicabilityStatus || '').toUpperCase() === 'NOT_APPLICABLE'
+  const applicabilityStatus = String(requirement.applicabilityStatus || '').toUpperCase()
+  const notApplicable = applicabilityStatus === 'NOT_APPLICABLE'
+  const applicabilityUnknown = applicabilityStatus === 'UNKNOWN'
+  const returnView = backView === 'missing' ? 'missing' : 'requirements'
+  const returnLabel = returnView === 'missing' ? "What's Missing" : 'requirements'
   const statusMarkup = notApplicable
     ? '<span class="applicability-pill not-applicable">Not Applicable</span>'
-    : `<span class="readiness-pill ${readinessClass(requirement.readinessStatus)}">${escapeHtml(readinessLabel(requirement.readinessStatus))}</span><span>${escapeHtml(verificationLabel(requirement.verificationStatus))}</span>`
+    : applicabilityUnknown
+      ? `<span class="applicability-pill needs-confirmation">Applicability not confirmed</span><span>${escapeHtml(verificationLabel(requirement.verificationStatus))}</span>`
+      : `<span class="readiness-pill ${readinessClass(requirement.readinessStatus)}">${escapeHtml(readinessLabel(requirement.readinessStatus))}</span><span>${escapeHtml(verificationLabel(requirement.verificationStatus))}</span>`
 
   return `<section class="requirement-detail">
-    <button type="button" class="conversation-back requirement-back" data-accreditation-view="requirements">${icon('chevron-left',15)} Back to requirements</button>
+    <button type="button" class="conversation-back requirement-back" data-accreditation-view="${returnView}">${icon('chevron-left',15)} Back to ${escapeHtml(returnLabel)}</button>
     <section class="panel requirement-detail-hero">
       <div><span class="eyebrow">${escapeHtml(requirement.criterion || 'RACGP 5TH EDITION')}</span><h2>${escapeHtml(requirement.indicator || requirement.id || '')} · ${escapeHtml(requirement.criterionDescription || '')}</h2>${plainEnglish ? `<p>${escapeHtml(plainEnglish)}</p>` : ''}</div>
       <div class="requirement-detail-status">${statusMarkup}</div>
