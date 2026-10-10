@@ -221,7 +221,7 @@ test('mapped evidence exposes explicit human review controls and per-requirement
 })
 
 test('app saves evidence reviews through the live service and refreshes evidence afterwards', () => {
-  assert.match(appSource, /accreditationEvidenceService.review(/)
+  assert.ok(appSource.includes('accreditationEvidenceService.review('))
   assert.match(appSource, /data-accreditation-evidence-review-form/)
   assert.match(appSource, /Evidence review saved/i)
 })
