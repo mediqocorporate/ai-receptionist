@@ -219,6 +219,9 @@ test('Supabase server creates and updates only cycle-scoped action rows and keep
     if (request.url.includes('/rest/v1/accreditation_requirements?')) {
       return response(200, [{ id: 'R1', indicator: 'C7.1C', criterion_description: 'Content of patient health records' }])
     }
+    if (request.url.includes('/rest/v1/accreditation_actions?select=id,status') && request.method === 'GET') {
+      return response(200, [])
+    }
     if (request.url.includes('/rest/v1/accreditation_actions?') && request.method === 'GET') {
       return response(200, [{ id: 'a1', practice_id: 'p1', cycle_id: 'c1', status: 'OPEN', title: 'Fix gap' }])
     }
@@ -254,6 +257,59 @@ test('Supabase server creates and updates only cycle-scoped action rows and keep
   assert.equal(requests.some((request) => /practice_requirements/.test(request.url) && request.method === 'PATCH'), false)
 })
 
+
+test('Supabase server rejects a second action for the same linked requirement even when the existing action is done', async () => {
+  const requests = []
+  const fetchImpl = async (url, init = {}) => {
+    const request = { url: String(url), method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null }
+    requests.push(request)
+    if (request.url.includes('/rest/v1/accreditation_requirements?')) {
+      return response(200, [{ id: 'R1' }])
+    }
+    if (request.url.includes('/rest/v1/accreditation_actions?select=id,status')) {
+      return response(200, [{ id: 'existing-action', status: 'DONE' }])
+    }
+    if (request.url.endsWith('/rest/v1/accreditation_actions') && request.method === 'POST') {
+      throw new Error('duplicate insert should not be attempted')
+    }
+    return response(200, [])
+  }
+  const server = createSupabaseServer({
+    env: { SUPABASE_URL: 'https://supabase.example', SUPABASE_PUBLISHABLE_KEY: 'anon', SUPABASE_SERVICE_ROLE_KEY: 'service' },
+    fetchImpl,
+  })
+
+  await assert.rejects(
+    () => server.createAccreditationAction({
+      practiceId: 'p1',
+      cycleId: 'c1',
+      createdByUserId: 'u1',
+      item: { title: 'Duplicate follow-up', priority: 'HIGH', requirementId: 'R1' },
+    }),
+    /accreditation_action_already_exists/,
+  )
+  assert.equal(requests.some((request) => request.method === 'POST' && request.url.endsWith('/rest/v1/accreditation_actions')), false)
+})
+
+test('Actions API reports a linked-action duplicate as a conflict instead of creating another action', async () => {
+  const mod = await load(actionsFunctionUrl)
+  assert.ok(mod)
+  const handler = mod.createAccreditationActionsHandler({
+    authenticate: async () => ({ userId: 'u1', practiceId: 'p1' }),
+    createServer: () => ({
+      getOrCreateAccreditationCycle: async () => ({ id: 'c1' }),
+      createAccreditationAction: async () => { throw new Error('accreditation_action_already_exists') },
+    }),
+  })
+  const result = await handler(event({
+    action: 'create',
+    cycleId: 'c1',
+    item: { title: 'Duplicate follow-up', priority: 'HIGH', requirementId: 'R1' },
+  }))
+  assert.equal(result.statusCode, 409)
+  assert.match(result.body, /action_already_exists/)
+  assert.match(result.body, /already linked/i)
+})
 
 test('requirements opened from Actions return to Actions', () => {
   const html = renderAccreditationPage({
