@@ -99,12 +99,13 @@ test('Actions browser service lists, creates and updates through the dedicated e
       payloads.push(JSON.parse(init.body))
       return response(200, { actions: { items: [], owners: [], summary: {} }, action: { id: 'a1' } })
     },
+    now: () => ({ getFullYear: () => 2026, getMonth: () => 9, getDate: () => 11 }),
   })
   await service.list({ cycleId: 'c1' })
   await service.create({ cycleId: 'c1', action: { title: 'Follow up', priority: 'HIGH' } })
   await service.update({ cycleId: 'c1', actionId: 'a1', patch: { status: 'DONE', completionNote: 'Rechecked separately.' } })
   assert.deepEqual(payloads, [
-    { action: 'list', cycleId: 'c1' },
+    { action: 'list', cycleId: 'c1', localDate: '2026-10-11' },
     { action: 'create', cycleId: 'c1', item: { title: 'Follow up', priority: 'HIGH' } },
     { action: 'update', cycleId: 'c1', actionId: 'a1', patch: { status: 'DONE', completionNote: 'Rechecked separately.' } },
   ])
@@ -134,7 +135,7 @@ test('Actions API requires authentication and scopes every operation to the auth
   })
   assert.equal((await unauthenticated(event({ action: 'list', cycleId: 'c1' }, ''))).statusCode, 401)
 
-  assert.equal((await handler(event({ action: 'list', cycleId: 'c1', practiceId: 'evil' }))).statusCode, 200)
+  assert.equal((await handler(event({ action: 'list', cycleId: 'c1', practiceId: 'evil', localDate: '2026-10-11' }))).statusCode, 200)
   assert.equal((await handler(event({ action: 'create', cycleId: 'c1', practiceId: 'evil', item: { title: 'Fix gap', priority: 'HIGH' } }))).statusCode, 200)
   assert.equal((await handler(event({ action: 'update', cycleId: 'c1', practiceId: 'evil', actionId: 'a1', patch: { status: 'DONE' } }))).statusCode, 200)
 
@@ -142,6 +143,7 @@ test('Actions API requires authentication and scopes every operation to the auth
     assert.equal(payload.practiceId, 'practice_1')
     assert.equal(payload.cycleId, 'c1')
   }
+  assert.equal(calls[0][1].today, '2026-10-11')
   assert.equal(calls[1][1].createdByUserId, 'u1')
   assert.equal(calls[2][1].updatedByUserId, 'u1')
 })
@@ -179,7 +181,7 @@ test('Supabase server lists practice-scoped actions with requirement, owner and 
       return response(200, [
         {
           id: 'a1', practice_id: 'p1', cycle_id: 'c1', requirement_id: 'R1', title: 'Fix gap',
-          description: 'Follow up', priority: 'HIGH', owner_user_id: 'u1', due_date: '2020-01-01',
+          description: 'Follow up', priority: 'HIGH', owner_user_id: 'u1', due_date: '2026-10-10',
           status: 'OPEN', source_reason: 'Confirmed gap', completion_note: '', created_at: '2026-10-10T00:00:00Z',
         },
       ])
@@ -199,7 +201,7 @@ test('Supabase server lists practice-scoped actions with requirement, owner and 
     env: { SUPABASE_URL: 'https://supabase.example', SUPABASE_PUBLISHABLE_KEY: 'anon', SUPABASE_SERVICE_ROLE_KEY: 'service' },
     fetchImpl,
   })
-  const result = await server.listAccreditationActions({ practiceId: 'p1', cycleId: 'c1' })
+  const result = await server.listAccreditationActions({ practiceId: 'p1', cycleId: 'c1', today: '2026-10-11' })
   assert.equal(result.items[0].ownerName, 'Imran Gul')
   assert.equal(result.items[0].requirementIndicator, 'C7.1C')
   assert.equal(result.summary.open, 1)
