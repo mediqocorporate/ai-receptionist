@@ -709,6 +709,194 @@ export function createSupabaseServer({ env = process.env, fetchImpl = fetch } = 
       })
     },
 
+    async listAccreditationActions({ practiceId, cycleId }) {
+      const [actionRows, membershipRows] = await Promise.all([
+        table(
+          `accreditation_actions?select=*&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&order=due_date.asc.nullslast,created_at.asc`
+        ),
+        table(
+          `practice_memberships?select=user_id,role&practice_id=eq.${encodeURIComponent(practiceId)}&status=eq.active&order=created_at.asc`
+        ),
+      ])
+      const actions = Array.isArray(actionRows) ? actionRows : []
+      const memberships = Array.isArray(membershipRows) ? membershipRows : []
+      const memberIds = memberships.map((row) => row.user_id).filter(Boolean)
+      const ownerIds = actions.map((row) => row.owner_user_id).filter(Boolean)
+      const profileIds = [...new Set([...memberIds, ...ownerIds])]
+      const requirementIds = [...new Set(actions.map((row) => row.requirement_id).filter(Boolean))]
+
+      let profileRows = []
+      let requirementRows = []
+      if (profileIds.length) {
+        profileRows = await table(
+          `profiles?select=id,first_name,last_name,job_title&id=in.(${profileIds.map((id) => encodeURIComponent(id)).join(',')})`
+        )
+      }
+      if (requirementIds.length) {
+        requirementRows = await table(
+          `accreditation_requirements?select=id,indicator,criterion_description&id=in.(${requirementIds.map((id) => encodeURIComponent(id)).join(',')})`
+        )
+      }
+
+      const profiles = new Map((Array.isArray(profileRows) ? profileRows : []).map((row) => [row.id, row]))
+      const requirements = new Map((Array.isArray(requirementRows) ? requirementRows : []).map((row) => [row.id, row]))
+      const owners = memberships.map((membership) => {
+        const profile = profiles.get(membership.user_id) || {}
+        const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Practice member'
+        return {
+          id: membership.user_id,
+          name,
+          role: membership.role || '',
+          jobTitle: profile.job_title || '',
+        }
+      })
+      const today = new Date().toISOString().slice(0, 10)
+      const items = actions.map((row) => {
+        const profile = profiles.get(row.owner_user_id) || {}
+        const requirement = requirements.get(row.requirement_id) || {}
+        return {
+          id: row.id,
+          title: row.title || '',
+          description: row.description || '',
+          actionType: row.action_type || 'FOLLOW_UP',
+          priority: row.priority || 'MEDIUM',
+          ownerUserId: row.owner_user_id || null,
+          ownerName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+          dueDate: row.due_date || null,
+          status: row.status || 'OPEN',
+          sourceReason: row.source_reason || '',
+          completionNote: row.completion_note || '',
+          requirementId: row.requirement_id || null,
+          requirementIndicator: requirement.indicator || '',
+          requirementTitle: requirement.criterion_description || '',
+          evidenceId: row.evidence_id || null,
+          teamMemberId: row.team_member_id || null,
+          createdAt: row.created_at || null,
+          updatedAt: row.updated_at || null,
+          completedAt: row.completed_at || null,
+          overdue: Boolean(row.due_date && row.due_date < today && row.status !== 'DONE'),
+        }
+      })
+      return {
+        items,
+        owners,
+        summary: {
+          open: items.filter((item) => item.status === 'OPEN').length,
+          inProgress: items.filter((item) => item.status === 'IN_PROGRESS').length,
+          blocked: items.filter((item) => item.status === 'BLOCKED').length,
+          done: items.filter((item) => item.status === 'DONE').length,
+          overdue: items.filter((item) => item.overdue).length,
+        },
+      }
+    },
+
+    async createAccreditationAction({ practiceId, cycleId, createdByUserId, item = {} }) {
+      if (item.ownerUserId) {
+        const memberships = await table(
+          `practice_memberships?select=user_id&practice_id=eq.${encodeURIComponent(practiceId)}&user_id=eq.${encodeURIComponent(item.ownerUserId)}&status=eq.active&limit=1`
+        )
+        const membership = Array.isArray(memberships) ? memberships[0] : memberships
+        if (!membership) throw new Error('accreditation_action_owner_not_found')
+      }
+      if (item.requirementId) {
+        const requirements = await table(
+          `accreditation_requirements?select=id&id=eq.${encodeURIComponent(item.requirementId)}&is_active=eq.true&limit=1`
+        )
+        const requirement = Array.isArray(requirements) ? requirements[0] : requirements
+        if (!requirement) throw new Error('accreditation_requirement_not_found')
+      }
+
+      const created = await table('accreditation_actions', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: [{
+          practice_id: practiceId,
+          cycle_id: cycleId,
+          requirement_id: item.requirementId || null,
+          evidence_id: item.evidenceId || null,
+          title: item.title,
+          description: item.description || '',
+          action_type: 'FOLLOW_UP',
+          priority: item.priority || 'MEDIUM',
+          owner_user_id: item.ownerUserId || null,
+          due_date: item.dueDate || null,
+          status: item.status || 'OPEN',
+          source_reason: item.sourceReason || '',
+          created_by_user_id: createdByUserId,
+          completion_note: item.completionNote || '',
+          completed_at: item.status === 'DONE' ? new Date().toISOString() : null,
+        }],
+      })
+      const row = Array.isArray(created) ? created[0] : created
+      return {
+        id: row?.id,
+        title: row?.title || item.title,
+        status: row?.status || item.status || 'OPEN',
+        priority: row?.priority || item.priority || 'MEDIUM',
+        requirementId: row?.requirement_id || item.requirementId || null,
+        ownerUserId: row?.owner_user_id || item.ownerUserId || null,
+        dueDate: row?.due_date || item.dueDate || null,
+      }
+    },
+
+    async updateAccreditationAction({ practiceId, cycleId, actionId, patch = {} }) {
+      const existingRows = await table(
+        `accreditation_actions?select=*&id=eq.${encodeURIComponent(actionId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}&limit=1`
+      )
+      const existing = Array.isArray(existingRows) ? existingRows[0] : existingRows
+      if (!existing) throw new Error('accreditation_action_not_found')
+
+      if ('ownerUserId' in patch && patch.ownerUserId) {
+        const memberships = await table(
+          `practice_memberships?select=user_id&practice_id=eq.${encodeURIComponent(practiceId)}&user_id=eq.${encodeURIComponent(patch.ownerUserId)}&status=eq.active&limit=1`
+        )
+        const membership = Array.isArray(memberships) ? memberships[0] : memberships
+        if (!membership) throw new Error('accreditation_action_owner_not_found')
+      }
+      if ('requirementId' in patch && patch.requirementId) {
+        const requirements = await table(
+          `accreditation_requirements?select=id&id=eq.${encodeURIComponent(patch.requirementId)}&is_active=eq.true&limit=1`
+        )
+        const requirement = Array.isArray(requirements) ? requirements[0] : requirements
+        if (!requirement) throw new Error('accreditation_requirement_not_found')
+      }
+
+      const body = {}
+      if ('title' in patch) body.title = patch.title
+      if ('description' in patch) body.description = patch.description
+      if ('priority' in patch) body.priority = patch.priority
+      if ('ownerUserId' in patch) body.owner_user_id = patch.ownerUserId || null
+      if ('dueDate' in patch) body.due_date = patch.dueDate || null
+      if ('requirementId' in patch) body.requirement_id = patch.requirementId || null
+      if ('sourceReason' in patch) body.source_reason = patch.sourceReason || ''
+      if ('completionNote' in patch) body.completion_note = patch.completionNote || ''
+      if ('status' in patch) {
+        body.status = patch.status
+        body.completed_at = patch.status === 'DONE' ? (existing.completed_at || new Date().toISOString()) : null
+      }
+
+      const updated = await table(
+        `accreditation_actions?id=eq.${encodeURIComponent(actionId)}&practice_id=eq.${encodeURIComponent(practiceId)}&cycle_id=eq.${encodeURIComponent(cycleId)}`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body,
+        },
+      )
+      const row = Array.isArray(updated) ? updated[0] : updated
+      return {
+        id: row?.id || actionId,
+        title: row?.title || existing.title || '',
+        status: row?.status || patch.status || existing.status || 'OPEN',
+        priority: row?.priority || patch.priority || existing.priority || 'MEDIUM',
+        ownerUserId: row?.owner_user_id ?? patch.ownerUserId ?? existing.owner_user_id ?? null,
+        dueDate: row?.due_date ?? patch.dueDate ?? existing.due_date ?? null,
+        requirementId: row?.requirement_id ?? patch.requirementId ?? existing.requirement_id ?? null,
+        completionNote: row?.completion_note ?? patch.completionNote ?? existing.completion_note ?? '',
+        completedAt: row?.completed_at ?? body.completed_at ?? existing.completed_at ?? null,
+      }
+    },
+
     async prepareAccreditationEvidenceUpload({
       practiceId,
       cycleId,
