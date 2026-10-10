@@ -11,6 +11,7 @@ import {
 } from '../src/lib/accreditation-routes.js'
 
 const appSource = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8')
+const stylesSource = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
 
 test('accreditation workspace views have stable browser routes', () => {
   assert.equal(accreditationPathForView('overview'), '/accreditation')
@@ -76,4 +77,10 @@ test('app resolves direct accreditation routes and browser back through the rout
   assert.match(appSource, /openAccreditationRequirement\(requirement\.id, 'requirements', \{ syncPath: false \}\)/)
   assert.match(appSource, /updateAccreditationBrowserPath\(accreditationRequirementPath/)
   assert.match(appSource, /window\.addEventListener\('popstate',[\s\S]*loadAccreditationRoute\(\)/)
+})
+
+
+test('routed accreditation navigation keeps the existing button-like styling without link underlines', () => {
+  assert.match(stylesSource, /\.accreditation-tab\s*\{[^}]*text-decoration:\s*none/s)
+  assert.match(stylesSource, /\.accreditation-sidebar-item\s*\{[^}]*text-decoration:\s*none/s)
 })
