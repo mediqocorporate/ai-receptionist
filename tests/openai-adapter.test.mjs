@@ -239,3 +239,26 @@ test('accreditation adapter supports a larger output budget for long review resp
 
   assert.equal(request.max_output_tokens, 4000)
 })
+
+
+test('readiness review requests the larger accreditation output budget', async () => {
+  const mod = await import('../netlify/functions/_shared/accreditation-readiness-ai.mjs')
+  let request
+  await mod.createAccreditationReadinessReview({
+    context: { statusCounts: { CONFIRMED_GAP: 1 } },
+    resources: [],
+    generateAnswer: async (input) => {
+      request = input
+      return {
+        model: 'model-test',
+        responseId: 'response-test',
+        answer: {
+          intro: 'Review summary.',
+          sections: [{ title: 'Priority next actions', body: '', items: [] }],
+          sources: [],
+        },
+      }
+    },
+  })
+  assert.equal(request.maxOutputTokens, 4000)
+})
