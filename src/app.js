@@ -926,6 +926,43 @@ async function linkAccreditationEvidence(button) {
   }
 }
 
+async function handleAccreditationEvidenceReview(form) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  const evidenceId = String(form?.dataset.evidenceId || '')
+  if (!appUser || !cycleId || !evidenceId || !form) return
+
+  const values = new FormData(form)
+  const requirementId = String(values.get('requirementId') || '').trim()
+  const reviewStatus = String(values.get('reviewStatus') || '').trim()
+  const reason = String(values.get('reason') || '').trim()
+  const recommendedAction = String(values.get('recommendedAction') || '').trim()
+  if (!requirementId || !reviewStatus || !reason) {
+    showToast('Choose a review status and explain why it applies', 'error')
+    return
+  }
+
+  const submit = form.querySelector('button[type="submit"]')
+  if (submit?.disabled) return
+  if (submit) submit.disabled = true
+  try {
+    await accreditationEvidenceService.review({
+      cycleId,
+      evidenceId,
+      requirementId,
+      reviewStatus,
+      reason,
+      recommendedAction,
+    })
+    ui.accreditation.evidence.items = await accreditationEvidenceService.list({ cycleId })
+    render()
+    showToast('Evidence review saved')
+  } catch (error) {
+    showToast(error?.message || 'Could not save evidence review', 'error')
+  } finally {
+    if (submit?.isConnected) submit.disabled = false
+  }
+}
+
 async function downloadAccreditationEvidence(evidenceId) {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!cycleId || !evidenceId) return
@@ -1555,6 +1592,9 @@ root.addEventListener('submit', async (event) => {
   }
   if (form.matches('[data-accreditation-evidence-upload-form]')) {
     event.preventDefault(); await handleAccreditationEvidenceUpload(form); return
+  }
+  if (form.matches('[data-accreditation-evidence-review-form]')) {
+    event.preventDefault(); await handleAccreditationEvidenceReview(form); return
   }
   if (form.matches('[data-accreditation-action-form]')) {
     event.preventDefault(); await handleAccreditationActionForm(form); return
