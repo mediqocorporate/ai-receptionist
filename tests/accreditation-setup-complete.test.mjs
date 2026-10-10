@@ -13,10 +13,11 @@ test('Reports stays removed and Accreditation Assistant expands in the left navi
     accreditationView: 'overview',
     user: { firstName: 'Imran', lastName: 'Gul', jobTitle: 'Practice Manager' },
   })
-  for (const label of ['Overview', 'Quick Check', 'Comprehensive Check', 'Requirements', 'Evidence', 'Actions', 'Team', 'Ask Accreditation Assistant', 'Readiness Report', 'Practice Information']) {
+  for (const label of ['Overview', 'Quick Check', 'Comprehensive Check', 'Requirements', 'Evidence', 'Actions', 'Ask Accreditation Assistant', 'Readiness Report', 'Practice Information']) {
     assert.match(html, new RegExp(label, 'i'))
   }
   assert.match(html, /What(?:&#039;|')s Missing/i)
+  assert.doesNotMatch(html, />Team</i)
   assert.ok(html.includes('href="/accreditation"'))
   assert.ok(html.includes('href="/accreditation/check"'))
   assert.ok(html.includes('href="/accreditation/comprehensive"'))
