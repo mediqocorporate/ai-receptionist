@@ -1,4 +1,5 @@
 import { processAsk } from './_shared/ask-core.mjs'
+import { buildAccreditationResources } from './_shared/accreditation-resources.mjs'
 import { createAccreditationAnswer, createMediQoAnswer } from './_shared/openai.mjs'
 import { authenticateUser, createSupabaseServer } from './_shared/supabase-server.mjs'
 import {
@@ -19,64 +20,6 @@ function header(event, name) {
 
 function mentionedIndicators(question = '') {
   return [...new Set(String(question || '').toUpperCase().match(/\b[A-Z]{1,3}\d+(?:\.\d+)+[A-Z]?\b/g) || [])]
-}
-
-const RACGP_STANDARDS_BASE = 'https://www.racgp.org.au/running-a-practice/practice-standards/standards-5th-edition/standards-for-general-practices-5th-ed'
-
-function racgpSlug(value = '') {
-  return String(value || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[’']/g, '')
-    .replace(/&/g, ' and ')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase()
-}
-
-function racgpCriterionResource(requirement = {}) {
-  const criterion = String(requirement.criterion || '').trim().toUpperCase()
-  const description = String(requirement.criterionDescription || '').trim()
-  if (!criterion || !description) return null
-
-  let modulePath = ''
-  let standardNumber = ''
-  if (/^C\d+\.\d+$/.test(criterion)) {
-    standardNumber = criterion.match(/^C(\d+)/)?.[1] || ''
-    modulePath = `core-standards/core-standard-${standardNumber}`
-  } else if (/^QI\d+\.\d+$/.test(criterion)) {
-    standardNumber = criterion.match(/^QI(\d+)/)?.[1] || ''
-    modulePath = `qi-standards/qi-standard-${standardNumber}`
-  } else if (/^GP\d+\.\d+$/.test(criterion)) {
-    standardNumber = criterion.match(/^GP(\d+)/)?.[1] || ''
-    modulePath = `general-practice-standards/gp-standard-${standardNumber}`
-  }
-  if (!modulePath) return null
-
-  return {
-    id: `RACGP-${criterion}`,
-    publisher: 'RACGP',
-    title: `Criterion ${criterion} – ${description}`,
-    url: `${RACGP_STANDARDS_BASE}/${modulePath}/criterion-${racgpSlug(criterion)}-${racgpSlug(description)}`,
-    usedFor: `RACGP Criterion ${criterion} content`,
-    verification: 'Official RACGP 5th Edition criterion page',
-  }
-}
-
-function buildAccreditationResources(context = {}, sources = []) {
-  const criterionResources = []
-  const seen = new Set()
-  for (const requirement of Array.isArray(context.requirements) ? context.requirements : []) {
-    const resource = racgpCriterionResource(requirement)
-    if (!resource || seen.has(resource.id)) continue
-    seen.add(resource.id)
-    criterionResources.push(resource)
-  }
-
-  const globalSources = (Array.isArray(sources) ? sources : [])
-    .filter((source) => !(criterionResources.length && String(source?.id || '') === 'SRC-001'))
-
-  return [...criterionResources, ...globalSources]
 }
 
 function compactAccreditationContext({ cycleId, question, overview = {}, missing = {}, actions = {}, evidence = [] } = {}) {

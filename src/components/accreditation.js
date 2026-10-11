@@ -13,6 +13,7 @@ import { renderAccreditationEvidence } from './accreditation/evidence.js'
 import { renderAccreditationMissing } from './accreditation/missing.js'
 import { renderAccreditationActions } from './accreditation/actions.js'
 import { renderAccreditationAssistant } from './accreditation/assistant.js'
+import { renderAccreditationReadinessReport } from './accreditation/readiness-report.js'
 
 function navButton(view, current, label) {
   const path = accreditationPathForView(view)
@@ -73,11 +74,12 @@ export function renderAccreditationPage(state = {}, options = {}) {
   else if (currentView === 'missing') body = renderAccreditationMissing(state.missing?.data || {}, { loading: Boolean(state.missing?.loading), error: state.missing?.error || '' })
   else if (currentView === 'actions') body = renderAccreditationActions(state.actions || {})
   else if (currentView === 'assistant') body = renderAccreditationAssistant(state.assistant || {}, { practiceName })
+  else if (currentView === 'report') body = renderAccreditationReadinessReport(state.report || {}, { overview, practiceName })
   else if (currentView === 'requirement' && state.requirement) body = renderRequirementDetail(state.requirement, { evidenceItems: state.evidence?.items || [], backView: state.requirementReturnView || 'requirements' })
   else if (currentView === 'practice-information') body = renderPracticeInformation(state.practiceInformation || {}, { loading: state.practiceInformationLoading, editing: state.practiceInformationEditing, submitting: state.practiceInformationSubmitting, error: state.practiceInformationError || '' })
   else body = renderAccreditationOverview(overview, { practiceName })
 
-  const showBack = signedIn && ['check','comprehensive','requirements','evidence','missing','actions','assistant','practice-information','setup'].includes(currentView)
+  const showBack = signedIn && ['check','comprehensive','requirements','evidence','missing','actions','assistant','report','practice-information','setup'].includes(currentView)
   return `<section class="feature-page accreditation-page accreditation-live-workspace">
     ${showBack ? `<div class="accreditation-page-back"><button type="button" class="conversation-back" data-action="accreditation-home">${icon('chevron-left',16)}<span>Back to Accreditation Overview</span></button></div>` : ''}
     <div class="page-heading-row">

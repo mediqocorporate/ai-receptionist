@@ -1,5 +1,8 @@
 import { assessRequirement } from './_shared/accreditation-assessment.mjs'
 import { normalizeAccreditationSetup } from './_shared/accreditation-setup.mjs'
+import { buildAccreditationResources } from './_shared/accreditation-resources.mjs'
+import { buildAccreditationReadinessSnapshot, readinessLiveSummary } from './_shared/accreditation-readiness-report.mjs'
+import { createAccreditationReadinessReview } from './_shared/accreditation-readiness-ai.mjs'
 import { authenticateUser, createSupabaseServer } from './_shared/supabase-server.mjs'
 import { jsonResponse, parseJsonBody } from './_shared/http.mjs'
 
@@ -50,6 +53,12 @@ export function createAccreditationHandler({
   env = process.env,
   authenticate = ({ authorization }) => authenticateUser({ authorization, env }),
   createServer = () => createSupabaseServer({ env }),
+  generateReadinessReview = ({ context, resources }) => createAccreditationReadinessReview({
+    apiKey: env.OPENAI_API_KEY,
+    model: env.OPENAI_MODEL || 'gpt-6-luna',
+    context,
+    resources,
+  }),
 } = {}) {
   return async function handler(event = {}) {
     if (String(event.httpMethod || 'GET').toUpperCase() !== 'POST') {
@@ -159,6 +168,69 @@ export function createAccreditationHandler({
         return jsonResponse(200, { missing, cycleId: cycle.id })
       }
 
+      if (action === 'readiness_report') {
+        const cycle = await server.getOrCreateAccreditationCycle(actor.practiceId, body.cycleId || null)
+        const [overview, missing, actions, evidence, history] = await Promise.all([
+          server.getAccreditationOverview({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.getAccreditationMissing({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.listAccreditationActions({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.listAccreditationEvidence({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.listAccreditationReadinessReports({ practiceId: actor.practiceId, cycleId: cycle.id }),
+        ])
+        const snapshot = buildAccreditationReadinessSnapshot({ overview, missing, actions, evidence })
+        return jsonResponse(200, {
+          report: { live: readinessLiveSummary(snapshot), history, selected: null },
+          cycleId: cycle.id,
+        })
+      }
+
+      if (action === 'generate_readiness_report') {
+        const cycle = await server.getOrCreateAccreditationCycle(actor.practiceId, body.cycleId || null)
+        const [overview, missing, actions, evidence, sources] = await Promise.all([
+          server.getAccreditationOverview({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.getAccreditationMissing({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.listAccreditationActions({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.listAccreditationEvidence({ practiceId: actor.practiceId, cycleId: cycle.id }),
+          server.listAccreditationSources(),
+        ])
+        const snapshot = buildAccreditationReadinessSnapshot({ overview, missing, actions, evidence })
+        const resources = buildAccreditationResources(snapshot, sources)
+        const generated = await generateReadinessReview({ context: snapshot, resources })
+        const baseLimitation = 'This review supports accreditation preparation and does not determine an accreditation outcome.'
+        const limitations = [...new Set([
+          baseLimitation,
+          ...(Array.isArray(generated?.review?.limitations) ? generated.review.limitations : []),
+        ])]
+        const saved = await server.saveAccreditationReadinessReport({
+          practiceId: actor.practiceId,
+          cycleId: cycle.id,
+          userId: actor.userId,
+          snapshot,
+          report: {
+            ...(generated?.review || {}),
+            model: generated?.model || '',
+            responseId: generated?.responseId || '',
+          },
+          limitations,
+          sources: generated?.review?.sources || [],
+        })
+        return jsonResponse(200, { report: saved, cycleId: cycle.id })
+      }
+
+      if (action === 'readiness_report_detail') {
+        const reportId = String(body.reportId || '').trim()
+        if (!reportId) {
+          return jsonResponse(400, { code: 'report_required', message: 'Readiness report ID is required.' })
+        }
+        const cycle = await server.getOrCreateAccreditationCycle(actor.practiceId, body.cycleId || null)
+        const report = await server.getAccreditationReadinessReport({
+          practiceId: actor.practiceId,
+          cycleId: cycle.id,
+          reportId,
+        })
+        return jsonResponse(200, { report, cycleId: cycle.id })
+      }
+
       if (action === 'requirement') {
         const requirementId = String(body.requirementId || '').trim()
         if (!requirementId) {
@@ -230,7 +302,7 @@ export function createAccreditationHandler({
         })
       }
 
-      return jsonResponse(400, { code: 'invalid_action', message: 'Choose overview, setup, practice_information, comprehensive_check, missing, answer or requirement.' })
+      return jsonResponse(400, { code: 'invalid_action', message: 'Choose a supported accreditation action.' })
     } catch (error) {
       const message = String(error?.message || '')
       if (message === 'accreditation_cycle_not_found') {
@@ -241,6 +313,9 @@ export function createAccreditationHandler({
       }
       if (message === 'accreditation_requirement_not_found') {
         return jsonResponse(404, { code: 'requirement_not_found', message: 'Accreditation requirement was not found.' })
+      }
+      if (message === 'accreditation_readiness_report_not_found') {
+        return jsonResponse(404, { code: 'readiness_report_not_found', message: 'Readiness report was not found for this practice.' })
       }
       console.error('MediQo accreditation failed:', error?.message || error)
       return jsonResponse(500, { code: 'accreditation_error', message: 'MediQo could not load accreditation readiness. Please try again.' })

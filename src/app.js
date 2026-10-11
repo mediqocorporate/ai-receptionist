@@ -72,6 +72,7 @@ const ui = {
     missing: { data: null, loading: false, error: '' },
     actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null },
     assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null },
+    report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' },
     evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' },
   },
   lastFocused: null,
@@ -689,6 +690,7 @@ async function loadAccreditationRoute() {
   if (route.view === 'evidence') await loadAccreditationEvidence()
   if (route.view === 'missing') await loadAccreditationMissing()
   if (route.view === 'actions') await loadAccreditationActions()
+  if (route.view === 'report') await loadAccreditationReadinessReport()
   if (route.view === 'practice-information') await loadAccreditationPracticeInformation()
 }
 
@@ -808,6 +810,64 @@ async function handleAccreditationActionForm(form) {
     ui.accreditation.actions.error = error?.message || 'Could not save this accreditation action.'
     ui.accreditation.actions.editor = { ...ui.accreditation.actions.editor, submitting: false }
   } finally {
+    render()
+  }
+}
+
+async function loadAccreditationReadinessReport() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  if (!appUser || !cycleId) return
+  const state = ui.accreditation.report
+  state.loading = true
+  state.error = ''
+  render()
+  try {
+    const report = await accreditationService.readinessReport({ cycleId })
+    state.live = report?.live || null
+    state.history = Array.isArray(report?.history) ? report.history : []
+    if (report?.selected) state.selected = report.selected
+  } catch (error) {
+    state.error = error?.message || 'Could not load the Readiness Report.'
+  } finally {
+    state.loading = false
+    render()
+  }
+}
+
+async function generateAccreditationReadinessReport() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  const state = ui.accreditation.report
+  if (!appUser || !cycleId || state.generating) return
+  state.generating = true
+  state.error = ''
+  render()
+  try {
+    state.selected = await accreditationService.generateReadinessReport({ cycleId })
+    const refreshed = await accreditationService.readinessReport({ cycleId })
+    state.live = refreshed?.live || state.live
+    state.history = Array.isArray(refreshed?.history) ? refreshed.history : state.history
+    showToast('Pre-accreditation review saved')
+  } catch (error) {
+    state.error = error?.message || 'Could not generate the pre-accreditation review.'
+  } finally {
+    state.generating = false
+    render()
+  }
+}
+
+async function loadSavedAccreditationReadinessReport(reportId) {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  const state = ui.accreditation.report
+  if (!appUser || !cycleId || !reportId) return
+  state.loading = true
+  state.error = ''
+  render()
+  try {
+    state.selected = await accreditationService.readinessReportDetail({ cycleId, reportId })
+  } catch (error) {
+    state.error = error?.message || 'Could not load this saved readiness review.'
+  } finally {
+    state.loading = false
     render()
   }
 }
@@ -1338,6 +1398,18 @@ root.addEventListener('click', async (event) => {
     return
   }
 
+  const readinessGenerate = event.target.closest('[data-accreditation-generate-report]')
+  if (readinessGenerate) {
+    await generateAccreditationReadinessReport()
+    return
+  }
+
+  const readinessHistory = event.target.closest('[data-accreditation-report-id]')
+  if (readinessHistory) {
+    await loadSavedAccreditationReadinessReport(readinessHistory.dataset.accreditationReportId)
+    return
+  }
+
   const accreditationSuggestion = event.target.closest('[data-accreditation-assistant-suggestion]')
   if (accreditationSuggestion) {
     await submitAccreditationAssistantQuestion(accreditationSuggestion.dataset.accreditationAssistantSuggestion)
@@ -1448,7 +1520,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null }, assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null }, report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }

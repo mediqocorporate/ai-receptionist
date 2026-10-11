@@ -315,6 +315,7 @@ export async function createAccreditationAnswer({
   resources = [],
   safetyIdentifier,
   reasoningEffort,
+  maxOutputTokens,
   timeoutMs = INTERACTIVE_OPENAI_TIMEOUT_MS,
   fetchImpl = fetch,
 }) {
@@ -324,6 +325,10 @@ export async function createAccreditationAnswer({
 
   const approvedResources = resources.map(safeAccreditationResource).filter((resource) => resource.id && resource.title && resource.url)
   const resolvedReasoningEffort = String(reasoningEffort || defaultReasoningEffort(model)).trim()
+  const requestedOutputTokens = Number(maxOutputTokens)
+  const resolvedOutputTokens = Number.isFinite(requestedOutputTokens) && requestedOutputTokens > 0
+    ? Math.floor(requestedOutputTokens)
+    : outputTokenBudget(resolvedReasoningEffort)
   const signal = timeoutMs > 0 && typeof AbortSignal?.timeout === 'function'
     ? AbortSignal.timeout(timeoutMs)
     : undefined
@@ -342,7 +347,7 @@ export async function createAccreditationAnswer({
         instructions: ACCREDITATION_INSTRUCTIONS,
         input: `Return the accreditation answer as JSON.\n\nQuestion:\n${cleanQuestion}\n\nPractice accreditation context:\n${JSON.stringify(context)}\n\nApproved sources:\n${JSON.stringify(approvedResources)}`,
         store: false,
-        max_output_tokens: outputTokenBudget(resolvedReasoningEffort),
+        max_output_tokens: resolvedOutputTokens,
         safety_identifier: safetyIdentifier || undefined,
         reasoning: { effort: resolvedReasoningEffort },
         text: {

@@ -91,6 +91,21 @@ export function createAccreditationService({
       const body = await request({ action: 'requirement', requirementId, cycleId })
       return body.requirement
     },
+
+    async readinessReport({ cycleId }) {
+      const body = await request({ action: 'readiness_report', cycleId })
+      return body.report
+    },
+
+    async generateReadinessReport({ cycleId }) {
+      const body = await request({ action: 'generate_readiness_report', cycleId })
+      return body.report
+    },
+
+    async readinessReportDetail({ cycleId, reportId }) {
+      const body = await request({ action: 'readiness_report_detail', cycleId, reportId })
+      return body.report
+    },
   }
 }
 
