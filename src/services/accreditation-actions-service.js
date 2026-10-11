@@ -62,6 +62,11 @@ export function createAccreditationActionsService({
       return body.action
     },
 
+    async createRecommended({ cycleId }) {
+      const body = await request({ action: 'create_recommended', cycleId })
+      return body.result || { eligible: 0, created: 0, skipped: 0 }
+    },
+
     async update({ cycleId, actionId, patch }) {
       const body = await request({ action: 'update', cycleId, actionId, patch: patch || {} })
       return body.action

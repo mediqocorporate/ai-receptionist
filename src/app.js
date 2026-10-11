@@ -70,7 +70,7 @@ const ui = {
     comprehensive: null,
     comprehensiveLoading: false,
     missing: { data: null, loading: false, error: '' },
-    actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null },
+    actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, generatingRecommendations: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null },
     assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null },
     report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' },
     evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' },
@@ -814,6 +814,44 @@ async function handleAccreditationActionForm(form) {
   }
 }
 
+async function createRecommendedAccreditationActions() {
+  const cycleId = ui.accreditation.overview?.cycle?.id
+  const state = ui.accreditation.actions
+  if (!appUser || !cycleId || state.generatingRecommendations) return
+
+  state.generatingRecommendations = true
+  state.error = ''
+  render()
+  try {
+    const result = await accreditationActionsService.createRecommended({ cycleId })
+    const [actionsResult, missingResult] = await Promise.all([
+      accreditationActionsService.list({ cycleId }),
+      accreditationService.missing({ cycleId }),
+    ])
+    state.items = Array.isArray(actionsResult.items) ? actionsResult.items : []
+    state.owners = Array.isArray(actionsResult.owners) ? actionsResult.owners : []
+    state.summary = actionsResult.summary || {}
+    state.loaded = true
+    ui.accreditation.missing.data = missingResult
+    ui.accreditation.missing.error = ''
+
+    const created = Number(result?.created || 0)
+    const skipped = Number(result?.skipped || 0)
+    if (created > 0) {
+      showToast(`${created} recommended accreditation action${created === 1 ? '' : 's'} created`)
+    } else if (skipped > 0) {
+      showToast('Recommended actions are already linked to the current outstanding items')
+    } else {
+      showToast('No recommended actions are needed from the current outstanding items')
+    }
+  } catch (error) {
+    state.error = error?.message || 'Could not create recommended accreditation actions.'
+  } finally {
+    state.generatingRecommendations = false
+    render()
+  }
+}
+
 async function loadAccreditationReadinessReport() {
   const cycleId = ui.accreditation.overview?.cycle?.id
   if (!appUser || !cycleId) return
@@ -1520,7 +1558,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null }, assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null }, report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, generatingRecommendations: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null }, assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null }, report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -1590,6 +1628,10 @@ root.addEventListener('click', async (event) => {
     return
   }
 
+  if (action === 'accreditation-create-recommended-actions') {
+    await createRecommendedAccreditationActions()
+    return
+  }
   if (action === 'accreditation-new-action') {
     openAccreditationActionEditor()
     if (!ui.accreditation.actions.loaded) await loadAccreditationActions()
