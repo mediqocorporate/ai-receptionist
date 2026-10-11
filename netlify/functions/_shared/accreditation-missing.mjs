@@ -77,6 +77,23 @@ function fallbackAction(issueCodes) {
   return 'Complete the readiness question for this requirement.'
 }
 
+function suggestedEvidenceCategory(criteria = []) {
+  const text = (Array.isArray(criteria) ? criteria : [])
+    .map((item) => `${item.type || ''} ${item.rule || ''}`)
+    .join(' ')
+    .toLowerCase()
+  if (!text) return ''
+  if (/policy|procedure/.test(text)) return 'POLICY_PROCEDURE'
+  if (/register|log/.test(text)) return 'REGISTER'
+  if (/training|credential|qualification/.test(text)) return 'TRAINING_CREDENTIAL'
+  if (/certificate/.test(text)) return 'CERTIFICATE'
+  if (/audit|report/.test(text)) return 'AUDIT_REPORT'
+  if (/meeting|minutes/.test(text)) return 'MEETING_RECORD'
+  if (/equipment|maintenance|calibration/.test(text)) return 'EQUIPMENT_MAINTENANCE'
+  if (/patient feedback|survey/.test(text)) return 'PATIENT_FEEDBACK'
+  return 'OTHER'
+}
+
 function linkedActionForRequirement(actions, requirementId) {
   const linked = (Array.isArray(actions) ? actions : []).filter((action) => action.requirementId === requirementId)
   return linked.find((action) => action.status !== 'DONE') || linked[0] || null
@@ -162,6 +179,7 @@ export function buildAccreditationMissing({ requirements = [], evidenceCriteria 
       whyShown: whyShown(requirement, uniqueIssues),
       nextAction: activeAction?.title || recommendedAction || evidenceAction || fallbackAction(uniqueIssues),
       expectedEvidence,
+      suggestedEvidenceCategory: suggestedEvidenceCategory(expectedEvidence),
       evidenceCount: mappedEvidence.length,
       ownerName: linkedAction?.ownerName || '',
       dueDate: activeAction?.dueDate || null,

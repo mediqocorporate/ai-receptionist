@@ -38,10 +38,42 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
 }
 
+function evidenceIssue(item) {
+  return (Array.isArray(item.issueCodes) ? item.issueCodes : []).some((code) =>
+    String(code || '').startsWith('EVIDENCE_') || code === 'MISSING_EVIDENCE' || code === 'MISSING_POLICY'
+  )
+}
+
 function evidenceExpectations(item) {
   const expected = Array.isArray(item.expectedEvidence) ? item.expectedEvidence : []
-  if (!expected.length) return ''
-  return `<div class="missing-expected-evidence"><span class="label">Expected evidence</span>${expected.map((entry) => `<div><strong>${escapeHtml(entry.type || 'Supporting evidence')}</strong>${entry.rule ? `<span>${escapeHtml(entry.rule)}</span>` : ''}</div>`).join('')}</div>`
+  if (!expected.length && !evidenceIssue(item)) return ''
+  const fallback = (item.issueCodes || []).includes('EVIDENCE_OUTDATED')
+    ? 'Upload the current replacement version of the mapped evidence.'
+    : (item.issueCodes || []).includes('EVIDENCE_INCOMPLETE')
+      ? 'Upload the missing material identified in the evidence review.'
+      : (item.issueCodes || []).includes('EVIDENCE_MORE_INFORMATION_REQUIRED')
+        ? 'Upload the additional information requested in the evidence review.'
+        : (item.issueCodes || []).includes('EVIDENCE_CONFLICTING')
+          ? 'Upload or map the current evidence that resolves the conflicting information.'
+          : (item.issueCodes || []).includes('EVIDENCE_REVIEW_PENDING')
+            ? 'No new file may be needed. Open Evidence and review the material already mapped to this requirement.'
+            : 'Upload or map current supporting evidence for this requirement.'
+  return `<div class="missing-expected-evidence"><span class="label">What to upload or map</span>${expected.length
+    ? expected.map((entry) => `<div><strong>${escapeHtml(entry.type || 'Supporting evidence')}</strong>${entry.rule ? `<span>${escapeHtml(entry.rule)}</span>` : ''}${entry.role ? `<small>${escapeHtml(entry.role)}</small>` : ''}</div>`).join('')
+    : `<p>${escapeHtml(fallback)}</p>`}</div>`
+}
+
+function evidenceActionLabel(item) {
+  const codes = new Set(Array.isArray(item.issueCodes) ? item.issueCodes : [])
+  if (codes.has('EVIDENCE_REVIEW_PENDING')) return 'Open evidence review'
+  if (codes.has('EVIDENCE_OUTDATED') || codes.has('EVIDENCE_CONFLICTING')) return 'Upload current evidence'
+  if (codes.has('EVIDENCE_INCOMPLETE') || codes.has('EVIDENCE_MORE_INFORMATION_REQUIRED')) return 'Upload additional evidence'
+  if (codes.has('MISSING_POLICY') || item.suggestedEvidenceCategory === 'POLICY_PROCEDURE') return 'Upload policy / procedure'
+  return 'Upload evidence'
+}
+
+function offerEvidenceAction(item) {
+  return (Array.isArray(item.expectedEvidence) && item.expectedEvidence.length > 0) || evidenceIssue(item)
 }
 
 function assignmentMeta(item) {
@@ -74,6 +106,7 @@ function itemCard(item) {
         ${item.actionId
           ? `<button type="button" class="secondary-button" data-action="accreditation-open-action" data-action-id="${escapeHtml(item.actionId)}">Edit action</button>`
           : `<button type="button" class="secondary-button" data-action="accreditation-create-action" data-requirement-id="${escapeHtml(item.requirementId || '')}" data-requirement-indicator="${escapeHtml(item.indicator || '')}" data-requirement-title="${escapeHtml(item.title || '')}" data-priority="${escapeHtml(item.priority || 'MEDIUM')}" data-source-reason="${escapeHtml(item.whyShown || '')}" data-description="${escapeHtml(item.nextAction || '')}">Create action</button>`}
+        ${offerEvidenceAction(item) ? `<button type="button" class="secondary-button" data-action="evidence-upload-for-requirement" data-requirement-id="${escapeHtml(item.requirementId || '')}" data-evidence-category="${escapeHtml(item.suggestedEvidenceCategory || '')}">${icon('upload',14)} ${escapeHtml(evidenceActionLabel(item))}</button>` : ''}
         <button type="button" class="secondary-button" data-accreditation-requirement="${escapeHtml(item.requirementId || '')}" data-accreditation-return-view="missing">Review requirement ${icon('chevron',14)}</button>
       </div>
     </div>
@@ -90,7 +123,25 @@ function section(title, copy, items, { limit = null, empty = '' } = {}) {
   </section>`
 }
 
-export function renderAccreditationMissing(data = {}, { loading = false, error = '' } = {}) {
+const MISSING_FILTER_LABELS = {
+  ALL: 'all outstanding items',
+  CONFIRMED_GAP: 'confirmed gaps',
+  NEEDS_ATTENTION: 'needs-attention items',
+  EVIDENCE: 'evidence follow-up',
+  UNKNOWN: 'items still to confirm',
+}
+
+function matchesMissingFilter(item, filter) {
+  const codes = Array.isArray(item.issueCodes) ? item.issueCodes : []
+  if (!filter || filter === 'ALL') return true
+  if (filter === 'CONFIRMED_GAP') return codes.includes('CONFIRMED_GAP')
+  if (filter === 'NEEDS_ATTENTION') return codes.includes('NEEDS_ATTENTION')
+  if (filter === 'EVIDENCE') return codes.some((code) => String(code || '').startsWith('EVIDENCE_') || code === 'MISSING_EVIDENCE' || code === 'MISSING_POLICY')
+  if (filter === 'UNKNOWN') return codes.includes('APPLICABILITY_TO_CONFIRM') || codes.includes('NOT_CHECKED')
+  return true
+}
+
+export function renderAccreditationMissing(data = {}, { loading = false, error = '', filter = 'ALL' } = {}) {
   if (!data?.summary && !error) {
     return '<section class="panel accreditation-loading-state"><p>Loading what’s missing…</p></section>'
   }
@@ -100,9 +151,11 @@ export function renderAccreditationMissing(data = {}, { loading = false, error =
 
   const summary = data?.summary || {}
   const items = Array.isArray(data?.items) ? data.items : []
-  const priorityItems = items.filter((item) => (item.issueCodes || []).some((code) => !['NOT_CHECKED','APPLICABILITY_TO_CONFIRM'].includes(code)))
-  const applicabilityItems = items.filter((item) => (item.issueCodes || []).includes('APPLICABILITY_TO_CONFIRM') && !priorityItems.includes(item))
-  const uncheckedItems = items.filter((item) => (item.issueCodes || []).includes('NOT_CHECKED') && !priorityItems.includes(item) && !applicabilityItems.includes(item))
+  const activeFilter = MISSING_FILTER_LABELS[filter] ? filter : 'ALL'
+  const visibleItems = items.filter((item) => matchesMissingFilter(item, activeFilter))
+  const priorityItems = visibleItems.filter((item) => (item.issueCodes || []).some((code) => !['NOT_CHECKED','APPLICABILITY_TO_CONFIRM'].includes(code)))
+  const applicabilityItems = visibleItems.filter((item) => (item.issueCodes || []).includes('APPLICABILITY_TO_CONFIRM') && !priorityItems.includes(item))
+  const uncheckedItems = visibleItems.filter((item) => (item.issueCodes || []).includes('NOT_CHECKED') && !priorityItems.includes(item) && !applicabilityItems.includes(item))
 
   return `<section class="missing-workspace">
     <section class="panel missing-intro-panel">
@@ -111,11 +164,12 @@ export function renderAccreditationMissing(data = {}, { loading = false, error =
     </section>
 
     <section class="missing-summary-grid" aria-label="What's Missing summary">
-      <article class="panel missing-summary-card confirmed"><span>Confirmed gaps</span><strong>${Number(summary.confirmedGaps || 0)}</strong><small>Explicitly reported gaps</small></article>
-      <article class="panel missing-summary-card attention"><span>Needs attention</span><strong>${Number(summary.needsAttention || 0)}</strong><small>Follow-up required</small></article>
-      <article class="panel missing-summary-card evidence"><span>Evidence follow-up</span><strong>${Number(summary.evidenceIssues || 0)}</strong><small>Missing, pending or reviewed issues</small></article>
-      <article class="panel missing-summary-card unknown"><span>Still to confirm</span><strong>${Number(summary.applicabilityToConfirm || 0) + Number(summary.notChecked || 0)}</strong><small>Applicability or assessment still unknown</small></article>
+      <button type="button" class="panel missing-summary-card confirmed ${activeFilter === 'CONFIRMED_GAP' ? 'active' : ''}" data-missing-filter="CONFIRMED_GAP"><span>Confirmed gaps</span><strong>${Number(summary.confirmedGaps || 0)}</strong><small>Explicitly reported gaps</small></button>
+      <button type="button" class="panel missing-summary-card attention ${activeFilter === 'NEEDS_ATTENTION' ? 'active' : ''}" data-missing-filter="NEEDS_ATTENTION"><span>Needs attention</span><strong>${Number(summary.needsAttention || 0)}</strong><small>Follow-up required</small></button>
+      <button type="button" class="panel missing-summary-card evidence ${activeFilter === 'EVIDENCE' ? 'active' : ''}" data-missing-filter="EVIDENCE"><span>Evidence follow-up</span><strong>${Number(summary.evidenceIssues || 0)}</strong><small>Missing, pending or reviewed issues</small></button>
+      <button type="button" class="panel missing-summary-card unknown ${activeFilter === 'UNKNOWN' ? 'active' : ''}" data-missing-filter="UNKNOWN"><span>Still to confirm</span><strong>${Number(summary.applicabilityToConfirm || 0) + Number(summary.notChecked || 0)}</strong><small>Applicability or assessment still unknown</small></button>
     </section>
+    ${activeFilter !== 'ALL' ? `<div class="missing-active-filter"><span>Showing ${escapeHtml(MISSING_FILTER_LABELS[activeFilter])}</span><button type="button" class="text-button" data-missing-filter="ALL">Show all</button></div>` : ''}
 
     ${items.length === 0 ? `<section class="panel accreditation-empty-state missing-clear-state"><h3>No outstanding items are currently identified</h3><p>This does not certify accreditation readiness. Continue reviewing requirements and evidence as your practice information changes.</p></section>` : ''}
     ${section('Priority gaps and evidence follow-up', 'Confirmed gaps, needs-attention requirements and evidence issues are shown first.', priorityItems)}

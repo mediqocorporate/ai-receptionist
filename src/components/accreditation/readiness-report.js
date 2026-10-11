@@ -54,12 +54,12 @@ export function renderAccreditationReadinessReport(state = {}, { overview = {}, 
     </section>
     ${state.error ? `<div class="accreditation-report-error">${escapeHtml(state.error)}</div>` : ''}
     <div class="accreditation-report-stats">
-      <section class="panel accreditation-report-stat"><small>Assessment coverage</small><strong>${number(coverage.percent)}%</strong><small>${number(coverage.assessed)} of ${number(coverage.total)} assessed</small></section>
-      <section class="panel accreditation-report-stat"><small>Appears ready</small><strong>${number(counts.APPEARS_READY)}</strong><small>Based on saved information</small></section>
-      <section class="panel accreditation-report-stat"><small>Needs attention</small><strong>${number(counts.NEEDS_ATTENTION)}</strong><small>Requires follow-up</small></section>
-      <section class="panel accreditation-report-stat"><small>Confirmed gaps</small><strong>${number(counts.CONFIRMED_GAP)}</strong><small>Known gaps to address</small></section>
-      <section class="panel accreditation-report-stat"><small>Not checked</small><strong>${number(counts.NOT_CHECKED)}</strong><small>Still unresolved</small></section>
-      <section class="panel accreditation-report-stat"><small>Evidence follow-ups</small><strong>${number(live.evidenceFollowUpCount)}</strong><small>Reviews needing action</small></section>
+      <button type="button" class="panel accreditation-report-stat" data-accreditation-filter="ALL"><small>Assessment coverage</small><strong>${number(coverage.percent)}%</strong><small>${number(coverage.assessed)} of ${number(coverage.total)} assessed</small></button>
+      <button type="button" class="panel accreditation-report-stat" data-accreditation-filter="APPEARS_READY"><small>Appears ready</small><strong>${number(counts.APPEARS_READY)}</strong><small>Based on saved information</small></button>
+      <button type="button" class="panel accreditation-report-stat" data-accreditation-filter="NEEDS_ATTENTION"><small>Needs attention</small><strong>${number(counts.NEEDS_ATTENTION)}</strong><small>Requires follow-up</small></button>
+      <button type="button" class="panel accreditation-report-stat" data-accreditation-filter="CONFIRMED_GAP"><small>Confirmed gaps</small><strong>${number(counts.CONFIRMED_GAP)}</strong><small>Known gaps to address</small></button>
+      <button type="button" class="panel accreditation-report-stat" data-accreditation-filter="NOT_CHECKED"><small>Not checked</small><strong>${number(counts.NOT_CHECKED)}</strong><small>Still unresolved</small></button>
+      <button type="button" class="panel accreditation-report-stat" data-action="accreditation-open-missing-evidence"><small>Evidence follow-ups</small><strong>${number(live.evidenceFollowUpCount)}</strong><small>Reviews needing action</small></button>
     </div>
     <div class="accreditation-report-grid">
       <section class="panel accreditation-report-section">

@@ -71,7 +71,7 @@ export function renderAccreditationPage(state = {}, options = {}) {
   else if (currentView === 'comprehensive') body = renderComprehensiveCheck(state.comprehensive, { submitting: state.submitting })
   else if (currentView === 'requirements') body = renderRequirementsView(overview.requirements || [], { filter: state.filter || 'ALL' })
   else if (currentView === 'evidence') body = renderAccreditationEvidence(state.evidence || {}, { requirements: overview.requirements || [] })
-  else if (currentView === 'missing') body = renderAccreditationMissing(state.missing?.data || {}, { loading: Boolean(state.missing?.loading), error: state.missing?.error || '' })
+  else if (currentView === 'missing') body = renderAccreditationMissing(state.missing?.data || {}, { loading: Boolean(state.missing?.loading), error: state.missing?.error || '', filter: state.missing?.filter || 'ALL' })
   else if (currentView === 'actions') body = renderAccreditationActions(state.actions || {})
   else if (currentView === 'assistant') body = renderAccreditationAssistant(state.assistant || {}, { practiceName })
   else if (currentView === 'report') body = renderAccreditationReadinessReport(state.report || {}, { overview, practiceName })
