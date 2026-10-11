@@ -250,3 +250,68 @@ test("What's Missing review buttons preserve the originating view", async () => 
   })
   assert.match(html, /data-accreditation-return-view="missing"/)
 })
+
+
+test("What's Missing explains what to upload and links directly to a preselected evidence upload", async () => {
+  const logic = await loadMissingLogic()
+  const ui = await loadMissingUi()
+  const result = logic.buildAccreditationMissing({
+    requirements: [{
+      id: 'R1',
+      indicator: 'C7.1C',
+      criterionDescription: 'Content of patient health records',
+      applicabilityStatus: 'APPLICABLE',
+      readinessStatus: 'CONFIRMED_GAP',
+      verificationStatus: 'USER_REPORTED',
+      assessmentInformative: true,
+      recommendedActions: ['Update the record process and retain evidence of the change.'],
+    }],
+    evidenceCriteria: [{
+      requirementId: 'R1',
+      evidenceType: 'Policy / procedure',
+      evidenceRule: 'Current approved patient health record policy',
+      role: 'Practice',
+    }],
+    evidence: [],
+    actions: [],
+  })
+  const item = result.items[0]
+  assert.equal(item.suggestedEvidenceCategory, 'POLICY_PROCEDURE')
+  const html = ui.renderAccreditationMissing(result, { filter: 'ALL' })
+  assert.match(html, /What to upload or map/i)
+  assert.match(html, /Current approved patient health record policy/i)
+  assert.match(html, /data-action="evidence-upload-for-requirement"/)
+  assert.match(html, /data-requirement-id="R1"/)
+  assert.match(html, /data-evidence-category="POLICY_PROCEDURE"/)
+  assert.match(html, /Upload policy \/ procedure/i)
+})
+
+test("What's Missing summary stats are clickable detail filters", async () => {
+  const ui = await loadMissingUi()
+  const data = {
+    summary: { totalItems: 3, confirmedGaps: 1, needsAttention: 1, evidenceIssues: 1, applicabilityToConfirm: 0, notChecked: 0 },
+    items: [
+      { requirementId: 'R1', indicator: 'C7.1C', title: 'Records', priority: 'HIGH', issueCodes: ['CONFIRMED_GAP'], whyShown: 'Gap.', nextAction: 'Fix it.', expectedEvidence: [] },
+      { requirementId: 'R2', indicator: 'QI3.1A', title: 'Risk', priority: 'HIGH', issueCodes: ['NEEDS_ATTENTION'], whyShown: 'Follow up.', nextAction: 'Check it.', expectedEvidence: [] },
+      { requirementId: 'R3', indicator: 'QI2.2E', title: 'Medicines', priority: 'HIGH', issueCodes: ['EVIDENCE_INCOMPLETE'], whyShown: 'Evidence incomplete.', nextAction: 'Add material.', expectedEvidence: [] },
+    ],
+  }
+  const allHtml = ui.renderAccreditationMissing(data, { filter: 'ALL' })
+  assert.match(allHtml, /data-missing-filter="CONFIRMED_GAP"/)
+  assert.match(allHtml, /data-missing-filter="NEEDS_ATTENTION"/)
+  assert.match(allHtml, /data-missing-filter="EVIDENCE"/)
+  assert.match(allHtml, /data-missing-filter="UNKNOWN"/)
+
+  const evidenceHtml = ui.renderAccreditationMissing(data, { filter: 'EVIDENCE' })
+  assert.match(evidenceHtml, /Medicines/)
+  assert.doesNotMatch(evidenceHtml, />Records</)
+  assert.doesNotMatch(evidenceHtml, />Risk</)
+  assert.match(evidenceHtml, /Showing evidence follow-up/i)
+})
+
+test("app handles What's Missing filters and carries evidence category into the upload workspace", () => {
+  assert.match(appSource, /data-missing-filter/)
+  assert.match(appSource, /ui\.accreditation\.missing\.filter/)
+  assert.match(appSource, /dataset\.evidenceCategory/)
+  assert.match(appSource, /selectedCategory/)
+})
