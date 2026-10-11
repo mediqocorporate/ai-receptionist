@@ -258,3 +258,35 @@ test('Readiness Report history keeps the saved date and coverage on separate lin
   assert.match(html, /class="accreditation-report-history-meta"/)
   assert.match(stylesSource, /\.accreditation-report-history-meta\{[^}]*display:flex[^}]*flex-direction:column/)
 })
+
+
+test('Readiness Report status cards are clickable drill-downs', () => {
+  const overview = {
+    cycle: { id: 'c1' },
+    assessmentCoverage: { assessed: 12, total: 51, percent: 24 },
+    readiness: { appearsReady: 2, assessed: 12, percent: 17 },
+    statusCounts: { APPEARS_READY: 2, NEEDS_ATTENTION: 4, CONFIRMED_GAP: 1, NOT_CHECKED: 104 },
+    requirements: [],
+  }
+  const html = renderAccreditationPage({
+    view: 'report',
+    overview,
+    report: {
+      live: {
+        assessmentCoverage: overview.assessmentCoverage,
+        readiness: overview.readiness,
+        statusCounts: overview.statusCounts,
+        actions: {},
+        evidenceFollowUpCount: 16,
+      },
+      history: [],
+    },
+  }, { signedIn: true, practiceName: 'Test Medical Centre' })
+
+  assert.match(html, /data-accreditation-filter="ALL"/)
+  assert.match(html, /data-accreditation-filter="APPEARS_READY"/)
+  assert.match(html, /data-accreditation-filter="NEEDS_ATTENTION"/)
+  assert.match(html, /data-accreditation-filter="CONFIRMED_GAP"/)
+  assert.match(html, /data-accreditation-filter="NOT_CHECKED"/)
+  assert.match(html, /data-action="accreditation-open-missing-evidence"/)
+})

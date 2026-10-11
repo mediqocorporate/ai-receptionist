@@ -69,7 +69,7 @@ const ui = {
     practiceInformationError: '',
     comprehensive: null,
     comprehensiveLoading: false,
-    missing: { data: null, loading: false, error: '' },
+    missing: { data: null, loading: false, error: '', filter: 'ALL' },
     actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, generatingRecommendations: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null },
     assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null },
     report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' },
@@ -1524,6 +1524,13 @@ root.addEventListener('click', async (event) => {
     return
   }
 
+  const missingFilter = event.target.closest('[data-missing-filter]')
+  if (missingFilter) {
+    ui.accreditation.missing.filter = String(missingFilter.dataset.missingFilter || 'ALL')
+    render()
+    return
+  }
+
   const accreditationFilter = event.target.closest('[data-accreditation-filter]')
   if (accreditationFilter) {
     ui.accreditation.filter = accreditationFilter.dataset.accreditationFilter || 'ALL'
@@ -1558,7 +1565,7 @@ root.addEventListener('click', async (event) => {
   if (action === 'close-mobile-nav') { ui.mobileOpen = false; render(); return }
   if (action === 'request-feature') { openDialog('feature-request', { values: defaultFeatureValues() }); return }
   if (action === 'sign-in') { openDialog('login', { values: {}, submitting: false }); return }
-  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '' }, actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, generatingRecommendations: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null }, assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null }, report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
+  if (action === 'sign-out') { await authService.signOut(); appUser = null; ui.conversationId = null; ui.conversationTurns = []; ui.pendingTurn = null; ui.failedQuestion = ''; ui.accreditation = { loading: false, submitting: false, error: '', view: 'overview', filter: 'ALL', overview: null, requirement: null, requirementReturnView: 'requirements', exploreStep: 0, setup: { step: 1, values: {}, submitting: false, error: '', complete: false }, practiceInformation: null, practiceInformationLoading: false, practiceInformationEditing: false, practiceInformationSubmitting: false, practiceInformationError: '', comprehensive: null, comprehensiveLoading: false, missing: { data: null, loading: false, error: '', filter: 'ALL' }, actions: { items: [], owners: [], summary: {}, loaded: false, loading: false, generatingRecommendations: false, error: '', filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' }, editor: null }, assistant: { turns: [], loading: false, error: '', pendingQuestion: '', pendingAskedAt: null, failedQuestion: '', conversationId: null }, report: { live: null, history: [], selected: null, loading: false, generating: false, error: '' }, evidence: { items: [], loading: false, loaded: false, uploading: false, uploadProgress: null, error: '', prefillRequirementId: '', selectedFiles: [], selectedCategory: 'POLICY_PROCEDURE' } }; ui.userMenuOpen = false; render(); showToast('Signed out'); return }
   if (action === 'back-to-ask-home') { location.assign('/'); return }
   if (action === 'connect-pms') { openDialog('pms', { step: 1, vendor: '', siteId: '', pairKey: '' }); return }
   if (action === 'pms-select-vendor') { ui.dialogData = { step: 2, vendor: actionEl.dataset.pmsVendor || '', siteId: '', pairKey: '' }; render({ focusDialog: true }); return }
@@ -1628,6 +1635,11 @@ root.addEventListener('click', async (event) => {
     return
   }
 
+  if (action === 'accreditation-open-missing-evidence') {
+    ui.accreditation.missing.filter = 'EVIDENCE'
+    navigate(accreditationPathForView('missing'))
+    return
+  }
   if (action === 'accreditation-create-recommended-actions') {
     await createRecommendedAccreditationActions()
     return
@@ -1678,7 +1690,9 @@ root.addEventListener('click', async (event) => {
 
   if (action === 'evidence-upload-for-requirement') {
     const requirementId = String(actionEl.dataset.requirementId || '')
+    const evidenceCategory = String(actionEl.dataset.evidenceCategory || '')
     ui.accreditation.evidence.prefillRequirementId = requirementId
+    if (evidenceCategory) ui.accreditation.evidence.selectedCategory = evidenceCategory
     updateAccreditationBrowserPath(accreditationPathForView('evidence'))
     ui.accreditation.requirement = null
     render()

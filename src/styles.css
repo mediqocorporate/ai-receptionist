@@ -1006,3 +1006,12 @@ button.accreditation-status-card:focus-visible { outline: 2px solid #8a55ea; out
 @media(max-width:760px){.accreditation-report-grid{grid-template-columns:1fr}.accreditation-report-head{flex-direction:column}.accreditation-report-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.accreditation-report-links{grid-template-columns:1fr}}
 
 @media(max-width:760px){.actions-intro{flex-direction:column}.actions-intro-actions{width:100%;justify-content:flex-start}.actions-intro-actions .primary-button,.actions-intro-actions .secondary-button{width:100%;justify-content:center}}
+
+.missing-summary-card{font:inherit;text-align:left;cursor:pointer;width:100%}
+.missing-summary-card:hover,.missing-summary-card.active{box-shadow:0 8px 24px rgba(69,45,116,.12);transform:translateY(-1px)}
+.missing-summary-card.active{outline:2px solid #8a55ea;outline-offset:1px}
+.missing-active-filter{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e4dbfa;background:#faf8ff;border-radius:10px;color:#5e4a82;font-size:11px}
+.missing-expected-evidence p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+.missing-expected-evidence small{display:block;color:var(--muted);font-size:9.5px;margin-top:2px}
+button.accreditation-report-stat{font:inherit;text-align:left;cursor:pointer;width:100%}
+button.accreditation-report-stat:hover{box-shadow:0 8px 24px rgba(69,45,116,.12);transform:translateY(-1px)}
