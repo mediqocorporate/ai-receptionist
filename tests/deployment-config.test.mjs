@@ -24,3 +24,10 @@ test('Netlify routes API endpoints to functions before the SPA fallback', () => 
   assert.ok(account < fallback)
   assert.match(text, /directory = "netlify\/functions"/)
 })
+
+
+test('index loads runtime config without rendering an escaped newline before the app', () => {
+  const text = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8')
+  assert.match(text, /<script src="\/runtime-config\.js"><\/script>\s*<script type="module" src="\/src\/app\.js"><\/script>/)
+  assert.doesNotMatch(text, /<\/script>\\n\s*<script type="module"/)
+})
