@@ -74,7 +74,7 @@ export function renderAccreditationReadinessReport(state = {}, { overview = {}, 
       </section>
       <section class="panel accreditation-report-section">
         <h3>Previous reviews</h3>
-        <div class="accreditation-report-history">${history.length ? history.map((item) => `<button type="button" data-accreditation-report-id="${escapeHtml(item.id)}"><span><strong>${escapeHtml(dateLabel(item.generatedAt))}</strong><small>${number(item.coveragePercent)}% assessed</small></span><span>View</span></button>`).join('') : '<p class="rail-copy">No saved pre-accreditation reviews yet.</p>'}</div>
+        <div class="accreditation-report-history">${history.length ? history.map((item) => `<button type="button" data-accreditation-report-id="${escapeHtml(item.id)}"><span class="accreditation-report-history-meta"><strong>${escapeHtml(dateLabel(item.generatedAt))}</strong><small>${number(item.coveragePercent)}% assessed</small></span><span>View</span></button>`).join('') : '<p class="rail-copy">No saved pre-accreditation reviews yet.</p>'}</div>
       </section>
     </div>
     ${renderSavedReport(state.selected)}
