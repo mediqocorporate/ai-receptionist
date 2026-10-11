@@ -230,3 +230,31 @@ test('app loads and generates Readiness Report inside accreditation', () => {
   assert.match(appSource, /async function generateAccreditationReadinessReport/)
   assert.match(appSource, /data-accreditation-generate-report/)
 })
+
+
+test('Readiness Report history keeps the saved date and coverage on separate lines', () => {
+  const overview = {
+    cycle: { id: 'c1' },
+    assessmentCoverage: { assessed: 12, total: 51, percent: 24 },
+    readiness: { appearsReady: 0, assessed: 12, percent: 0 },
+    statusCounts: { APPEARS_READY: 0, NEEDS_ATTENTION: 4, CONFIRMED_GAP: 1, NOT_CHECKED: 104 },
+    requirements: [],
+  }
+  const html = renderAccreditationPage({
+    view: 'report',
+    overview,
+    report: {
+      live: {
+        assessmentCoverage: overview.assessmentCoverage,
+        readiness: overview.readiness,
+        statusCounts: overview.statusCounts,
+        actions: { open: 0, inProgress: 0, blocked: 0, overdue: 0 },
+        evidenceFollowUpCount: 0,
+      },
+      history: [{ id: 'report_1', generatedAt: '2026-10-11T01:00:00.000Z', coveragePercent: 24 }],
+    },
+  }, { signedIn: true, practiceName: 'Test Medical Centre' })
+
+  assert.match(html, /class="accreditation-report-history-meta"/)
+  assert.match(stylesSource, /\.accreditation-report-history-meta\{[^}]*display:flex[^}]*flex-direction:column/)
+})
