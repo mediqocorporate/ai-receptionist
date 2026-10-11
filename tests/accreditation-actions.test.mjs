@@ -362,3 +362,130 @@ test("What's Missing opens an existing linked action instead of offering a dupli
   assert.match(html, /Edit action/i)
   assert.doesNotMatch(html, /data-action="accreditation-create-action"/)
 })
+
+
+test('Actions workspace offers recommended action generation from outstanding accreditation work', async () => {
+  const mod = await load(actionsUiUrl)
+  assert.ok(mod)
+  const html = mod.renderAccreditationActions({
+    loaded: true,
+    summary: { open: 0, inProgress: 0, blocked: 0, done: 0, overdue: 0 },
+    owners: [],
+    items: [],
+    filters: { status: 'ALL', priority: 'ALL', owner: 'ALL' },
+    editor: null,
+    generatingRecommendations: false,
+  })
+  assert.match(html, /Create recommended actions/i)
+  assert.match(html, /data-action="accreditation-create-recommended-actions"/)
+})
+
+test('Actions browser service can create recommended actions for the current cycle', async () => {
+  const mod = await load(actionsServiceUrl)
+  assert.ok(mod)
+  let payload
+  const service = mod.createAccreditationActionsService({
+    config: { accreditationActionsApiUrl: '/api/accreditation-actions' },
+    clientProvider: async () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'jwt' } } }) } }),
+    fetchImpl: async (_url, init) => {
+      payload = JSON.parse(init.body)
+      return response(200, { result: { eligible: 3, created: 2, skipped: 1 } })
+    },
+  })
+  const result = await service.createRecommended({ cycleId: 'c1' })
+  assert.deepEqual(payload, { action: 'create_recommended', cycleId: 'c1' })
+  assert.deepEqual(result, { eligible: 3, created: 2, skipped: 1 })
+})
+
+test('Actions API creates recommendations only for actionable outstanding items and skips existing links safely', async () => {
+  const mod = await load(actionsFunctionUrl)
+  assert.ok(mod)
+  const created = []
+  const handler = mod.createAccreditationActionsHandler({
+    authenticate: async () => ({ userId: 'u1', practiceId: 'practice_1' }),
+    createServer: () => ({
+      getOrCreateAccreditationCycle: async (practiceId) => {
+        assert.equal(practiceId, 'practice_1')
+        return { id: 'c1' }
+      },
+      getAccreditationMissing: async ({ practiceId, cycleId }) => {
+        assert.deepEqual({ practiceId, cycleId }, { practiceId: 'practice_1', cycleId: 'c1' })
+        return {
+          items: [
+            {
+              requirementId: 'R1',
+              indicator: 'C7.1C',
+              title: 'Content of patient health records',
+              priority: 'HIGH',
+              issueCodes: ['CONFIRMED_GAP'],
+              whyShown: 'A confirmed gap is recorded.',
+              nextAction: 'Update the patient record process.',
+            },
+            {
+              requirementId: 'R2',
+              indicator: 'QI3.1A',
+              title: 'Managing clinical risks',
+              priority: 'HIGH',
+              issueCodes: ['NEEDS_ATTENTION'],
+              whyShown: 'More information is needed.',
+              nextAction: 'Confirm the current process.',
+              actionId: 'existing-action',
+            },
+            {
+              requirementId: 'R3',
+              indicator: 'GP3.1A',
+              title: 'Practitioner credentials',
+              priority: 'MEDIUM',
+              issueCodes: ['NOT_CHECKED'],
+              whyShown: 'Not checked yet.',
+              nextAction: 'Complete the assessment.',
+            },
+            {
+              requirementId: 'R4',
+              indicator: 'QI2.2E',
+              title: 'Safe use of medicines',
+              priority: 'HIGH',
+              issueCodes: ['EVIDENCE_INCOMPLETE'],
+              whyShown: 'Mapped evidence is incomplete.',
+              nextAction: 'Update the supporting evidence.',
+            },
+          ],
+        }
+      },
+      createAccreditationAction: async (payload) => {
+        created.push(payload)
+        if (payload.item.requirementId === 'R4') throw new Error('accreditation_action_already_exists')
+        return { id: 'new-action', requirementId: payload.item.requirementId }
+      },
+    }),
+  })
+
+  const responseValue = await handler(event({ action: 'create_recommended', cycleId: 'c1', practiceId: 'evil' }))
+  assert.equal(responseValue.statusCode, 200)
+  const body = JSON.parse(responseValue.body)
+  assert.deepEqual(body.result, { eligible: 3, created: 1, skipped: 2 })
+  assert.equal(created.length, 2)
+  assert.equal(created[0].practiceId, 'practice_1')
+  assert.equal(created[0].cycleId, 'c1')
+  assert.equal(created[0].createdByUserId, 'u1')
+  assert.deepEqual(created[0].item, {
+    title: 'Address C7.1C — Content of patient health records',
+    description: 'Update the patient record process.',
+    priority: 'HIGH',
+    status: 'OPEN',
+    ownerUserId: null,
+    dueDate: null,
+    requirementId: 'R1',
+    evidenceId: null,
+    sourceReason: 'A confirmed gap is recorded.',
+    completionNote: '',
+  })
+  assert.equal(created.some((entry) => entry.item.requirementId === 'R3'), false)
+})
+
+test('app wires recommended action generation and refreshes Actions and What’s Missing', () => {
+  assert.match(appSource, /accreditationActionsService\.createRecommended\(/)
+  assert.match(appSource, /accreditation-create-recommended-actions/)
+  assert.match(appSource, /loadAccreditationActions/)
+  assert.match(appSource, /accreditationService\.missing\(/)
+})

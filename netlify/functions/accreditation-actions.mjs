@@ -3,6 +3,18 @@ import { jsonResponse, parseJsonBody } from './_shared/http.mjs'
 
 const PRIORITIES = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
 const STATUSES = new Set(['OPEN', 'IN_PROGRESS', 'BLOCKED', 'DONE'])
+const RECOMMENDED_ACTION_CODES = new Set([
+  'CONFIRMED_GAP',
+  'NEEDS_ATTENTION',
+  'EVIDENCE_OUTDATED',
+  'EVIDENCE_INCOMPLETE',
+  'EVIDENCE_CONFLICTING',
+  'EVIDENCE_MORE_INFORMATION_REQUIRED',
+  'EVIDENCE_REVIEW_PENDING',
+  'MISSING_POLICY',
+  'MISSING_EVIDENCE',
+  'RECHECK_REQUIRED',
+])
 
 function header(event, name) {
   const headers = event?.headers || {}
@@ -39,6 +51,29 @@ function normalizeCreateItem(item = {}) {
     sourceReason: cleanText(item.sourceReason, 1000),
     completionNote: cleanText(item.completionNote, 2000),
   }
+}
+
+function isRecommendedActionCandidate(item = {}) {
+  if (!item.requirementId) return false
+  const issueCodes = Array.isArray(item.issueCodes) ? item.issueCodes : []
+  return issueCodes.some((code) => RECOMMENDED_ACTION_CODES.has(String(code || '').toUpperCase()))
+}
+
+function recommendedActionItem(item = {}) {
+  const indicator = cleanText(item.indicator, 40)
+  const title = cleanText(item.title, 140) || 'Accreditation follow-up'
+  return normalizeCreateItem({
+    title: indicator ? `Address ${indicator} — ${title}` : `Address ${title}`,
+    description: cleanText(item.nextAction, 4000),
+    priority: item.priority || 'MEDIUM',
+    status: 'OPEN',
+    ownerUserId: null,
+    dueDate: null,
+    requirementId: item.requirementId,
+    evidenceId: null,
+    sourceReason: cleanText(item.whyShown, 1000),
+    completionNote: '',
+  })
 }
 
 function normalizePatch(patch = {}) {
@@ -135,6 +170,44 @@ export function createAccreditationActionsHandler({
         return jsonResponse(200, { action: created, cycleId: cycle.id })
       }
 
+      if (action === 'create_recommended') {
+        const missing = await server.getAccreditationMissing({
+          practiceId: actor.practiceId,
+          cycleId: cycle.id,
+        })
+        const candidates = (Array.isArray(missing?.items) ? missing.items : [])
+          .filter(isRecommendedActionCandidate)
+
+        let created = 0
+        let skipped = 0
+        for (const candidate of candidates) {
+          if (candidate.actionId) {
+            skipped += 1
+            continue
+          }
+          try {
+            await server.createAccreditationAction({
+              practiceId: actor.practiceId,
+              cycleId: cycle.id,
+              createdByUserId: actor.userId,
+              item: recommendedActionItem(candidate),
+            })
+            created += 1
+          } catch (error) {
+            if (String(error?.message || '') === 'accreditation_action_already_exists') {
+              skipped += 1
+              continue
+            }
+            throw error
+          }
+        }
+
+        return jsonResponse(200, {
+          result: { eligible: candidates.length, created, skipped },
+          cycleId: cycle.id,
+        })
+      }
+
       if (action === 'update') {
         const actionId = cleanText(body.actionId, 80)
         if (!actionId) return jsonResponse(400, { code: 'action_id_required', message: 'Action ID is required.' })
@@ -150,7 +223,7 @@ export function createAccreditationActionsHandler({
         return jsonResponse(200, { action: updated, cycleId: cycle.id })
       }
 
-      return jsonResponse(400, { code: 'invalid_action', message: 'Choose list, create or update.' })
+      return jsonResponse(400, { code: 'invalid_action', message: 'Choose list, create, create_recommended or update.' })
     } catch (error) {
       const message = String(error?.message || '')
       if (message === 'accreditation_cycle_not_found') {

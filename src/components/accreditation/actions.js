@@ -104,7 +104,10 @@ export function renderAccreditationActions(state = {}) {
   return `<section class="accreditation-actions-workspace">
     <section class="panel actions-intro">
       <div><span class="eyebrow">CLOSING GAPS</span><h2>Actions</h2><p>Turn accreditation gaps and follow-up into practical work with clear owners, due dates and status.</p></div>
-      <button type="button" class="primary-button" data-action="accreditation-new-action">${icon('file-plus',16)} Create action</button>
+      <div class="actions-intro-actions">
+        <button type="button" class="primary-button" data-action="accreditation-create-recommended-actions" ${state.generatingRecommendations ? 'disabled' : ''}>${icon('sparkle',16)} ${state.generatingRecommendations ? 'Creating…' : 'Create recommended actions'}</button>
+        <button type="button" class="secondary-button" data-action="accreditation-new-action">${icon('file-plus',16)} Create action</button>
+      </div>
     </section>
 
     <div class="actions-trust-note">${icon('shield-check',17)} <span><strong>Actions track work; they do not decide readiness.</strong> Completing an action does not change readiness until the linked requirement is re-checked using current facts and evidence.</span></div>
@@ -144,6 +147,6 @@ export function renderAccreditationActions(state = {}) {
     </section>
 
     ${state.error ? `<div class="accreditation-inline-error">${icon('alert',15)} ${escapeHtml(state.error)}</div>` : ''}
-    ${filtered.length ? `<div class="accreditation-action-list">${filtered.map(actionCard).join('')}</div>` : `<section class="panel accreditation-empty-state"><h3>No actions match these filters</h3><p>Create an action from What’s Missing or use Create action to add work manually.</p></section>`}
+    ${filtered.length ? `<div class="accreditation-action-list">${filtered.map(actionCard).join('')}</div>` : `<section class="panel accreditation-empty-state"><h3>No actions match these filters</h3><p>Create recommended actions from current gaps and evidence follow-up, or add work manually.</p></section>`}
   </section>`
 }
